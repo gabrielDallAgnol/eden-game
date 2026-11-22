@@ -272,13 +272,16 @@ function paintSome(rows, all) {
   while (rows > 0 && paint) {
     /* a chunk where nothing has been seen has no picture at all */
     for (const c of chunks) if (c.stale && !chunkKnown(c)) { c.stale = false; if (c.cv) { c.cv = null; c.ctx = null; c.painted = false; if (c.fade) { fadePool.push(c.fade.from); c.fade = null; } } }
-    if (!paint.ch) { paint.ch = chunks.find(c => c.stale && chunkVisible(c)) || (all ? chunks.find(c => c.stale) : null); paint.row = 0; if (!paint.ch) { paint = null; return; } }   /* stale chunks out of view wait until they are seen */
+    if (!paint.ch) {
+      /* the chunk in view that has waited longest goes first, so at a fast speed none is left showing an old season while others are repainted again and again */
+      let best = null; for (const c of chunks) if (c.stale && (all || chunkVisible(c)) && (!best || (c.paintedAt || 0) < (best.paintedAt || 0))) best = c;
+      paint.ch = best; paint.row = 0; if (!paint.ch) { paint = null; return; } }   /* stale chunks out of view wait until they are seen */
     const ch = paint.ch, end = Math.min(CHT, paint.row + rows);
     paintChunkRect(ch, 0, paint.row, CW, end); rows -= end - paint.row; paint.row = end;
     if (end >= CHT) {
       if (!ch.cv) { ch.cv = mkC(CW, CHT); ch.ctx = ch.cv.getContext('2d'); }
       if (ch.painted && !all) { const from = fadePool.pop() || (chunks.filter(c => c.fade).length < 4 ? mkC(CW, CHT) : null); if (from) { const fc = from.getContext('2d'); fc.clearRect(0, 0, CW, CHT); fc.drawImage(ch.cv, 0, 0); if (ch.fade) fadePool.push(ch.fade.from); ch.fade = { t: now, from }; } }
-      ch.ctx.putImageData(scratch, 0, 0); ch.painted = true; ch.stale = false; paint.ch = null;
+      ch.ctx.putImageData(scratch, 0, 0); ch.painted = true; ch.stale = false; ch.paintedAt = now; paint.ch = null;
     }
   }
 }
@@ -1170,7 +1173,9 @@ function frame(t) {
     for (let n = 0; tickFrac >= 1 && n < 6; n++) { tickFrac -= 1; W.tick(); onTick(); }
     if (tickFrac >= 1) tickFrac = 0.99;
   }
-  if (!paint && groundWanted) startPaint(); if (paint) paintSome(speed > 1 || act ? 200 : 90);
+  if (!paint && groundWanted) startPaint();
+  /* the ground gets a slice of each frame's time, more when the days run fast, in strips of rows */
+  if (paint) { const t0 = performance.now(), budget = speed > 1 || act ? 9 : 4; do paintSome(24); while (paint && performance.now() - t0 < budget); }
   const z = cam.z, u = tickFrac, tod = ((S.tickNo % DAY) + u) / DAY, dark = lightAt(tod) * (speed >= 8 ? 0.5 : 1);
   cx.setTransform(1, 0, 0, 1, 0, 0);
   const sky = cx.createLinearGradient(0, 0, 0, cv.height); sky.addColorStop(0, '#31504f'); sky.addColorStop(1, '#1d3136'); cx.fillStyle = sky; cx.fillRect(0, 0, cv.width, cv.height);

@@ -560,7 +560,9 @@ function create(seed, opt) {
     for (let k = 0; k < 200; k++) {
       const x = (R(4, N - 4)) | 0, y = (R(4, N - 4)) | 0, i = I(x, y); if (water[i]) continue; let w = 0, tr = 0;
       for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const j = I(clamp(x + dx, 0, N - 1), clamp(y + dy, 0, N - 1)); w += water[j]; tr += yieldOf(tree[j]); }
-      const sc = Math.min(w, 4) + Math.min(tr, 12) * 0.5 + fert[i] + Math.min(1, massSize[mass[i]] / 600) * 3; if (sc > best) { best = sc; bx = x; by = y; }
+      let sc = Math.min(w, 4) + Math.min(tr, 12) * 0.5 + fert[i] + Math.min(1, massSize[mass[i]] / 600) * 3;
+      for (const q of S.homes.values()) if (q.kind === 'den' && Math.max(Math.abs(q.x - x), Math.abs(q.y - y)) < 12) sc -= 6;   /* nobody pitches camp by a wolves' den */
+      if (sc > best) { best = sc; bx = x; by = y; }
     }
     return [bx, by];
   }
@@ -897,6 +899,8 @@ function create(seed, opt) {
         h = q;
       }
     }
+    /* a den is not dug where people live: the smell of the fire and the noise keep a pack off (a burrow is small enough not to care) */
+    if (!h && a.d.home === 'den' && S.popPeople && (Math.max(Math.abs(a.x - S.tribe.x), Math.abs(a.y - S.tribe.y)) < 12 || S.tribe.sites.some(q => Math.max(Math.abs(a.x - q.x), Math.abs(a.y - q.y)) < 8))) return null;
     if (!h) { if (water[I(a.x, a.y)] || field[I(a.x, a.y)]) return null; h = { id: S.nextId++, sp: a.sp, kind: a.d.home, x: a.x, y: a.y, n: 0, emptyT: 0 }; S.homes.set(h.id, h); }
     a.home = h.id; h.n++; return h;
   }
@@ -2045,6 +2049,7 @@ function create(seed, opt) {
       const aimed = id ? S.byId.get(id) : null; if (aimed && aimed.alive) { x = aimed.x; y = aimed.y; }
       const i = I(x, y), hit = S.agents.filter(a => a.alive && ((a.x === x && a.y === y) || a === aimed));
       for (const a of hit) { if (!a.d.people) dropPile(a.x, a.y, 'meat', bodyOf(a) * 0.9); die(a, 'struck'); }
+      for (const q of [...S.homes.values()]) if (q.x === x && q.y === y) { S.homes.delete(q.id); for (const a of S.agents) if (a.home === q.id) a.home = 0; }   /* a den or burrow struck is broken; its keepers must find or dig another */
       if (!water[i] && tree[i] > 0.1) { dropPile(x, y, 'wood', tree[i] * 12); tree[i] = 0; fruit[i] = 0; cut[i] = 0; }
       else if (!water[i] && rock[i] >= 0.15) { const dug = Math.min(rock[i], 0.06); rock[i] -= dug; pit[i] = Math.min(1, pit[i] + dug); dropPile(x, y, 'stone', dug * STONE_PER_TILE); }
       else if (!water[i] && snow[i] < 0.05 && soil[i] < 0.9 && grass[i] > 0.5) burn[i] = 1;
@@ -2190,6 +2195,10 @@ root.Eden = { create, load, SPECIES, SKILLS, TECHS, JOBS };
 // A species row can name its look; an unknown animal gets a body built from its traits, so new rows still appear.
 (function (root) {
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+/* the canvas cut down to its painted rows, so whatever is drawn standing on its bottom edge touches the ground */
+const trimRows = c => { const w = c.width, h = c.height, px = c.getContext('2d').getImageData(0, 0, w, h).data; let top = h, bot = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (px[(y * w + x) * 4 + 3] > 8) { if (y < top) top = y; bot = y; break; }
+  if (bot < 0 || (top === 0 && bot === h - 1)) return c; const o = mk(w, bot - top + 1); o.getContext('2d').drawImage(c, 0, -top); return o; };
 const OUT = '#2a1c16';
 function grid(rows) { const h = rows.length, w = Math.max(...rows.map(r => r.length)); return rows.map(r => (r + '.'.repeat(w - r.length)).replace(/ /g, '.').split('')); }
 // smooth doubling (EPX): keeps hand-drawn curves round instead of blocky
@@ -2812,7 +2821,7 @@ function build() {
   const people = { grown: [], young: [], old: [] };
   for (let v = 0; v < 12; v++) { const pal = { s: SKIN[v % 4], h: HAIR[(v * 7) % 4], t: CLOTH[(v * 5 + 1) % 6], u: CLOTH[(v + 3) % 6], l: '#5a4a3a', b: '#3a2c22', k: '#1a1412' }, grey = Object.assign({}, pal, { h: HAIR[elderHair] }); const W2 = { sit: SIT.woman, up: armsUp(womanA), upB: armsUp(womanB) }, M2 = { sit: SIT.man, up: armsUp(manA), upB: armsUp(manB) }; people.grown.push(v % 2 ? two(womanA, womanB, pal, true, W2) : two(manA, manB, pal, true, M2)); people.old.push(v % 2 ? two(womanA, womanB, grey, true, W2) : two(manA, manB, grey, true, M2)); people.young.push(two(childA, childB, pal, true, { sit: childA.slice(0, 9).concat(['.bb...bb.']), up: childA, upB: childB })); people.tot = people.tot || []; people.tot.push(two(toddlerA, toddlerB, pal, true, { sit: toddlerSit })); people.baby = people.baby || []; people.baby.push(sprite(babyMap, Object.assign({ c: '#efe2c4' }, pal), { x2: true })); }
   // people lying down: the standing figure laid on its side
-  const rot = c => { const d = mk(c.height, c.width), g = d.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return d; };
+  const rot = c => { const d = mk(c.height, c.width), g = d.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return trimRows(d); };   /* a body laid down lies on the ground, not on the empty margin it stood in */
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
   A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
@@ -2831,7 +2840,7 @@ function build() {
     return { grown: [pair(1)], young: [pair(0.55)] };
   };
   // art made outside the game replaces the built-in look wherever a sprite sheet exists (src/sprites.js)
-  if (root.EdenSprites && root.EdenSprites.ready) root.EdenSprites.apply(A, { mk, flip, shrink });
+  if (root.EdenSprites && root.EdenSprites.ready) root.EdenSprites.apply(A, { mk, flip, shrink, trimRows });
   for (const k of ['hut', 'house']) if (!A[k + 'Lake']) { A[k + 'Lake'] = onStilts(A[k]); A[k + 'LakeSnow'] = onStilts(A[k + 'Snow']); }
   return A;
 }
@@ -2855,7 +2864,7 @@ S.load = async function (base) {
 };
 
 S.apply = function (A, h) {
-  const mk = h.mk, flip = h.flip, shrink = h.shrink;
+  const mk = h.mk, flip = h.flip, shrink = h.shrink, trimRows = h.trimRows || (c => c);
   // one strip -> a list of frame canvases
   const frames = key => { const m = S.meta[key], out = []; for (let f = 0; f < m.frames; f++) { const c = mk(m.w, m.h); c.getContext('2d').drawImage(S.img[key], f * m.w, 0, m.w, m.h, 0, 0, m.w, m.h); out.push(c); } return out; };
   const one = key => frames(key)[0];
@@ -2945,7 +2954,7 @@ S.apply = function (A, h) {
       }
       x.putImageData(d, 0, 0); return c;
     };
-    const rot = c => { const o = mk(c.height, c.width), g = o.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return o; };
+    const rot = c => { const o = mk(c.height, c.width), g = o.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return trimRows(o); };   /* a body laid down lies on the ground, not on the empty margin it stood in */
     const BODY = {}; for (const n of ['man', 'woman', 'child']) BODY[n] = { walk: frames(n + '_walk'), up: frames(n + '_up'), sit: frames(n + '_sit'), head: Math.round(S.meta[n + '_walk'].h * (n === 'woman' ? 0.5 : 0.36)) };
     const made = new Map(), built = A.look.human;
     built.make = (a, stage) => {
@@ -3106,7 +3115,7 @@ const BN = N * 8, CB = 16 * 8,
 const knownF = new Float32Array(N * N);
 /* the ground a building takes: its whole lot is a trodden yard, the floor under the roof bare earth (1 = yard, 2 = floor) */
 const lotMask = new Uint8Array(N * N);
-function syncLots() { lotMask.fill(0); for (const q of S.tribe.sites) { const well = q.kind === 'well'; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = q.x + dx, y = q.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = y * N + x; if (W.water[i]) continue; if (!dx && !dy) lotMask[i] = 2; else if (!well && !W.field[i]) lotMask[i] = Math.max(lotMask[i], 1); } } }
+function syncLots() { lotMask.fill(0); for (const q of S.tribe.sites) { if (q.kind === 'tent') continue; /* a tent is pitched on the grass: only a built house marks the ground under and round it */ const well = q.kind === 'well'; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = q.x + dx, y = q.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = y * N + x; if (W.water[i]) continue; if (!dx && !dy) lotMask[i] = 2; else if (!well && !W.field[i]) lotMask[i] = Math.max(lotMask[i], 1); } } }
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
 let cbx = 0, cby = 0, cbFor = null;
@@ -3260,13 +3269,16 @@ function paintSome(rows, all) {
   while (rows > 0 && paint) {
     /* a chunk where nothing has been seen has no picture at all */
     for (const c of chunks) if (c.stale && !chunkKnown(c)) { c.stale = false; if (c.cv) { c.cv = null; c.ctx = null; c.painted = false; if (c.fade) { fadePool.push(c.fade.from); c.fade = null; } } }
-    if (!paint.ch) { paint.ch = chunks.find(c => c.stale && chunkVisible(c)) || (all ? chunks.find(c => c.stale) : null); paint.row = 0; if (!paint.ch) { paint = null; return; } }   /* stale chunks out of view wait until they are seen */
+    if (!paint.ch) {
+      /* the chunk in view that has waited longest goes first, so at a fast speed none is left showing an old season while others are repainted again and again */
+      let best = null; for (const c of chunks) if (c.stale && (all || chunkVisible(c)) && (!best || (c.paintedAt || 0) < (best.paintedAt || 0))) best = c;
+      paint.ch = best; paint.row = 0; if (!paint.ch) { paint = null; return; } }   /* stale chunks out of view wait until they are seen */
     const ch = paint.ch, end = Math.min(CHT, paint.row + rows);
     paintChunkRect(ch, 0, paint.row, CW, end); rows -= end - paint.row; paint.row = end;
     if (end >= CHT) {
       if (!ch.cv) { ch.cv = mkC(CW, CHT); ch.ctx = ch.cv.getContext('2d'); }
       if (ch.painted && !all) { const from = fadePool.pop() || (chunks.filter(c => c.fade).length < 4 ? mkC(CW, CHT) : null); if (from) { const fc = from.getContext('2d'); fc.clearRect(0, 0, CW, CHT); fc.drawImage(ch.cv, 0, 0); if (ch.fade) fadePool.push(ch.fade.from); ch.fade = { t: now, from }; } }
-      ch.ctx.putImageData(scratch, 0, 0); ch.painted = true; ch.stale = false; paint.ch = null;
+      ch.ctx.putImageData(scratch, 0, 0); ch.painted = true; ch.stale = false; ch.paintedAt = now; paint.ch = null;
     }
   }
 }
@@ -3390,20 +3402,23 @@ function wantProps() {
     for (const q of T0.sites) {
       if (q.kind === 'well' || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
       const f = folkBy.get(q.id); if (!f) continue; const L = q.larder || 0, n = Math.max(1, f.n), want2 = [];
+      /* furniture is made, not found: nothing is kept round a tent but a fire's wood; joinery (table, crates, coop, racks) wants a timber roof to keep it under,
+         and what is cut true or turned (barrels, a rocking chair, a loom, a workbench, hives, a barrow) wants the tools to cut it */
+      if (q.kind === 'tent') continue; const tools = !!(T0.skills && T0.skills.tools), house = q.kind === 'house';
       if (L > n * 1.5 && S.air > 10 && P.table_bench) want2.push('table_bench');
       if (f.small && P.toy_horse) want2.push('toy_horse');
       if (f.baby && P.laundry_tub) want2.push('laundry_tub'); else if (f.small + f.baby >= 2 && P.washing_line) want2.push('washing_line');
-      if (f.elder && P.rocking_chair) want2.push('rocking_chair');
-      if (L > n * 2.5 && P.barrels) want2.push('barrels'); else if (L > n * 1.5 && (f.jobs.has('farmer') || f.jobs.has('fisher')) && P.crates) want2.push('crates');
+      if (f.elder && tools && P.rocking_chair) want2.push('rocking_chair');
+      if (L > n * 2.5 && tools && P.barrels) want2.push('barrels'); else if (L > n * 1.5 && (f.jobs.has('farmer') || f.jobs.has('fisher')) && P.crates) want2.push('crates');
       if ((q.fields || 0) > 0 && autumn) want2.push((q.id % 2 ? 'pumpkins' : 'wheat_sheaves'));
-      if ((q.fields || 0) >= 9 && (f.jobs.has('farmer') || autumn) && P.haystack) want2.push('haystack');
+      if ((q.fields || 0) >= 9 && (f.jobs.has('farmer') || autumn) && T0.skills && T0.skills.farm && P.haystack) want2.push('haystack');
       if ((q.fields || 0) > 0 && L > n && P.coop) want2.push('coop');
-      if (f.likes.has('gardens') && (q.garden || 0) > 0.5 && P.beehives) want2.push('beehives');
+      if (f.likes.has('gardens') && (q.garden || 0) > 0.5 && tools && P.beehives) want2.push('beehives');
       if (f.likes.has('gardens') && P.potted_plants) want2.push('potted_plants');
-      if ((q.carved || 0) > 0.4 && P.woodworking_bench) want2.push('woodworking_bench');
-      if ((q.woven || 0) > 0.3 && P.loom) want2.push('loom');
+      if ((q.carved || 0) > 0.4 && tools && P.woodworking_bench) want2.push('woodworking_bench');
+      if ((q.woven || 0) > 0.3 && tools && house && P.loom) want2.push('loom');
       if (f.jobs.has('fisher') && P.fish_rack) want2.push('fish_rack');
-      if (f.jobs.has('builder') && P.wheelbarrow) want2.push('wheelbarrow');
+      if (f.jobs.has('builder') && tools && T0.skills.wheel && P.wheelbarrow) want2.push('wheelbarrow');
       if (f.jobs.has('woodcutter') && P.chopping_block) want2.push('chopping_block');
       if (f.herbs && P.herb_drying) want2.push('herb_drying');
       /* only places in the yard itself: a place on a street or in a field is passed over */
@@ -3412,9 +3427,9 @@ function wantProps() {
       if ((q.fuel || 0) >= 1.2 && P.firewood_stack) want.set('wp' + q.id, { kind: 'woodpile', x: q.x + 1.4, y: q.y - 0.2, base: 'wpb', img: P.firewood_stack, dy: 4 });
       if ((q.garden || 0) > 0.3 && P.planter) want.set('pl' + q.id, { kind: 'prop', x: q.x + 0.1, y: q.y + 1.2, base: 'pl', img: (q.garden || 0) > 0.7 && P.bench_flowers ? P.bench_flowers : P.planter, dy: 4 });
     }
-    /* by the fire and the store: stalls when the common store holds plenty, a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
-    if (T0.store > 8 && P.stall_red) want.set('stall1', { kind: 'prop', x: store.x + 1.3, y: store.y - 1.1, base: 'stall', img: P.stall_red, dy: 4 });
-    if (T0.store > 25 && P.stall_green) want.set('stall2', { kind: 'prop', x: store.x - 1.1, y: store.y - 1.4, base: 'stall', img: P.stall_green, dy: 4 });
+    /* by the fire and the store: stalls once there is trade to stand at them (phase G/H; none yet), a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
+    if (T0.trade && T0.store > 8 && P.stall_red) want.set('stall1', { kind: 'prop', x: store.x + 1.3, y: store.y - 1.1, base: 'stall', img: P.stall_red, dy: 4 });
+    if (T0.trade && T0.store > 25 && P.stall_green) want.set('stall2', { kind: 'prop', x: store.x - 1.1, y: store.y - 1.4, base: 'stall', img: P.stall_green, dy: 4 });
     if ((T0.hunts || 0) > 0 && P.cooking_spit) want.set('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
     if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) want.set('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
     { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) want.set('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
@@ -3424,7 +3439,7 @@ function wantProps() {
     /* scarecrows in the middle of field lots */
     if (P.scarecrow) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH + 2, y = T0.y + m * W.PITCH + 2; if (x < 0 || y < 0 || x >= N || y >= N || !W.field[y * N + x] || (k * 7 + m * 3) % 3) continue; want.set('sc' + x + ',' + y, { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'sc', img: P.scarecrow, dy: 3 }); }
     /* stumps left by felling, with mushrooms, where nothing else has been put since */
-    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || W.water[j]) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
+    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || (W.owner && W.owner[j]) || W.water[j]) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
   }
   /* once there has been music by the fire, there are logs to sit on round it */
   if (campOn && S.musicT) for (let k = 0; k < 3; k++) { const ang = k * 2.1 + 0.5; want.set('ls' + k, { kind: 'seat', x: fire.x + Math.cos(ang) * 1.1, y: fire.y + Math.sin(ang) * 0.9, base: 'ls', img: A.logSeat, dy: 2 }); }
@@ -4155,7 +4170,9 @@ function frame(t) {
     for (let n = 0; tickFrac >= 1 && n < 6; n++) { tickFrac -= 1; W.tick(); onTick(); }
     if (tickFrac >= 1) tickFrac = 0.99;
   }
-  if (!paint && groundWanted) startPaint(); if (paint) paintSome(speed > 1 || act ? 200 : 90);
+  if (!paint && groundWanted) startPaint();
+  /* the ground gets a slice of each frame's time, more when the days run fast, in strips of rows */
+  if (paint) { const t0 = performance.now(), budget = speed > 1 || act ? 9 : 4; do paintSome(24); while (paint && performance.now() - t0 < budget); }
   const z = cam.z, u = tickFrac, tod = ((S.tickNo % DAY) + u) / DAY, dark = lightAt(tod) * (speed >= 8 ? 0.5 : 1);
   cx.setTransform(1, 0, 0, 1, 0, 0);
   const sky = cx.createLinearGradient(0, 0, 0, cv.height); sky.addColorStop(0, '#31504f'); sky.addColorStop(1, '#1d3136'); cx.fillStyle = sky; cx.fillRect(0, 0, cv.width, cv.height);

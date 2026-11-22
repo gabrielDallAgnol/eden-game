@@ -530,3 +530,7 @@ Size 96, seeds 1 and 2:
 | mean |  | 23.6 | 94.5 | 152.2 | 173.4 | 58.1 | 186.9 | 0.1 | 12.8 |  | 2.6 | 11.2 | 16.5 | 5.8 | 111.4 | 1.1 | 1548.2 | 73.9 | 25.3 | 4.8 |  |  | 49 | 6.3 | 20.1 | 0.3 | 0 | 16019.5 |
 
 Year 100 mean 152.2 (153.3 before), one resettle (forest 1 emptied at year 25 against none there before). Tests 417 passed, 0 failed, with a new check that no den lies within 12 tiles of the camp in 9 worlds over 12 years and that a struck den is broken.
+
+## Owner's report: ground squares left in an old season
+
+At fast speeds the ground chunks go stale again every step, and the painter always took the first stale chunk in list order, so the early chunks were repainted again and again and a late one could keep its winter picture for good (the white square in the owner's screenshot). Now the visible chunk that has waited longest goes first, and the ground gets a time slice of each frame (9 ms when fast, 4 ms at 1x) instead of a fixed number of rows. Checked in the browser at 48x, zoomed out, valley seed 2: the longest any visible chunk waited for its repaint was 31.5 s and growing before, 0.46 to 0.76 s after; 38 to 49 frames a second both ways. Simulation unchanged (tests 417 passed, 0 failed; table as in the previous entry).
