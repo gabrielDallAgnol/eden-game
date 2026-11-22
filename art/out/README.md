@@ -1,6 +1,6 @@
 # Eden art-pipeline test — results
 
-Run on 2026-11-22. Everything is in `~/eden-art`; the side-by-side sheet is `out/compare.png` (all tiles 3x nearest-neighbour).
+Run on 2026-11-22. Everything is in `~/eden-game/art`; the side-by-side sheet is `out/compare.png` (all tiles 3x nearest-neighbour).
 
 ## Verdict
 

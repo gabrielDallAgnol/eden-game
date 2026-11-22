@@ -1,7 +1,7 @@
 """Tiny Retro Diffusion client for the Eden art test.
 
 Every paid call is logged to out/cost_log.json and refused once the running
-total would pass CAP_USD. Key is read from ~/eden-art/.rd_key.
+total would pass CAP_USD. Key is read from ~/eden-game/art/.rd_key.
 """
 import base64, io, json, os, time
 import requests

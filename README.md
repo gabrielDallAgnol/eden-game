@@ -1,19 +1,16 @@
-# eden-art
+# Eden
 
-Art-pipeline experiments for **Eden**, a cozy isometric pixel-art valley sim.
+A cozy isometric pixel-art valley sim.
 
-- `out/README.md` — results of the first test (Retro Diffusion vs Blender) and the recommended approach
-- `out/compare.png` — side-by-side sheet
-- `scripts/` — Blender cottage, sprite cleanup, Retro Diffusion client, comparison builder
-- `reference/` — style reference screenshots (third-party artwork, for private reference only)
+## Style rules
 
-## Setup
+- 2:1 isometric, ground tile 64x32 px, light from upper left
+- Dark 1-px outline, 3-4 shades per colour, cozy palette
+- Real proportions: adult ~36 px tall, deer ~44 px long, rabbit ~11 px, big tree ~104 px, small cottage ~80 px
+- Transparent sprite backgrounds
 
-    uv venv .venv && uv pip install -p .venv -r requirements.txt
+## Layout
 
-Put your Retro Diffusion API key in `.rd_key` (ignored by git), then e.g.
+- `art/` — art pipeline: reference images, generation and cleanup scripts, test outputs (see `art/README.md`)
 
-    blender -b -P scripts/blender_cottage.py
-    .venv/bin/python scripts/cleanup.py palette
-    .venv/bin/python scripts/cleanup.py clean out/some_sprite_raw.png
-    .venv/bin/python scripts/compare.py
+The game code will live alongside `art/` at the top level.
