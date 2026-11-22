@@ -80,6 +80,8 @@ function WorldRun(land, seed, years) {
   add('pitFree', 'no lot or field on a quarry pit (B5)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
+  add('chopped', 'timber is only ever gained by someone chopping a tree');
+  add('bank', 'no person is ever on a bank cut off from the camp (no bridge, no crossing)');
   add('fieldBank', 'every field lies on the same bank as the household that sows it');
   add('agentNums', 'each creature\'s energy and age are finite, age is not negative');
   add('ids', 'no two living creatures share an id');
@@ -136,11 +138,13 @@ WorldRun.prototype.step = function (deadline) {
     while (this.year < this.years && now() < deadline) {
       var lastOfYear = this.inYear === this.TPY - 1, before = lastOfYear ? this.living() : null;
       var tn = S.tickNo, tt = S.t;
+      var woodBefore = S.tribe ? S.tribe.wood : 0;
       try { W.tick(); } catch (e) { this.abort('tick ' + (this.ticks + 1) + ' (year ' + this.year + ')', e); this.phase = 'finish'; break; }
       this.ticks++; this.inYear++; C.run.ok();
       if (num(tn) && num(tt)) { if (S.tickNo !== tn + 1) C.clock.fail('tick ' + this.ticks + ': tickNo went from ' + tn + ' to ' + show(S.tickNo)); else if (!(S.t >= tt)) C.clock.fail('tick ' + this.ticks + ': S.t went from ' + show(tt) + ' to ' + show(S.t)); else C.clock.ok(); }
       else C.clock.skip('S.tickNo or S.t is not a number');
       this.dryTick();
+      this.woodTick(woodBefore);
       if (lastOfYear) { this.inYear = 0; this.year++; this.popCheck(before); this.yearly(); }
     }
     if (this.phase === 'run' && this.year >= this.years) this.phase = CONFIG.determinism ? 'again' : 'finish';
@@ -183,6 +187,11 @@ WorldRun.prototype.popCheck = function (before) {
   });
 };
 
+WorldRun.prototype.woodTick = function (before) {
+  var S = this.W.S, T = S.tribe, c = this.C.chopped; if (!T || !(T.wood > before + 1e-9)) return;
+  var chop = S.agents.some(function (a) { return a.act && a.act.k === 'chop' && (a.alive || a.d.people); });   /* a chopper may die later in the same step */
+  if (chop) c.ok(); else c.fail('tick ' + this.ticks + ': timber went from ' + show(before) + ' to ' + show(T.wood) + ' and nobody chopped');
+};
 WorldRun.prototype.dryTick = function () {
   var W = this.W, S = W.S, N = W.N, water = W.water, c = this.C.dryAlways;
   if (!isField(water) || !isArr(S.agents)) return c.skip('W.water or S.agents is missing');
@@ -252,6 +261,12 @@ WorldRun.prototype.yearly = function () {
     try { for (var i = 0; i < sites.length; i++) { var s = sites[i]; if (s.kind !== 'well' && (s.stage >= 1 || s.was)) { this.firstDwellingYear = y; break; } } } catch (e) { /* soft */ }
   }
 
+  this.guard('bank', function (c) {
+    if (!W.mass || !W.fords || !L || !T) return c.skip('W.mass is missing');
+    var home = W.mass[T.y * N + T.x], ok = {}; ok[home] = 1; W.fords().forEach(function (f) { if (T.bridged[f.key]) { if (f.ma === home) ok[f.mb] = 1; if (f.mb === home) ok[f.ma] = 1; } });
+    var bad = 0, ex = ''; L.list.forEach(function (a) { if (a.d && a.d.people && !ok[W.mass[a.y * N + a.x]]) { bad++; if (!ex) ex = who(a) + ' at ' + a.x + ',' + a.y; } });
+    if (bad) c.fail(at + bad + ' people across water with no bridge, e.g. ' + ex); else c.ok();
+  });
   this.guard('fieldBank', function (c) {
     if (!W.mass || !W.owner || !sites) return c.skip('W.mass or W.owner is missing');
     var by = {}; sites.forEach(function (q) { by[q.id] = q; }); var bad = 0, ex = '';
@@ -473,17 +488,14 @@ UNITS.push(['the common store is eaten only at the fire: everyone who went to ea
   for (i = 0; i < 24 * 20; i++) { W.tick(); W.S.agents.forEach(function (a) { if (a.alive && a.act && a.act.k === 'eat') { seen++; if (Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) > 2) bad++; } }); }
   return bad ? bad + ' of ' + seen + ' ate from the store away from the fire' : '';
 }]);
-UNITS.push(['across the river: a ford is a detour, closed in high water; a bridge makes it a walk', function () {
-  var W = Eden.create(1, { land: 'valley' }), N = W.N, T = W.S.tribe, f = W.fords()[0];
-  if (!f) return 'no ford on valley #1';
-  var x0 = f.ax, y0 = f.ay, x1 = f.bx, y1 = f.by, out = [];
-  W.S.river = 1.0; var low = W.wayDist(x0, y0, x1, y1).d;
-  W.S.river = 1.7; var high = W.wayDist(x0, y0, x1, y1).d, usual = W.wayDist(x0, y0, x1, y1, true).d;
-  T.bridged[f.key] = true; var bridged = W.wayDist(x0, y0, x1, y1).d;
-  if (!(low > f.w + 2)) out.push('wading ' + f.w + ' tiles costs only ' + low);
-  if (isFinite(high)) out.push('high water still crossable: ' + high);
-  if (usual !== low) out.push('ordinary-season cost ' + usual + ' differs from low water ' + low);
-  if (!(bridged < low)) out.push('bridge ' + bridged + ' not shorter than ford ' + low);
+UNITS.push(['across the river: no way over without a bridge; a bridge makes it a walk', function () {
+  var W = Eden.create(1, { land: 'valley' }), T = W.S.tribe, f = W.fords()[0];
+  if (!f) return 'no narrow place on valley #1';
+  var none = W.wayDist(f.ax, f.ay, f.bx, f.by).d, wish = W.wayDist(f.ax, f.ay, f.bx, f.by, true).d, out = [];
+  T.bridged[f.key] = true; var bridged = W.wayDist(f.ax, f.ay, f.bx, f.by).d;
+  if (isFinite(none)) out.push('crossable without a bridge: ' + none);
+  if (!isFinite(wish)) out.push('the imagined crossing has no cost');
+  if (!isFinite(bridged) || bridged > f.w + 3) out.push('over the bridge costs ' + bridged + ' for ' + f.w + ' tiles of water');
   return out.join('; ');
 }]);
 UNITS.push(['a worked-out pit on wet ground becomes a pond; on dry ground it settles into poor ground (B7)', function () {

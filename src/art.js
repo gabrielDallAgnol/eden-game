@@ -406,17 +406,32 @@ function onStilts(img) {
   x.drawImage(img, 4, 0); return c;
 }
 // one tile of a log bridge, running along x (horiz) or along y: a deck of planks laid across the way of travel, a rail on each side
-function bridgeSprite(horiz) {
-  const c = mk(64, 40), x = c.getContext('2d');
-  const top = [32, 4 + 4], ax = horiz ? [32, 16] : [-32, 16], ay = horiz ? [-32, 16] : [32, 16];
+function bridgeSprite(horiz, piles) {
+  const c = mk(64, 56), x = c.getContext('2d');
+  const top = [32, 8], ax = horiz ? [32, 16] : [-32, 16], ay = horiz ? [-32, 16] : [32, 16];
   const at = (u, v, lift) => [top[0] + u * ax[0] + v * ay[0], top[1] + u * ax[1] + v * ay[1] - (lift || 0)];
   const quad = (pts, col) => { x.fillStyle = col; x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) x.lineTo(p[0], p[1]); x.closePath(); x.fill(); };
-  quad([at(-0.02, 0.2, -3), at(1.02, 0.2, -3), at(1.02, 0.8, -3), at(-0.02, 0.8, -3)], '#4a3222');            // the side of the deck, in shadow
-  quad([at(-0.02, 0.2), at(1.02, 0.2), at(1.02, 0.8), at(-0.02, 0.8)], '#a8855c');
-  for (let k = 0; k <= 8; k++) { const u = k / 8, p = at(u, 0.2), q = at(u, 0.8); x.strokeStyle = k % 2 ? '#86694a' : '#6e5137'; x.lineWidth = 1; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(q[0], q[1]); x.stroke(); }
-  for (const v of [0.2, 0.8]) {
-    for (const u of [0.05, 0.5, 0.95]) { const p = at(u, v); x.fillStyle = '#5a3f2a'; x.fillRect(Math.round(p[0]) - 1, Math.round(p[1]) - 6, 2, 6); }
-    const p = at(0, v, 6), q = at(1, v, 6); x.strokeStyle = '#6e5137'; x.lineWidth = 2; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(q[0], q[1]); x.stroke();
+  const line = (p, q, col, w) => { x.strokeStyle = col; x.lineWidth = w || 1; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(q[0], q[1]); x.stroke(); };
+  const D = 4;   /* the deck stands this many pixels above the water */
+  /* piles driven into the river bed, with a ripple where each meets the water */
+  for (const u of [0.18, 0.82]) for (const v of [0.12, 0.88]) {
+    const p = at(u, v, -D - 10); x.fillStyle = 'rgba(214,236,240,.75)'; x.fillRect(Math.round(p[0]) - 3, Math.round(p[1]), 7, 1);
+    const q = at(u, v, D); x.fillStyle = '#4a3222'; x.fillRect(Math.round(q[0]) - 1, Math.round(q[1]), 3, D + 10); x.fillStyle = '#6e5137'; x.fillRect(Math.round(q[0]) - 1, Math.round(q[1]), 1, D + 10);
+  }
+  if (!piles) {
+    /* the deck: its shadowed side, then planks laid across the way, with a beam along each edge */
+    quad([at(0, 0.08, D - 3), at(1, 0.08, D - 3), at(1, 0.92, D - 3), at(0, 0.92, D - 3)], '#3e2a1c');
+    quad([at(0, 0.08, D), at(1, 0.08, D), at(1, 0.92, D), at(0, 0.92, D)], '#a8855c');
+    for (let k = 0; k < 10; k++) { const u0 = k / 10, u1 = (k + 1) / 10; quad([at(u0, 0.1, D), at(u1 - 0.015, 0.1, D), at(u1 - 0.015, 0.9, D), at(u0, 0.9, D)], k % 3 === 0 ? '#b8946a' : k % 3 === 1 ? '#a07c54' : '#ac8860'); }
+    for (const v of [0.08, 0.92]) line(at(0, v, D), at(1, v, D), '#6e5137', 2);
+    /* the rails: posts at each end and in the middle, a pole along the top lit on its upper side */
+    for (const v of [0.1, 0.9]) {
+      for (const u of [0.04, 0.5, 0.96]) { const p = at(u, v, D); x.fillStyle = '#5a3f2a'; x.fillRect(Math.round(p[0]) - 1, Math.round(p[1]) - 8, 2, 8); }
+      line(at(0, v, D + 8), at(1, v, D + 8), '#6e5137', 2); line(at(0, v, D + 9), at(1, v, D + 9), '#c9a779', 1);
+    }
+  } else {
+    /* half built: a cross-beam on the piles, waiting for its planks */
+    for (const u of [0.18, 0.82]) line(at(u, 0.08, D), at(u, 0.92, D), '#6e5137', 2);
   }
   return outlineCanvas(c, OUT);
 }
@@ -578,7 +593,7 @@ function build() {
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
   A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
-  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
+  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.bridgePilesX = bridgeSprite(true, true); A.bridgePilesY = bridgeSprite(false, true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
   A.fire = fire.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.flame = flame.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.basket = sprite(basket, BASK, { x2: true }); A.bones = sprite(bones, BONE, { x2: true });
   A.bubble = {}; for (const k in ICON) A.bubble[k] = bubble(ICON[k]);
   A.item = {}; for (const k in ITEMS) A.item[k] = sprite(ITEMS[k][0], ITEMS[k][1]); A.item.basket = sprite(basket, BASK);

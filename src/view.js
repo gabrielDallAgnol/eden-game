@@ -26,9 +26,9 @@ const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let dpr = 1, cam = { x: 0, y: 0, z: 2 }, speed = 1, paused = true, tool = 'hand', tickFrac = 0, now = 0, gameMs = 0;
 const hash = (a, b) => { let n = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
 let rs = seed * 31 + 7; const rnd = () => { rs = (Math.imul(rs, 1103515245) + 12345) & 0x7fffffff; return rs / 0x7fffffff; }, R = (a, b) => a + rnd() * (b - a);
-/* fords while the river runs low, and bridges always, can be walked across; the rest of the water cannot */
+/* water can be crossed on a bridge and nowhere else */
 const crossing = new Uint8Array(N * N);
-function syncCrossings() { crossing.fill(0); const T = S.tribe; for (const f of W.fords()) if (T.bridged[f.key] || S.river < 1.4) for (const t of f.tiles) crossing[t] = 1; }
+function syncCrossings() { crossing.fill(0); const T = S.tribe; for (const f of W.fords()) if (T.bridged[f.key]) for (const t of f.tiles) crossing[t] = 1; }
 const isWater = (x, y) => { const xi = x | 0, yi = y | 0; return xi < 0 || yi < 0 || xi >= N || yi >= N || (W.water[yi * N + xi] === 1 && !crossing[yi * N + xi]); };
 const mkC = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 
@@ -345,9 +345,10 @@ function wantProps() {
   /* bridges: every one finished, and the one being laid as far as its timber goes */
   if (campOn) {
     const byKey = new Map(W.fords().map(f => [f.key, f]));
-    const lay = (f, n) => { for (let k = 0; k < Math.min(n, f.tiles.length); k++) { const t = f.tiles[k]; want.set('b' + t, { kind: 'bridge', x: t % N + 0.5, y: ((t / N) | 0) + 0.5, base: 'b' + f.horiz, img: f.horiz ? A.bridgeX : A.bridgeY, dy: 16 }); } };
+    /* n tiles decked, the rest of the span standing on bare piles; a bridge is begun from its own bank outward */
+    const lay = (f, n, fromB) => { for (let k = 0; k < f.tiles.length; k++) { const t = f.tiles[fromB ? f.tiles.length - 1 - k : k], deck = k < n; want.set('b' + t, { kind: 'bridge', x: t % N + 0.5, y: ((t / N) | 0) + 0.5, base: 'b' + f.horiz + deck, img: deck ? (f.horiz ? A.bridgeX : A.bridgeY) : (f.horiz ? A.bridgePilesX : A.bridgePilesY), dy: 32 }); } };
     for (const key in T0.bridged) { const f = byKey.get(key); if (f) lay(f, f.tiles.length); }
-    const b = T0.bridge; if (b && !b.done) { const f = byKey.get(b.key); if (f) lay(f, Math.floor(f.tiles.length * b.wood / b.need)); }
+    const b = T0.bridge; if (b && !b.done && b.wood > 0) { const f = byKey.get(b.key); if (f) lay(f, Math.floor(f.tiles.length * b.wood / b.need), b.ax !== f.ax || b.ay !== f.ay); }
   }
   const logs = campOn ? Math.min(6, Math.ceil(T0.wood / 2)) : 0;
   for (let k = 0; k < logs; k++) want.set('w' + k, { kind: 'logs', x: store.x - 0.3 + (k % 3) * 0.14, y: store.y + 0.45 + ((k / 3) | 0) * 0.12, base: 'w', img: A.item.log, dy: 2 });
@@ -485,7 +486,7 @@ function clear(x0, y0, x1, y1) {
 const prevA = new Int16Array(N * N);
 function route(x0, y0, x1, y1) {
   if (clear(x0, y0, x1, y1)) return [{ x: x1, y: y1 }];
-  const cl = v => clamp(v | 0, 0, N - 1), s = cl(y0) * N + cl(x0), e = cl(y1) * N + cl(x1);
+  let cl = v => clamp(v | 0, 0, N - 1), s = cl(y0) * N + cl(x0), e = cl(y1) * N + cl(x1);
   prevA.fill(-1); /* someone walking in from beyond the edge starts at the edge */
   prevA[s] = s;
   const q = [s];
@@ -501,7 +502,13 @@ function route(x0, y0, x1, y1) {
       q.push(j);
     }
   }
-  if (prevA[e] < 0) return [{ x: x1, y: y1 }];
+  let x1e = x1, y1e = y1, end = e;
+  if (prevA[e] < 0) {
+    /* the far side cannot be reached on foot: go as near as this side allows, to the water's edge, and no further */
+    let bd = 1e9; for (let c = 0; c < N * N; c++) if (prevA[c] >= 0) { const d = Math.hypot((c % N) + 0.5 - x1, ((c / N) | 0) + 0.5 - y1); if (d < bd) { bd = d; end = c; } }
+    x1e = (end % N) + 0.5; y1e = ((end / N) | 0) + 0.5; if (end === s) return [{ x: x0, y: y0 }];
+  }
+  x1 = x1e; y1 = y1e; e = end;
   const cellsP = []; for (let c = e, g = 0; c !== s && g < N * N; c = prevA[c], g++) cellsP.push(c); cellsP.reverse();
   const pts = []; let ax = x0, ay = y0;
   for (let k = 0; k < cellsP.length; k++) {
@@ -655,6 +662,10 @@ function planPerson(r, phase, pi) {
       const tx = act.j % N, ty = (act.j / N) | 0, st = standBy(tx, ty, r), h = huts.find(q => q && q.id === act.site), to = h ? { x: h.x + 0.55, y: h.y + 0.3 } : store;
       P.go(st.x, st.y, sp); P.wait(0.22, 'work', { fx: 'dust', lx: st.lx, ly: st.ly });
       P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
+    }
+    case 'bridgework': {                                              // a log from the pile carried to the bridge end, and laid
+      P.go(store.x - 0.3, store.y + 0.45, sp); P.wait(0.03, 'work');
+      P.go(act.x + 0.5, act.y + 0.5, sp * 0.8, 'carry', { item: 'log' }); P.wait(0.12, 'work', { fx: 'hammer', lx: act.x + 0.5, ly: act.y + 0.5 }); break;
     }
     case 'haul': {                                                    // timber or stone from the camp's pile to the plot
       const h = huts.find(q => q && q.id === act.site); P.go(store.x - 0.3, store.y + 0.45, sp); P.wait(0.03, 'work');
