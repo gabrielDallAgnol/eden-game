@@ -1100,7 +1100,7 @@ function create(seed, opt) {
       budget -= walked / speed; tr.walked += walked;
       if (tr.path.length) { a.act = { k: tr.phase === 'out' ? 'walkto' : 'carryhome', x: a.x, y: a.y, item: tr.kind === 'fish' ? 'fish' : 'basket' }; return -1; }
       if (tr.phase === 'back') { bring(a, tr.load); S.stat.forageD += tr.walked / 2; S.stat.forageN++; a.trip = null; a.act = { k: 'home', x: a.x, y: a.y }; return Math.max(0, budget); }
-      tr.phase = 'work';
+      tr.phase = 'work'; a.act = { k: 'walkto', x: a.x, y: a.y, item: tr.kind === 'fish' ? 'fish' : 'basket' };   /* there, with the work for the next step if no time is left */
     }
     if (budget > 0.02) { tr.load += workAt(a, d, tr.j, tr.kind, budget); const door = doorOf(a); tr.phase = 'back';
       /* home the way they came, if they set out from the door; else by a route of its own */

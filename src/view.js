@@ -418,7 +418,9 @@ function wantProps() {
       if (f.jobs.has('builder') && P.wheelbarrow) want2.push('wheelbarrow');
       if (f.jobs.has('woodcutter') && P.chopping_block) want2.push('chopping_block');
       if (f.herbs && P.herb_drying) want2.push('herb_drying');
-      want2.slice(0, SLOTS.length).forEach((k, i) => { const [ox, oy] = SLOTS[i]; want.set('hp' + q.id + ':' + i, { kind: 'prop', x: q.x + 0.5 + ox, y: q.y + 0.5 + oy, base: 'hp' + k, img: P[k], dy: 4 }); });
+      /* only places in the yard itself: a place on a street or in a field is passed over */
+      const free = SLOTS.filter(([ox, oy]) => { const tx = Math.floor(q.x + 0.5 + ox), ty = Math.floor(q.y + 0.5 + oy), t = ty * N + tx; return tx >= 0 && ty >= 0 && tx < N && ty < N && !T0.road[t] && !W.field[t] && !W.water[t]; });
+      want2.slice(0, free.length).forEach((k, i) => { const [ox, oy] = free[i]; want.set('hp' + q.id + ':' + i, { kind: 'prop', x: q.x + 0.5 + ox, y: q.y + 0.5 + oy, base: 'hp' + k, img: P[k], dy: 4 }); });
       if ((q.fuel || 0) >= 1.2 && P.firewood_stack) want.set('wp' + q.id, { kind: 'woodpile', x: q.x + 1.4, y: q.y - 0.2, base: 'wpb', img: P.firewood_stack, dy: 4 });
       if ((q.garden || 0) > 0.3 && P.planter) want.set('pl' + q.id, { kind: 'prop', x: q.x + 0.1, y: q.y + 1.2, base: 'pl', img: (q.garden || 0) > 0.7 && P.bench_flowers ? P.bench_flowers : P.planter, dy: 4 });
     }
