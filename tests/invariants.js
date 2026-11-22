@@ -77,6 +77,7 @@ function WorldRun(land, seed, years) {
   add('dry', 'no living creature stands on a water tile');
   add('dryAlways', 'no living creature is on a water tile after any tick');
   add('problems', 'the sim reports no defects in S.problems');
+  add('fieldBank', 'every field lies on the same bank as the household that sows it');
   add('agentNums', 'each creature\'s energy and age are finite, age is not negative');
   add('ids', 'no two living creatures share an id');
   add('pop', 'S.pop matches the living creatures, species by species');
@@ -247,6 +248,12 @@ WorldRun.prototype.yearly = function () {
     try { for (var i = 0; i < sites.length; i++) { var s = sites[i]; if (s.kind !== 'well' && (s.stage >= 1 || s.was)) { this.firstDwellingYear = y; break; } } } catch (e) { /* soft */ }
   }
 
+  this.guard('fieldBank', function (c) {
+    if (!W.mass || !W.owner || !sites) return c.skip('W.mass or W.owner is missing');
+    var by = {}; sites.forEach(function (q) { by[q.id] = q; }); var bad = 0, ex = '';
+    for (var i = 0; i < N * N; i++) if (W.field[i] && W.owner[i] && by[W.owner[i]]) { var h = by[W.owner[i]]; if (W.mass[i] !== W.mass[h.y * N + h.x]) { bad++; if (!ex) ex = 'field ' + (i % N) + ',' + ((i / N) | 0) + ' of the house at ' + h.x + ',' + h.y; } }
+    if (bad) c.fail(at + bad + ' fields across water, e.g. ' + ex); else c.ok();
+  });
   this.guard('problems', function (c) {
     if (!isArr(S.problems)) return c.skip('S.problems is missing');
     if (S.problems.length) c.fail(at + S.problems.slice(0, 3).join('; ')); else c.ok();
@@ -437,6 +444,19 @@ UNITS.push(['the common store is eaten only at the fire: everyone who went to ea
   for (i = 0; i < 24 * 12; i++) W.tick();
   for (i = 0; i < 24 * 20; i++) { W.tick(); W.S.agents.forEach(function (a) { if (a.alive && a.act && a.act.k === 'eat') { seen++; if (Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) > 2) bad++; } }); }
   return bad ? bad + ' of ' + seen + ' ate from the store away from the fire' : '';
+}]);
+UNITS.push(['across the river: a ford is a detour, closed in high water; a bridge makes it a walk', function () {
+  var W = Eden.create(1, { land: 'valley' }), N = W.N, T = W.S.tribe, f = W.fords()[0];
+  if (!f) return 'no ford on valley #1';
+  var x0 = f.ax, y0 = f.ay, x1 = f.bx, y1 = f.by, out = [];
+  W.S.river = 1.0; var low = W.wayDist(x0, y0, x1, y1).d;
+  W.S.river = 1.7; var high = W.wayDist(x0, y0, x1, y1).d, usual = W.wayDist(x0, y0, x1, y1, true).d;
+  T.bridged[f.key] = true; var bridged = W.wayDist(x0, y0, x1, y1).d;
+  if (!(low > f.w + 2)) out.push('wading ' + f.w + ' tiles costs only ' + low);
+  if (isFinite(high)) out.push('high water still crossable: ' + high);
+  if (usual !== low) out.push('ordinary-season cost ' + usual + ' differs from low water ' + low);
+  if (!(bridged < low)) out.push('bridge ' + bridged + ' not shorter than ford ' + low);
+  return out.join('; ');
 }]);
 function runUnits() {
   var rows = [];

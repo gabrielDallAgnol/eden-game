@@ -167,3 +167,21 @@ Population a little below B1 (year 100 mean 48.8 against 57.9, peak 58.9 against
 | mean |  | 15.7 | 41.3 | 54.8 | 62.7 | 17 | 58.3 | 0.2 | 12.7 |  | 6.5 | 14 | 6.7 | 22 | 27.8 | 1 | 1516.9 |
 
 About the same as B2 (year 100 mean 54.8 against 48.8; seeds shift because the random stream changed). The common store is now eaten only beside the fire: someone whose own larder is empty walks to the fire to eat, and that is their day. Hungry next to full: in every world some household with an empty larder had a full one on the next lot (mean 27.8 household-years per 100-year run; new column 'hungry by full'). No starvation at the edge: the starved lived on average as far from the fire as households in general (new column 'starved out/avg', mean 1.0, range 0.6 to 1.2). Moving small children to their own door as well cost about 5 people at year 100 on highland and valley (4 seeds) and is not done; they still play by the fire. Tests: 268 passed (new unit: everyone who ate from the store was beside the fire), 0 failed, 3 warnings (food trips 8.1 and 8.2 in two big towns; one resettle), 4 skipped. Scenarios: 22 passed.
+
+## Water: fords, bridges, fishing from the bank (owner's report: the town ignored water)
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 20 | 45 | 58 | 68 | 21 | 47 | 0 | 13 | 3/36/0 | 6 | 13.8 | 7.1 | 20.9 | 39 | 0.9 | 5 | 2 | 2042 |
+| valley | 2 | 16 | 33 | 66 | 69 | 18 | 57 | 0 | 14 | 0/11/0 | 6.7 | 8.1 | 7.2 | 16.4 | 27 | 1 | 2 | 0 | 1929 |
+| plains | 1 | 7 | 15 | 26 | 33 | 9 | 47 | 1 | 13 | 2/13/0 | 5.6 | 24.6 | 11.4 | 24.3 | 2 | 0.8 | 1 | 4 | 1558 |
+| plains | 2 | 2 | 19 | 32 | 44 | 11 | 35 | 1 | 13 | 2/122/2 | 5.9 | 26.4 | 8.3 | 31.3 | 22 | 1 | 3 | 1 | 1681 |
+| forest | 1 | 7 | 26 | 80 | 90 | 24 | 31 | 0 | 14 | 2/0/0 | 6.9 | 0 | 5.5 | 10.6 | 26 | 0.9 | 5 | 0 | 1337 |
+| forest | 2 | 17 | 58 | 67 | 75 | 20 | 54 | 0 | 14 | 1/1/0 | 6.6 | 4 | 7.9 | 13.8 | 20 | 0.9 | 2 | 0 | 1811 |
+| lakeland | 1 | 8 | 36 | 47 | 62 | 6 | 44 | 1 | 13 | 0/29/0 | 5.9 | 0 | 2.8 | 19.8 | 34 | 0.4 | 3 | 0 | 1359 |
+| lakeland | 2 | 13 | 42 | 54 | 90 | 10 | 73 | 0 | 14 | 13/9/2 | 6.3 | 0 | 5.3 | 19.5 | 12 | 0.9 | 3 | 7 | 1781 |
+| highland | 1 | 5 | 27 | 28 | 38 | 13 | 47 | 0 | 13 | 1/0/0 | 6.3 | 13.3 | 3.8 | 21.9 | 14 | 1.2 | 2 | 0 | 876 |
+| highland | 2 | 8 | 17 | 25 | 27 | 7 | 37 | 0 | 13 | 0/0/0 | 6.2 | 0 | 3.2 | 20 | 2 | 0.9 | 3 | 0 | 1096 |
+| mean |  | 10.3 | 31.8 | 48.3 | 59.6 | 13.9 | 47.2 | 0.3 | 13.4 |  | 6.2 | 9 | 6.2 | 19.9 | 19.8 | 0.9 | 2.9 | 1.4 | 1547 |
+
+Year 100 mean 48.3 against 54.8 at B3 in this table; over 4 seeds x 5 lands the year-100 means are 52.6 against 50.9 at B3, and over 6 seeds x 5 lands 52.8 against 53.3. What changed: dry ground is split into masses by water; distance to the other bank goes by a ford (3 + 3 tiles per tile of water waded) and only while the river is below 1.4 (about two thirds of the time in valley #1); a lot or field across water is as far as the way round, and fields are never sown across water. Fish are caught only from the bank, and fish now swim between water tiles (without that, shore-only fishing cut year-100 population to 31). Each wading trip is remembered at its ford and felt as the want 'cross'; once that want is felt enough (and huts are known) the idea 'bridge' comes, and a bridge is laid where the wading was worst that year: 2.9 bridges per 100-year run on average, the first by year 10 to 36 in valley seeds 1 to 8. Dwellings on another bank than the fire: 1.4 per run. Camp choice now also weighs room to range on foot (the size of the bank), and newcomers to an emptied valley choose their spot afresh: without this, valley #1 and plains #1 emptied 7 and 6 times on a small bank cut off by high water. The view walks people over fords only in low water and over bridges, and draws bridges (code-drawn logs, no generated art). Tests: 278 passed, 0 failed (new: fields on their household's bank; ford, high-water and bridge distances), 4 warnings, 4 skipped. Scenarios: 21 passed, 1 warning (deforest #2 hearths stay lit, 100% to 100%).

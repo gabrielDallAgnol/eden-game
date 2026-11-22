@@ -25,7 +25,10 @@ var COLS = [
   /* B3: household-years in which a household with an empty larder had a neighbour (next lot) with a full one; and how far
      out the starved lived, against the average household (1 = no worse at the edge) */
   ['hungry by full', function (W, r) { return r.contrast || 0; }],
-  ['starved out/avg', function (W) { var s = W.S.stat; return s && s.starveN ? s.starveD / Math.max(0.01, s.starveRef) : ''; }]
+  ['starved out/avg', function (W) { var s = W.S.stat; return s && s.starveN ? s.starveD / Math.max(0.01, s.starveRef) : ''; }],
+  /* water: bridges standing at year 100, and dwellings on another bank than the fire */
+  ['bridges', function (W) { return Object.keys(W.S.tribe.bridged || {}).length; }],
+  ['homes across water', function (W) { if (!W.mass) return ''; var T = W.S.tribe, m = W.mass[T.y * W.N + T.x]; return T.sites.filter(function (q) { return q.kind !== 'well' && W.mass[q.y * W.N + q.x] !== m; }).length; }]
 ];
 if (window.EdenTableExtra) COLS = COLS.concat(window.EdenTableExtra);
 // optional per-step columns that need data gathered during the run: name -> { year(W, r), col: [heading, fn] }

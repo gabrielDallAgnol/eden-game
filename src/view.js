@@ -26,7 +26,10 @@ const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let dpr = 1, cam = { x: 0, y: 0, z: 2 }, speed = 1, paused = true, tool = 'hand', tickFrac = 0, now = 0, gameMs = 0;
 const hash = (a, b) => { let n = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
 let rs = seed * 31 + 7; const rnd = () => { rs = (Math.imul(rs, 1103515245) + 12345) & 0x7fffffff; return rs / 0x7fffffff; }, R = (a, b) => a + rnd() * (b - a);
-const isWater = (x, y) => { const xi = x | 0, yi = y | 0; return xi < 0 || yi < 0 || xi >= N || yi >= N || W.water[yi * N + xi] === 1; };
+/* fords while the river runs low, and bridges always, can be walked across; the rest of the water cannot */
+const crossing = new Uint8Array(N * N);
+function syncCrossings() { crossing.fill(0); const T = S.tribe; for (const f of W.fords()) if (T.bridged[f.key] || S.river < 1.4) for (const t of f.tiles) crossing[t] = 1; }
+const isWater = (x, y) => { const xi = x | 0, yi = y | 0; return xi < 0 || yi < 0 || xi >= N || yi >= N || (W.water[yi * N + xi] === 1 && !crossing[yi * N + xi]); };
 const mkC = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 
 // ================================================================== the camp's fixed places
@@ -269,6 +272,13 @@ function wantProps() {
       want.set('f' + c, { kind: 'fence', i: c, x: fx + 0.5, y: fy + 0.5, base: 'f' + alongX + gate, img: gate ? (alongX ? A.gateX : A.gateY) : (alongX ? A.fenceX : A.fenceY), dy: 14 });
     }
   }
+  /* bridges: every one finished, and the one being laid as far as its timber goes */
+  if (campOn) {
+    const byKey = new Map(W.fords().map(f => [f.key, f]));
+    const lay = (f, n) => { for (let k = 0; k < Math.min(n, f.tiles.length); k++) { const t = f.tiles[k]; want.set('b' + t, { kind: 'bridge', x: t % N + 0.5, y: ((t / N) | 0) + 0.5, base: 'b' + f.horiz, img: f.horiz ? A.bridgeX : A.bridgeY, dy: 16 }); } };
+    for (const key in T0.bridged) { const f = byKey.get(key); if (f) lay(f, f.tiles.length); }
+    const b = T0.bridge; if (b && !b.done) { const f = byKey.get(b.key); if (f) lay(f, Math.floor(f.tiles.length * b.wood / b.need)); }
+  }
   const logs = campOn ? Math.min(6, Math.ceil(T0.wood / 2)) : 0;
   for (let k = 0; k < logs; k++) want.set('w' + k, { kind: 'logs', x: store.x - 0.3 + (k % 3) * 0.14, y: store.y + 0.45 + ((k / 3) | 0) * 0.12, base: 'w', img: A.item.log, dy: 2 });
   if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) want.set('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
@@ -415,7 +425,8 @@ function route(x0, y0, x1, y1) {
       const nx = cx0 + dx, ny = cy0 + dy;
       if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
       const j = ny * N + nx;
-      if (prevA[j] >= 0 || W.water[j] || (dx && dy && (W.water[cy0 * N + nx] || W.water[ny * N + cx0]))) continue;
+      const wet = k => W.water[k] && !crossing[k];
+      if (prevA[j] >= 0 || wet(j) || (dx && dy && (wet(cy0 * N + nx) || wet(ny * N + cx0)))) continue;
       prevA[j] = c;
       q.push(j);
     }
@@ -749,6 +760,9 @@ function takeEvents(instant) {
   }
 }
 function onTick() {
+  syncCrossings();
+  /* newcomers to an emptied valley may camp somewhere else: the fixed places of the camp follow the fire */
+  if (camp.x !== T0.x + 0.5 || camp.y !== T0.y + 0.5) { camp.x = T0.x + 0.5; camp.y = T0.y + 0.5; fire.x = camp.x + 0.55; fire.y = camp.y + 0.15; store.x = camp.x - 0.45; store.y = camp.y + 0.35; }
   if (S.tickNo % W.TPY === 0 && !window.EDEN_NOSAVE) { try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }   /* autosave once a game year */
   takeEvents(false); syncHuts();
   for (const a of S.agents) { if (!a.alive) continue; let r = recOf(a.id); if (!r) { const e = endOf(a); r = newRec(a, e.x, e.y, { alpha: 0 }); } r.a = a; }
@@ -1579,7 +1593,7 @@ addEventListener('resize', resize); resize();
 cam.z = clamp(dpr * 1.1, minZ(), maxZ()); { const wx = isoX(camp.x, camp.y), wy = isoY(camp.x, camp.y); cam.x = wx - cv.width / cam.z / 2; cam.y = wy - 30 - cv.height / cam.z / 2; clampCam(); }
 for (const a of S.agents) if (a.alive) { const e = endOf(a); newRec(a, e.x, e.y); }
 huts.length = 0; onTick();
-startPaint(); paintSome(WH); gFront = gFade ? gFade.to : gFront; gFade = null; for (const p of props.values()) p.born = -1e9;
+syncCrossings(); startPaint(); paintSome(WH); gFront = gFade ? gFade.to : gFront; gFade = null; for (const p of props.values()) p.born = -1e9;
 window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => {
     tool = t;
   }, start: () => {

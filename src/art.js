@@ -405,6 +405,21 @@ function onStilts(img) {
   x.fillStyle = '#a8855c'; x.fillRect(0, base - 9, Math.round(w * 0.3), 2); x.fillStyle = '#5a3f2a'; x.fillRect(1, base - 7, 2, 7); x.fillRect(Math.round(w * 0.3) - 3, base - 7, 2, 7);   // a landing for the boat
   x.drawImage(img, 4, 0); return c;
 }
+// one tile of a log bridge, running along x (horiz) or along y: a deck of planks laid across the way of travel, a rail on each side
+function bridgeSprite(horiz) {
+  const c = mk(64, 40), x = c.getContext('2d');
+  const top = [32, 4 + 4], ax = horiz ? [32, 16] : [-32, 16], ay = horiz ? [-32, 16] : [32, 16];
+  const at = (u, v, lift) => [top[0] + u * ax[0] + v * ay[0], top[1] + u * ax[1] + v * ay[1] - (lift || 0)];
+  const quad = (pts, col) => { x.fillStyle = col; x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) x.lineTo(p[0], p[1]); x.closePath(); x.fill(); };
+  quad([at(-0.02, 0.2, -3), at(1.02, 0.2, -3), at(1.02, 0.8, -3), at(-0.02, 0.8, -3)], '#4a3222');            // the side of the deck, in shadow
+  quad([at(-0.02, 0.2), at(1.02, 0.2), at(1.02, 0.8), at(-0.02, 0.8)], '#a8855c');
+  for (let k = 0; k <= 8; k++) { const u = k / 8, p = at(u, 0.2), q = at(u, 0.8); x.strokeStyle = k % 2 ? '#86694a' : '#6e5137'; x.lineWidth = 1; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(q[0], q[1]); x.stroke(); }
+  for (const v of [0.2, 0.8]) {
+    for (const u of [0.05, 0.5, 0.95]) { const p = at(u, v); x.fillStyle = '#5a3f2a'; x.fillRect(Math.round(p[0]) - 1, Math.round(p[1]) - 6, 2, 6); }
+    const p = at(0, v, 6), q = at(1, v, 6); x.strokeStyle = '#6e5137'; x.lineWidth = 2; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(q[0], q[1]); x.stroke();
+  }
+  return outlineCanvas(c, OUT);
+}
 // a run of sharpened stakes across one tile, along one of the two ground directions; and the two posts of a gate
 function fenceSprite(alongX, gate) {
   const W = 38, H = 36, c = mk(W, H), x = c.getContext('2d'), n = gate ? 2 : 7;
@@ -563,7 +578,7 @@ function build() {
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
   A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
-  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
+  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
   A.fire = fire.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.flame = flame.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.basket = sprite(basket, BASK, { x2: true }); A.bones = sprite(bones, BONE, { x2: true });
   A.bubble = {}; for (const k in ICON) A.bubble[k] = bubble(ICON[k]);
   A.item = {}; for (const k in ITEMS) A.item[k] = sprite(ITEMS[k][0], ITEMS[k][1]); A.item.basket = sprite(basket, BASK);
