@@ -66,7 +66,12 @@ function create(seed, opt) {
     lakeland: { shape: 'basins', riverA: 70,  lake: 0.2, treeAt: 0.58, rockAt: 0.86, warm: 0,  fert: 0 },
     highland: { shape: 'high',   riverA: 90,  lake: 0.9,  treeAt: 0.6,  rockAt: 0.56, warm: -3, fert: -0.12 }
   };
-  const TREE_LINE = 7;   /* levels above which it grows too cold for woods to close */
+  const TREE_LINE = 7;
+  /* how much country there is, against the 40 x 40 the animal numbers were first set for: what counts as 'nearly gone' and
+     how many wander in together scale with it (D5) */
+  const AREA = (opt.size || 40) * (opt.size || 40) / 1600;
+  /* D5 tuning (wander-in): a plant eater counts as nearly gone below 8 per 40x40 of land and then comes back in 60% of
+     years; wolves come in 80% of years while prey per wolf is plentiful. Groups that wander in grow with the square root of AREA. */   /* levels above which it grows too cold for woods to close */
   const landKind = LANDS[opt.land] ? opt.land : 'valley', LAND = LANDS[landKind], rock = F();
   const noise = (x, y, s) => {
     const h = (a, b) => {
@@ -1759,13 +1764,13 @@ function create(seed, opt) {
         if (d.eats.meat && !plantEater(d)) {
           let game = 0;
           for (const q in SP) if (!SP[q].people && !SP[q].eats.meat && SP[q].mass <= d.mass * reach(d)) game += S.pop[q] * SP[q].mass;
-          come = game / (S.pop[sp] + 1) > 6 * d.mass && S.pop[sp] < 16 && rnd() < 0.5;
+          come = game / (S.pop[sp] + 1) > 6 * d.mass && S.pop[sp] < 16 * AREA && rnd() < 0.8;
         }
-        else come = S.pop[sp] < 3 && rnd() < 0.3;
+        else come = S.pop[sp] < 8 * AREA && rnd() < 0.6;
         if (S.levers.banned[sp]) come = false;
         if (come) {
           const ex = rnd() < 0.5 ? 1 : N - 2, ey = R(2, N - 2);
-          for (let k = 0; k < (d.mass < 1 ? 4 : 2); k++) {
+          for (let k = 0; k < Math.round((d.mass < 1 ? 4 : 2) * Math.sqrt(AREA)); k++) {
             const c = add(sp, ex, ey, d.mature * 1.2, 0.9);
             S.fx.push({ kind: 'arrive', id: c.id, x: c.x, y: c.y });
           }

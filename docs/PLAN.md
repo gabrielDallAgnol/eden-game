@@ -48,7 +48,7 @@ If a rule you add is a plan rather than an outcome, list it under "Planned on pu
 | A | Done: A1 to A6. A7 (ES modules) not done: optional, and it would break `tools/build_single.py` and the `new Function` loaders the tests and docs use. |
 | B | Done: B1 to B8, plus a water step the owner asked for (fords, bridges from wading toil, fishing from the bank). B7's check (a pond in a 100-year lakeland run) is not met: stone demand is too low to work pits out. |
 | C | Done: C1, C2 and C3 (one commit). Ground memory 27.7 MB at 40x40. |
-| D | D1 to D4 done (D4 with height H1: terrain, lakes and rivers by flow, rock and trees by slope and height, the guaranteed pass, the view tinted by height; game map 96). D5 next. Also done on the owner's request: no crossing without a bridge, timber only from chopping, faster speeds (up to 48x). |
+| D | Done: D1 to D5 (D4 with height H1; game map 96 tiles). D5: all three animal kinds alive at year 100 in 7 of 10 standard worlds (8 of 10 at 128, 1 of 10 at the old 40). Also done on the owner's request: no crossing without a bridge, timber only from chopping, faster speeds (up to 48x). Next: E. |
 
 ## 1. How to work on it
 
