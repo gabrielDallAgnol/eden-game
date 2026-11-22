@@ -48,7 +48,7 @@ If a rule you add is a plan rather than an outcome, list it under "Planned on pu
 | A | Done: A1 to A6. A7 (ES modules) not done: optional, and it would break `tools/build_single.py` and the `new Function` loaders the tests and docs use. |
 | B | Done: B1 to B8, plus a water step the owner asked for (fords, bridges from wading toil, fishing from the bank). B7's check (a pond in a 100-year lakeland run) is not met: stone demand is too low to work pits out. |
 | C | Done: C1, C2 and C3 (one commit). Ground memory 27.7 MB at 40x40. |
-| D | D1 done. D2 to D5 next. |
+| D | D1 done. D2 to D5 next. D4 now includes height (H1); see `docs/ENVIRONMENT.md`. |
 
 ## 1. How to work on it
 
@@ -196,7 +196,7 @@ Phases A to D are the foundation the owner asked for. Phase M (the environment) 
 | D1 | Remove the quadratic creature loops (pack filter in `hunt()`, the adults filter in `person()`, the territory count at birth) and the per-tick full-map loops (well watering, harvest) by using `cells` and a list of field tiles. | 100-year run time per world drops; histories change, so re-baseline. |
 | D2 | `known` mask in the sim, written only by where creatures of the settlement stand (sight shorter under trees). View: `colorAt()` fades toward mist with a blurred `known`; chunks with nothing known get no canvas; props and animals fade; camera limits follow the known area. Still 40x40. | Early game shows a small lit area that grows. `known` never depends on the camera. |
 | D3 | `a.reach` per person replaces the fixed forage radius; it rises on an empty search while the want is felt and falls when supplied, capped by daylight and means. Same for timber, stone and lot searches. | Scenario "held at 30": reach stays small. A growing village's known area grows. |
-| D4 | Map size becomes `opt.size`. Water comes from noise with fixed wavelengths instead of fractions of `N`. Animal starting numbers scale with area. Newcomers arrive at the edge of the known land. Default 96, then 128. | Tests pass at 40, 96 and 128. A 100-year run at 128 takes under 30 s. |
+| D4 | Map size becomes `opt.size`. **Height comes in the same commit (step H1 of M9, owner approved 2026-11-22, design in `docs/ENVIRONMENT.md` "Height: design for M9"):** a `height` field from noise with fixed wavelengths, lakes filled to their spill point and rivers where enough land drains, so water follows the land instead of fractions of `N`; the view stays flat but is tinted by height. Animal starting numbers scale with area. Newcomers arrive at the edge of the known land. Default 96, then 128. | Tests pass at 40, 96 and 128. A 100-year run at 128 takes under 30 s. |
 | D5 | Retune the ecology at the new density if needed (only animal start numbers and the wander-in rule). | Deer, rabbits and wolves all present at year 100 in most seeds. |
 
 **Trap:** D4 changes every seed's world. Do it in one commit and re-baseline everything.
