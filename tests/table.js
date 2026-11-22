@@ -15,7 +15,11 @@ var COLS = [
   ['hunger deaths', function (W) { return hungerDeaths(W.S); }],
   ['resettled', function (W, r) { return r.resettled; }],
   ['ideas', function (W) { return W.ideas().filter(function (i) { return i.known; }).length; }],
-  ['animals', function (W) { var p = W.S.pop; return (p.deer || 0) + '/' + (p.rabbit || 0) + '/' + (p.wolf || 0); }]
+  ['animals', function (W) { var p = W.S.pop; return (p.deer || 0) + '/' + (p.rabbit || 0) + '/' + (p.wolf || 0); }],
+  /* B1: mean length, along the ways, of a food trip from the door, and of timber and stone trips from the building plot */
+  ['food trip', function (W) { var s = W.S.stat; return s ? s.forageD / Math.max(1, s.forageN) : ''; }],
+  ['timber trip', function (W) { var s = W.S.stat; return s ? s.timberD / Math.max(1, s.timberN) : ''; }],
+  ['stone trip', function (W) { var s = W.S.stat; return s ? s.stoneD / Math.max(1, s.stoneN) : ''; }]
 ];
 if (window.EdenTableExtra) COLS = COLS.concat(window.EdenTableExtra);
 // optional per-step columns that need data gathered during the run: name -> { year(W, r), col: [heading, fn] }

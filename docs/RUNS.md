@@ -113,3 +113,21 @@ Identical to A4. Two settlement defaults changed from undefined to a value with 
 | mean |  | 15 | 18.3 | 25.2 | 36.9 | 8.9 | 62.9 | 0 | 10.8 |  | 915.2 |
 
 Identical to A5 in every row and every log. The change was made by a parser-driven tool that only inserts line breaks and indentation, and the syntax trees of sim.js and view.js (positions removed) were compared before and after: identical. No line in either file is now over 200 characters (sim.js 90 such lines before, view.js 110). Tests: 258 passed, 0 failed, 2 warnings, 4 skipped (determinism rerun included).
+
+## B1: work from your own door
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 5 | 28 | 44 | 55 | 14 | 51 | 0 | 12 | 7/0/0 | 6.8 | 15.5 | 5.4 | 1638 |
+| valley | 2 | 20 | 19 | 52 | 52 | 16 | 56 | 0 | 12 | 1/26/0 | 6.7 | 3.2 | 6.6 | 1663 |
+| plains | 1 | 13 | 46 | 30 | 51 | 11 | 82 | 0 | 14 | 0/21/0 | 4.9 | 22.9 | 12.3 | 1866 |
+| plains | 2 | 10 | 37 | 44 | 53 | 15 | 58 | 1 | 12 | 9/0/0 | 5.3 | 17.4 | 8.4 | 1728 |
+| forest | 1 | 6 | 27 | 62 | 65 | 20 | 40 | 1 | 12 | 2/1/0 | 6.6 | 4.6 | 7.2 | 1363 |
+| forest | 2 | 19 | 42 | 62 | 65 | 18 | 53 | 0 | 11 | 0/24/0 | 6.7 | 3.7 | 7.2 | 1155 |
+| lakeland | 1 | 15 | 55 | 90 | 92 | 22 | 45 | 0 | 13 | 0/0/0 | 8.6 | 14.9 | 6.2 | 1376 |
+| lakeland | 2 | 22 | 69 | 144 | 145 | 41 | 51 | 0 | 14 | 1/4/0 | 7.8 | 9 | 7.3 | 1814 |
+| highland | 1 | 11 | 24 | 26 | 39 | 10 | 62 | 0 | 13 | 0/0/0 | 6.3 | 13.1 | 4.7 | 842 |
+| highland | 2 | 7 | 25 | 25 | 40 | 9 | 56 | 0 | 14 | 1/18/0 | 6.3 | 0 | 3.1 | 847 |
+| mean |  | 12.8 | 37.2 | 57.9 | 65.7 | 17.6 | 55.4 | 0.2 | 12.7 |  | 6.6 | 10.4 | 6.8 | 1429.2 |
+
+Large change, upward. Mean population at year 100 is 57.9 against 25.2 (peak 65.7 against 36.9); hunger deaths fall slightly (55.4 against 62.9). The cause: food was gathered within 7 tiles of the one fire; now each household searches from its own door, so a village of many roofs works much more ground. Nothing compensates by raising yields. Food trips average 6.6 tiles along the ways (plan's check: under 8); only lakeland #1, the 100-year 90-person town, averages 8.6. Distance is along the ways, or straight across open ground at 1.5 times the cost per tile when that is shorter (without this, a tile beside one's own door counted 8 tiles away). WALK = 6 kept as designed: WALK 4 gave mean year-100 population 37 and trips 8.8, WALK 3 gave 28 and 7.9 with year-25 populations of 4.5. Timber and stone are taken from the nearest tile along the ways anywhere on the map (no radius), and a trip brings back less the further it goes. Lakeland #1 has no animals left at year 100 (hunted out by 90 people); ecology is phase D5. Scenarios: 20 passed; held30 now sits at its cap of 30 with 3 hunger deaths in 100 years (60 and 70 before). Tests: 266 passed, 0 failed, 4 warnings (two resettled worlds, lakeland 100-year animals and trip 8.6), 4 skipped.

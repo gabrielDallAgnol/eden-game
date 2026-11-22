@@ -97,6 +97,7 @@ function WorldRun(land, seed, years) {
   add('softNeverGone', 'people never died out (no resettling was needed)', 'soft');
   add('softAnimals', 'at least one kind of animal is alive at the end', 'soft');
   add('softGrowth', 'agents array and log stay a sane size', 'soft');
+  add('softTrip', 'food trips from the door average under 8 tiles along the ways (B1)', 'soft');
   this.guard = function (key, fn) { try { fn(C[key]); } catch (e) { C[key].fail('the check itself threw at year ' + self.year + ': ' + (e && e.message || e)); } };
 }
 
@@ -343,6 +344,12 @@ WorldRun.prototype.finish = function () {
       var L = self.living(); if (!L) return c.skip('S.agents is missing');
       var kinds = []; for (var i = 0; i < L.list.length; i++) { var a = L.list[i]; if (!(a.d && a.d.people) && kinds.indexOf(a.sp) < 0) kinds.push(a.sp); }
       if (kinds.length) { c.ok(); c.note = kinds.join(', '); } else c.fail('no animal of any kind is alive in year ' + y);
+    });
+    this.guard('softTrip', function (c) {
+      var st = W.S.stat; if (!st || st.forageD === undefined) return c.skip('S.stat is missing');
+      if (!st.forageN) return c.skip('no food trips');
+      var m = st.forageD / st.forageN; c.note = 'mean ' + show(m) + ' over ' + st.forageN + ' trips';
+      if (m < 8) c.ok(); else c.fail(c.note);
     });
     this.guard('softGrowth', function (c) {
       var S = W.S, bad = [];

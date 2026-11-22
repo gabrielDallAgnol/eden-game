@@ -138,6 +138,29 @@ function create(seed, opt) {
     const T = S.tribe, vx = snapWay(x0, T.x), hy = snapWay(y1, T.y);
     stamp(x0, y0, vx, y0, w * 0.4); stamp(vx, y0, vx, hy, w); stamp(vx, hy, x1, hy, w); stamp(x1, hy, x1, y1, w * 0.4);
   }
+  // Distance costs working time. A trip goes the way walk() goes it (door, along the ways, in at the other end); its length
+  // and how much of it lies on a made road decide how much of the day is left for the work itself:
+  //   work done = day's work / (1 + d / (WALK * v)),  v = 1 on open ground, 1.5 on a made road, 2 with a cart.
+  // WALK is the one tuning number (docs/LAND-AND-DENSITY.md, "Walking cost").
+  const WALK = 6;
+  function wayDist(x0, y0, x1, y1) {
+    const T = S.tribe, vx = snapWay(x0, T.x), hy = snapWay(y1, T.y);
+    /* along the ways, or straight across open ground where that is shorter: rough ground costs half again as much per tile */
+    const d = Math.min(Math.abs(x0 - vx) + Math.abs(y0 - hy) + Math.abs(x1 - vx) + Math.abs(y1 - hy), 1.5 * Math.hypot(x1 - x0, y1 - y0));
+    /* how much of the long legs runs on made road: looked at in the middle of each */
+    const cx = clamp(vx, 0, N - 1), cy = clamp(hy, 0, N - 1);
+    const rd = (T.road[I(cx, clamp(Math.round((y0 + hy) / 2), 0, N - 1))] ? 1 : 0) + (T.road[I(clamp(Math.round((vx + x1) / 2), 0, N - 1), cy)] ? 1 : 0);
+    return { d, road: rd / 2 };
+  }
+  const walkEff = (x0, y0, x1, y1, v) => { const w = wayDist(x0, y0, x1, y1); return 1 / (1 + w.d / (WALK * v * (1 + 0.5 * w.road))); };
+  // where a person's working day starts and ends: the door of their own roof, or the fire for those without one
+  const doorOf = a => { const h = homeSite(a); return h ? h : S.tribe; };
+  // the nearest tile, along the ways, that answers a want; jitter adds a little chance so not everyone goes to the same one
+  function nearestWay(x0, y0, ok, jitter) {
+    let bj = -1, bd = 1e9;
+    for (let j = 0; j < N * N; j++) { if (!ok(j)) continue; const dd = wayDist(x0, y0, j % N, (j / N) | 0).d + (jitter ? rnd() * jitter : 0); if (dd < bd) { bd = dd; bj = j; } }
+    return bj;
+  }
   // A settlement as it is when the first people arrive. The one place a settlement's fields are named, so a field added
   // here is reset wherever a settlement starts over.
   function newSettlement(x, y) {
@@ -166,6 +189,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
+    stat: { forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0 },
     levers: { hold: {},
       banned: {} } };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
@@ -841,17 +865,19 @@ function create(seed, opt) {
         }
       }
     }
-    // look for food: plants, fish, game. What is found is carried home and shared.
-    const range = able ? 7 : old ? 5 : 4; let bestV = 0, bx = a.x, by = a.y, kind = '';
+    // look for food: plants, fish, game, from their own door. Places near the door are looked at most; nothing is out of
+    // bounds, but a far place has to be worth the walk. What is found is carried home.
+    const door = doorOf(a), pace = able ? 1 : 0.6; let bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
     for (let k = 0; k < 10; k++) {
-      const x = clamp(T.x + ((rnd() * (2 * range + 1)) | 0) - range, 0, N - 1),
-        y = clamp(T.y + ((rnd() * (2 * range + 1)) | 0) - range, 0, N - 1),
+      const far = -WALK * Math.log(1 - rnd() * 0.999), ang = rnd() * 6.2832;
+      const x = clamp(Math.round(door.x + Math.cos(ang) * far), 0, N - 1),
+        y = clamp(Math.round(door.y + Math.sin(ang) * far), 0, N - 1),
         j = I(x, y),
-        dd = 1 / (1 + Math.max(Math.abs(x - T.x), Math.abs(y - T.y)) / 5);
+        dd = walkEff(door.x, door.y, x, y, pace);
       let v = 0, kd = '';
       if (water[j]) { if (T.skills.fish) { v = fish[j] * 1.1 * (tempAt(j) < -3 ? 0.65 : 1) * a.skill.fish * (a.job === 'fisher' ? 1.5 : 1); kd = 'fish'; } }
       else { v = (fruit[j] * 1.6 + grass[j] * 0.12 * (1 - snowBlock(j, d.mass))) * a.skill.gather * (a.job === 'gatherer' || a.job === 'farmer' ? 1.3 : 1); kd = 'plant'; }
-      v *= dd; if (v > bestV) { bestV = v; bx = x; by = y; kind = kd; }
+      v *= dd; if (v > bestV) { bestV = v; bx = x; by = y; kind = kd; bestE = dd; }
     }
     // the hunt: when the stores run low, the able go out together in the morning after the nearest big game.
     // One walks straight at it; the others swing wide and get beyond it, so that what runs from the first runs onto them.
@@ -909,8 +935,9 @@ function create(seed, opt) {
       return;
     }
     if (kind) {
-      const j = I(bx, by), eff = TPY * dt * S.dayK / (1 + Math.max(Math.abs(bx - T.x), Math.abs(by - T.y)) / 6) / (1 + tree[j] * tree[j] * 1.2);
-      walk(T.x, T.y, bx, by, 0.03);
+      const j = I(bx, by), eff = TPY * dt * S.dayK * bestE / (1 + tree[j] * tree[j] * 1.2);
+      walk(door.x, door.y, bx, by, 0.03);
+      { const w = wayDist(door.x, door.y, bx, by); S.stat.forageD += w.d; S.stat.forageN++; }
       if (kind === 'fish') {
         const take = Math.min(fish[j] * 0.5, 0.31 * eff * a.skill.fish * (a.job === 'fisher' ? 1.3 : 1)) * (tempAt(j) < -3 ? 0.65 : 1);
         practise(a, 'fish');
@@ -931,7 +958,7 @@ function create(seed, opt) {
         T.eff.gather++;
         if (a.act.k === 'idle') a.act = { k: 'gather', x: bx, y: by, fruit: tf > 0.01 ? 1 : 0, got: tf * 1.6 + tg * 0.5 };
       }
-      if (rnd() < 0.5) { a.x = bx; a.y = by; } else { a.x = clamp(T.x + ((rnd() * 5) | 0) - 2, 0, N - 1); a.y = clamp(T.y + ((rnd() * 5) | 0) - 2, 0, N - 1); }
+      if (rnd() < 0.5) { a.x = bx; a.y = by; } else { a.x = clamp(door.x + ((rnd() * 5) | 0) - 2, 0, N - 1); a.y = clamp(door.y + ((rnd() * 5) | 0) - 2, 0, N - 1); }
       if (water[I(a.x, a.y)]) { a.x = T.x; a.y = T.y; }
     }
     // a strong camp drives off whatever would hunt it
@@ -1044,21 +1071,11 @@ function create(seed, opt) {
     const T = S.tribe, s = plotFor(); if (!s) return false;
     if (s === T.wall) {                                               // stakes cut, carried and driven, a few paces of fence at a time
       if (T.wood < 1) {
-        let bj = -1, bd = 1e9;
-        for (let dy = -10; dy <= 10; dy++) for (let dx = -10; dx <= 10; dx++) {
-          const x = T.x + dx, y = T.y + dy;
-          if (x < 0 || y < 0 || x >= N || y >= N) continue;
-          const j = I(x, y);
-          if (tree[j] < 0.3) continue;
-          const dd = Math.hypot(dx, dy) + rnd() * 1.5;
-          if (dd < bd) {
-            bd = dd;
-            bj = j;
-          }
-        }
+        const bj = nearestWay(T.x, T.y, j => tree[j] >= 0.3, 1.5);
         if (bj < 0) return false;
         tree[bj] -= Math.min(tree[bj], 0.16);
-        T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cartload(bj);
+        const ld = cartload(bj), ef = walkEff(T.x, T.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
+        T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
         a.act = { k: 'chop', j: bj, site: 0 };
         return true;
       }
@@ -1074,21 +1091,14 @@ function create(seed, opt) {
     const K = DWELL[s.kind], needW = (s.stage + 1) * K.wood + (s.lake ? 2 : 0), needS = (s.stage + 1) * K.stone;   // what must lie on the plot before the next stage; posts for a house over water
     if (s.wood < needW) {
       if (T.wood >= 1) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; walk(T.x, T.y, s.x, s.y, 0.12); return true; }
-      let bj = -1, bd = 1e9;                                        // fell the nearest standing timber; saplings are left to grow
-      for (let dy = -9; dy <= 9; dy++) for (let dx = -9; dx <= 9; dx++) {
-        const x = s.x + dx, y = s.y + dy;
-        if (x < 0 || y < 0 || x >= N || y >= N) continue;
-        const j = I(x, y);
-        if (tree[j] < 0.3) continue;
-        const dd = Math.hypot(dx, dy) + rnd() * 1.5;
-        if (dd < bd) {
-          bd = dd;
-          bj = j;
-        }
-      }
+      /* fell the nearest standing timber along the ways; saplings are left to grow. The further it stands, the less is
+         brought back in a day */
+      const bj = nearestWay(s.x, s.y, j => tree[j] >= 0.3, 1.5);
       if (bj < 0) return false;
       tree[bj] -= Math.min(tree[bj], 0.16);
-      T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cartload(bj);
+      const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
+      S.stat.timberD += wayDist(s.x, s.y, bj % N, (bj / N) | 0).d; S.stat.timberN++;
+      T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
       a.act = { k: 'chop', j: bj, site: s.id };
       sound(bj % N, (bj / N) | 0, 3.5, 'work');
       walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1);
@@ -1097,34 +1107,14 @@ function create(seed, opt) {
     }
     if (s.stone < needS) {
       if (T.stone >= 1) { const c = Math.min(T.stone, needS - s.stone); T.stone -= c; s.stone += c; a.act = { k: 'haul', site: s.id, item: 'stone' }; return true; }
-      let bj = -1, bd = 1e9, got = 2;                               // break stone where it shows; failing that, carry cobbles up from the water's edge
-      for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) {
-        const x = s.x + dx, y = s.y + dy;
-        if (x < 0 || y < 0 || x >= N || y >= N) continue;
-        const j = I(x, y);
-        if (rock[j] < 0.15) continue;
-        const dd = Math.hypot(dx, dy);
-        if (dd < bd) {
-          bd = dd;
-          bj = j;
-        }
-      }
-      if (bj < 0) {
-        got = 1;
-        for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) {
-          const x = s.x + dx, y = s.y + dy;
-          if (x < 0 || y < 0 || x >= N || y >= N) continue;
-          const j = I(x, y);
-          if (water[j] || bank[j] < 0.75) continue;
-          const dd = Math.hypot(dx, dy);
-          if (dd < bd) {
-            bd = dd;
-            bj = j;
-          }
-        }
-      }
-      if (bj < 0) return false;
-      T.stone += (got + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cartload(bj);
+      /* break stone where it shows, or carry cobbles up from the water's edge: whichever costs the less walking for what it gives */
+      const bq = nearestWay(s.x, s.y, j => rock[j] >= 0.15, 0), bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0);
+      const vq = bq < 0 ? 0 : 2 * walkEff(s.x, s.y, bq % N, (bq / N) | 0, 1), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
+      if (bq < 0 && bc < 0) return false;
+      const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
+      const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
+      S.stat.stoneD += wayDist(s.x, s.y, bj % N, (bj / N) | 0).d; S.stat.stoneN++;
+      T.stone += (got + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
       a.act = { k: 'quarry', j: bj, site: s.id };
       sound(bj % N, (bj / N) | 0, 4, 'work');
       walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1);
