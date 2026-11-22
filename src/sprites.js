@@ -17,6 +17,10 @@ S.apply = function (A, h) {
   // one strip -> a list of frame canvases
   const frames = key => { const m = S.meta[key], out = []; for (let f = 0; f < m.frames; f++) { const c = mk(m.w, m.h); c.getContext('2d').drawImage(S.img[key], f * m.w, 0, m.w, m.h, 0, 0, m.w, m.h); out.push(c); } return out; };
   const one = key => frames(key)[0];
+  // Sizes. The sheets were drawn to fill their canvas, not to a common scale, so each is brought to Eden's proportions here
+  // (a grown person stands about 36 px): deer about 34 px long, a house about 100 px tall. Art drawn at the right size needs 1.
+  const SCALE = { deer: 0.74, fawn: 0.74, cottage: 1.4 };
+  const sized = (c, f) => { if (f === 1) return c; if (f < 1) return shrink(c, f); const o = mk(Math.round(c.width * f), Math.round(c.height * f)), x = o.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(c, 0, 0, o.width, o.height); return o; };
   // a recoloured copy: fn(r, g, b, x, y, alphaAt) returns [r, g, b] or null to leave the pixel alone
   const recolour = (src, fn) => {
     const c = mk(src.width, src.height), x = c.getContext('2d'); x.drawImage(src, 0, 0);
@@ -30,7 +34,7 @@ S.apply = function (A, h) {
 
   // ---------------------------------------------------------------- deer and fawn: 8-frame walk, grazing, lying
   const animal = name => {
-    const walk = frames(name + '_walk'), graze = frames(name + '_graze'), lie = frames(name + '_lie'), last = lie[lie.length - 1];
+    const get = k => frames(name + '_' + k).map(c => sized(c, SCALE[name] || 1)), walk = get('walk'), graze = get('graze'), lie = get('lie'), last = lie[lie.length - 1];
     const head = graze.slice(-2);                                   // the two head-down frames
     return { r: walk, l: walk.map(flip), w: walk[0].width, h: walk[0].height, lie: { r: last, l: flip(last) }, graze: { r: head, l: head.map(flip) } };
   };
@@ -69,7 +73,7 @@ S.apply = function (A, h) {
   });
 
   // ---------------------------------------------------------------- the home: a timber cottage, with a snowed-over roof for winter
-  const cottage = one('cottage');
+  const cottage = sized(one('cottage'), SCALE.cottage);
   A.hut = cottage;
   A.hutSnow = recolour(cottage, (r, g, b, x, y) => b > r + 8 && g > r && !dark(r, g, b) ? (y % 4 === 3 ? [205, 218, 234] : hash(x >> 1, y) < 0.85 ? [246, 249, 252] : [227, 235, 245]) : null);
 };

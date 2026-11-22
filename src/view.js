@@ -20,10 +20,9 @@ const mkC = (w, h) => { const c = document.createElement('canvas'); c.width = w;
 
 // ================================================================== the camp's fixed places
 const T0 = S.tribe, camp = { x: T0.x + 0.5, y: T0.y + 0.5 };
-const hutSpots = []; for (let k = 0; k < 40 && hutSpots.length < 18; k++) { const ring = 1 + Math.floor(k / 6), ang = k * 2.399 + 0.9, x = camp.x + Math.cos(ang) * (0.9 + ring * 1.2), y = camp.y + Math.sin(ang) * (0.9 + ring * 1.2); if (x < 0.6 || y < 0.6 || x > N - 0.6 || y > N - 0.6 || isWater(x, y) || isWater(x + 0.4, y + 0.4)) continue; hutSpots.push({ x, y }); }
 const fire = { x: camp.x + 0.55, y: camp.y + 0.15 }, store = { x: camp.x - 0.45, y: camp.y + 0.35 };
 const seat = k => { const a = k * 2.1 + 0.4, r = 0.62 + (k % 3) * 0.16; return { x: fire.x + Math.cos(a) * r, y: fire.y + Math.sin(a) * r * 0.9 }; };
-const campR = () => Math.min(T0.huts, hutSpots.length) > 6 ? 4.6 : 3.3;
+const campR = () => T0.sites.length > 6 ? 4.6 : 3.3;
 
 // ================================================================== ground: painted from the engine's fields, crossfaded, touched up locally while a power is held
 const gcv = [mkC(WW, WH), mkC(WW, WH)], gctx = gcv.map(c => c.getContext('2d')); let gFront = 0, gFade = null;
@@ -154,6 +153,7 @@ function wantProps() {
   }
   for (const h of S.homes.values()) { const snowy = W.snow[h.y * N + h.x] > 0.08; want.set('h' + h.id, { kind: h.kind, home: h, x: h.x + 0.5, y: h.y + 0.5, base: h.kind + snowy, img: h.kind === 'den' ? (snowy ? A.denSnow : A.den) : (snowy ? A.burrowSnow : A.burrow), dy: h.kind === 'den' ? 10 : 6 }); }
   const piles = campOn ? Math.min(6, Math.ceil(T0.store / 7)) : 0; for (let k = 0; k < piles; k++) want.set('k' + k, { kind: 'basket', x: store.x + (k % 3) * 0.22 - 0.2, y: store.y + ((k / 3) | 0) * 0.25, base: 'k', img: A.basket, dy: 6 });
+  const logs = campOn ? Math.min(6, Math.ceil(T0.wood / 2)) : 0; for (let k = 0; k < logs; k++) want.set('w' + k, { kind: 'logs', x: store.x - 0.3 + (k % 3) * 0.14, y: store.y + 0.45 + ((k / 3) | 0) * 0.12, base: 'w', img: A.item.log, dy: 2 });
   if (campOn && T0.skills.fire) want.set('ring', { kind: 'ring', x: fire.x, y: fire.y, base: 'ring', img: A.ring, dy: 4 });
   return want;
 }
@@ -173,12 +173,18 @@ function reconcile() {
   for (const [k, p] of props) if (!want.has(k) && !p.die) p.die = now;
 }
 
-// huts are built in front of you: poles first, then the walls and thatch rise
-const huts = [];
-function syncHuts(builder) {
-  const want = campOn ? Math.min(T0.huts, hutSpots.length) : 0;
-  for (let k = 0; k < want; k++) if (!huts[k] || huts[k].die) huts[k] = { k, x: hutSpots[k].x, y: hutSpots[k].y, p: huts.length === 0 && S.tickNo < 3 ? 1 : 0, born: now, die: 0, builder: 0 };
-  for (let k = want; k < huts.length; k++) if (huts[k] && !huts[k].die) { huts[k].die = now; burst(huts[k].x, huts[k].y, 'debris', 16); }
+// houses go up in front of you, a stage at a time: a cleared plot with pegs, a timber frame, then walls and roof.
+// Where they stand and how far along they are is the engine's business (tribe.sites); this only shows it.
+const huts = [], STAGE_P = [0.05, 0.36, 0.68, 1];
+function syncHuts() {
+  const sites = campOn ? T0.sites : [];
+  for (let k = 0; k < sites.length; k++) {
+    const st = sites[k], tp = STAGE_P[Math.min(3, st.stage)]; let h = huts[k];
+    if (!h || h.die || h.id !== st.id) h = huts[k] = { k, id: st.id, x: st.x + 0.5, y: st.y + 0.5, p: S.tickNo < 3 ? tp : 0, born: now, die: 0 };
+    if (tp < h.p - 0.02) { burst(h.x, h.y, 'debris', 16); h.p = tp; }       // washed out: back to a bare plot
+    h.target = tp; h.wood = st.wood - st.stage * 2;                         // timber lying on the plot, not yet built in
+  }
+  for (let k = sites.length; k < huts.length; k++) if (huts[k] && !huts[k].die) { huts[k].die = now; burst(huts[k].x, huts[k].y, 'debris', 16); }
 }
 const graves = [], relics = [];
 
@@ -289,12 +295,21 @@ function planPerson(r, phase, pi) {
       else if (tg) { P.wait(0.05, 'look', { at: act.id }); P.go(lerp(P.x, tg.x, 0.8), lerp(P.y, tg.y, 0.8), SPEED.person.run, 'run'); P.wait(0.08, 'look', { at: act.id }); }
       P.go(end.x, end.y, sp); break;
     }
+    case 'chop': {                                                    // fell timber, shoulder it, carry it to the plot
+      const tx = act.j % N, ty = (act.j / N) | 0, st = standBy(tx, ty, r), h = huts.find(q => q && q.id === act.site), to = h ? { x: h.x + 0.55, y: h.y + 0.3 } : store;
+      P.go(st.x, st.y, sp); P.wait(0.2, 'work', { fx: 'chips', lx: st.lx, ly: st.ly, shake: act.j });
+      P.go(to.x, to.y, sp * 0.8, 'carry', { item: 'log' }); P.wait(0.04, 'work', { drop: 1 }); break;
+    }
+    case 'haul': {                                                    // timber from the camp's pile to the plot
+      const h = huts.find(q => q && q.id === act.site); P.go(store.x - 0.3, store.y + 0.45, sp); P.wait(0.03, 'work');
+      if (h) { P.go(h.x + 0.55, h.y + 0.3, sp * 0.8, 'carry', { item: 'log' }); P.wait(0.04, 'work', { drop: 1 }); } break;
+    }
     case 'build': {
-      const tx = act.j % N, ty = (act.j / N) | 0, st = standBy(tx, ty, r), h = huts[act.n - 1];
-      P.go(st.x, st.y, sp); P.wait(0.12, 'work', { fx: 'chips', lx: st.lx, ly: st.ly, shake: act.j });
-      if (h) { h.builder = r.id; P.go(h.x + 0.5, h.y + 0.25, sp * 0.8, 'carry', { item: 'log' }); P.done('work', { fx: 'hammer', site: h.k, lx: h.x, ly: h.y }); return; }
+      const h = huts.find(q => q && q.id === act.site);
+      if (h) { P.go(h.x + 0.55, h.y + 0.3, sp); P.done('work', { fx: 'hammer', site: h.k, lx: h.x, ly: h.y }); return; }
       break;
     }
+    case 'flee': { r.bub = 'afraid'; r.bubT = now; P.go(end.x, end.y, SPEED.person.run, 'run'); P.done('look', { at: act.id }); return; }
     case 'guard': { const tg = recOf(act.id); if (tg) { P.go(tg.x, tg.y, SPEED.person.run, 'run', { killMark: 1 }); P.wait(0.1, 'work', { fx: 'blood', at: act.id }); } break; }
     default: {   // nothing worth fetching this time: firewood, the fields, a chat by the fire
       if (a.wood >= 0) { const tx = a.wood % N, ty = (a.wood / N) | 0, st = standBy(tx, ty, r); P.go(st.x, st.y, sp); P.wait(0.08, 'work', { fx: 'chips', lx: st.lx, ly: st.ly }); P.go(fire.x - 0.3, fire.y + 0.2, sp, 'carry', { item: 'sticks' }); P.wait(0.04, 'work', { drop: 1 }); }
@@ -378,7 +393,7 @@ function takeEvents(instant) {
       if (m && (a.d.people || Math.random() < 0.5)) { m.bub = 'love'; m.bubT = now + 400; } if (a.d.people) for (const o of actors.values()) if (o.a.d.people && !o.dead && o !== m && Math.random() < 0.6) { o.bub = 'love'; o.bubT = now + 1500 + Math.random() * 3000; }
     } else if (f.kind === 'arrive') {
       const a = S.byId.get(f.id); if (!a) continue; const ex = a.x < N / 2 ? -0.4 : N + 0.4; newRec(a, ex, a.y + 0.5, { born: now, arrive: 1, alpha: 0 });
-    } else if (f.kind === 'hut') syncHuts(f.by);
+    }
   }
 }
 function onTick() {
@@ -526,12 +541,13 @@ function frame(t) {
     if (p.home && p.kind === 'burrow') d.peek = { x: wx, y: wy - 12, home: p.home.id };
     if (p.kind === 'tree' && dts > 0 && Math.random() < dts * 0.05) { const st = p.base.slice(2); if (st === 'gold' || st === 'red' || st === 'goldFruit') spawn('leafG', wx + R(-30, 30), wy - R(50, 90), { vx: R(-0.01, 0.01), vy: 0.012, max: 4200, floor: wy + R(-4, 8), leaf: 1 }); }
   }
-  // the camp: huts going up, the fire, graves
+  // the camp: houses going up, the fire, graves
+  syncHuts();
   for (let k = 0; k < huts.length; k++) {
-    const h = huts[k]; if (!h) continue; const wx = isoX(h.x, h.y), wy = isoY(h.x, h.y) + 8;
+    const h = huts[k]; if (!h) continue; const wx = isoX(h.x, h.y), wy = isoY(h.x, h.y) + 20;
     let al = 1; if (h.die) { al = 1 - (now - h.die) / 2500; if (al <= 0) { huts[k] = null; continue; } }
     const working = [...actors.values()].some(r => r.step && r.step.site === h.k && r.step.pose === 'work');
-    if (h.p < 1 && dts > 0) h.p = Math.min(1, h.p + dts * (working ? 1 / 9 : 1 / 70));
+    if (h.p < h.target && dts > 0) h.p = Math.min(h.target, h.p + dts * (working ? 1 / 10 : 1 / 45));
     const snowy = W.snow[(h.y | 0) * N + (h.x | 0)] > 0.08; put(snowy ? A.hutSnow : A.hut, wx, wy, { build: h.p < 1 ? h.p : undefined, alpha: al < 1 ? al : undefined, hut: h });
   }
   for (let k = huts.length - 1; k >= 0 && !huts[k]; k--) huts.pop();
@@ -696,11 +712,24 @@ function drawSway(im, d, wind) {
 }
 // a hut going up: a ring of poles, then walls and thatch rising from the ground
 function drawBuilding(d) {
-  const im = d.img, w = im.width, h = im.height, p = d.build, al = d.alpha === undefined ? 1 : d.alpha, cxp = d.x + w / 2, base = d.top + h - 6;
-  cx.globalAlpha = al; cx.strokeStyle = '#6a4c30'; cx.lineWidth = 2;
-  const poles = Math.min(7, Math.ceil(p * 14));
-  for (let k = 0; k < poles; k++) { const a = k / 7 * Math.PI - Math.PI, bx = cxp + Math.cos(a) * 28, by = base + Math.sin(a) * -4 + 2; cx.beginPath(); cx.moveTo(Math.round(bx), Math.round(by)); cx.lineTo(Math.round(lerp(bx, cxp, 0.95)), Math.round(d.top + 6)); cx.stroke(); }
-  const k = clamp((p - 0.3) / 0.7, 0, 1), sh = Math.round(h * k); if (sh > 0) cx.drawImage(im, 0, h - sh, w, sh, d.x, d.top + h - sh, w, sh);
+  const im = d.img, w = im.width, h = im.height, p = d.build, al = d.alpha === undefined ? 1 : d.alpha, cxp = Math.round(d.x + w / 2), base = d.top + h - 3;
+  cx.globalAlpha = al;
+  // the plot: cleared earth, a peg at each corner
+  const fw = Math.round(w * 0.4), fh = fw >> 1, cy0 = base - fh, C4 = [[cxp, cy0 - fh], [cxp + fw, cy0], [cxp, cy0 + fh], [cxp - fw, cy0]];
+  cx.fillStyle = '#a5825a'; cx.beginPath(); cx.moveTo(C4[0][0], C4[0][1]); for (const q of C4) cx.lineTo(q[0], q[1]); cx.closePath(); cx.fill();
+  cx.strokeStyle = '#6e5137'; cx.lineWidth = 1; cx.stroke();
+  cx.fillStyle = '#5a3f2a'; for (const q of C4) cx.fillRect(q[0] - 1, q[1] - 5, 2, 6);
+  // the frame: a post at each corner, then the plates that tie their tops together
+  const k1 = clamp((p - 0.06) / 0.28, 0, 1), k2 = clamp((p - 0.36) / 0.64, 0, 1), ph = Math.round(h * 0.4 * Math.min(1, k1 * 1.4));
+  if (k1 > 0 && k2 < 0.75) {
+    cx.fillStyle = '#8a6a48'; for (const q of C4) cx.fillRect(q[0] - 1, q[1] - ph, 3, ph);
+    if (k1 > 0.72) { cx.strokeStyle = '#6e5137'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(C4[3][0], C4[3][1] - ph); cx.lineTo(C4[0][0], C4[0][1] - ph); cx.lineTo(C4[1][0], C4[1][1] - ph); cx.lineTo(C4[2][0], C4[2][1] - ph); cx.closePath(); cx.stroke(); }
+  }
+  // walls, then the roof, rise from the ground
+  const sh = Math.round(h * k2); if (sh > 0) cx.drawImage(im, 0, h - sh, w, sh, d.x, d.top + h - sh, w, sh);
+  // timber waiting on the plot
+  const logs = d.hut ? Math.min(4, Math.ceil(d.hut.wood || 0)) : 0;
+  for (let q = 0; q < logs; q++) cx.drawImage(A.item.log, cxp + fw - 6 + (q % 2) * 4, cy0 + fh - 4 - (q >> 1) * 3);
   cx.globalAlpha = 1;
 }
 // a fishing rod and line out to a bobbing float; now and then a fish comes up on it
