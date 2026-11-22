@@ -191,7 +191,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
-    stat: { forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
+    stat: { fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
     levers: { hold: {},
       banned: {} } };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
@@ -499,6 +499,11 @@ function create(seed, opt) {
     S.fx.push({ kind: 'death', sp: a.sp, x: a.x, y: a.y, why, id: a.id, by: by || 0 });
     const k = a.sp + ':' + why;
     S.deaths[k] = (S.deaths[k] || 0) + 1;
+    if (a.d.people && (why === 'hunger' || why === 'cold and hunger')) {
+      /* where the starved lived, against where households live: is hunger worst at the edge? */
+      const T = S.tribe, h = homeSite(a), homes = T.sites.filter(q => live(q) && q.members > 0);
+      if (h && homes.length > 1) { S.stat.starveD += cheb(h, T); S.stat.starveRef += homes.reduce((p, q) => p + cheb(q, T), 0) / homes.length; S.stat.starveN++; }
+    }
     if (a.d.people) {
       S.tribe.dead++;
       if (why === 'eaten') S.tribe.threat += 2;
@@ -789,13 +794,16 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- people
   function person(a, d, dt) {
     a.wood = -1; const T = S.tribe, dist = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)), pop = S.pop[a.sp];
-    // eating: from their own larder first; then, if they are near it, from what is held in common. When there is little,
-    // the grown go short so the children eat.
+    // eating: from their own larder, at home. What is held in common by the fire is eaten only at the fire: someone whose
+    // own larder is empty walks over to it, and that is their day. When there is little, the grown go short so the children eat.
     const hm = homeSite(a), mouths = hm ? hm.members || 1 : pop, short = a.age >= 13 && T.kidsHungry && (hm ? (hm.larder || 0) < mouths * 0.5 : T.store < pop * 0.5);
     if (a.e < (short ? 0.4 : 0.85)) {
       let want = Math.min(1 - a.e, 0.5);
       if (hm && hm.larder > 0.05) { const t = Math.min(hm.larder, want); hm.larder -= t; a.e += t; want -= t; }
-      if (want > 0.05 && T.store > 0.05 && dist <= 8) { const t = Math.min(T.store, want); T.store -= t; a.e += t; }
+      if (want > 0.05 && T.store > 0.05 && dist <= 2) { const t = Math.min(T.store, want); T.store -= t; a.e += t; }
+      else if (want > 0.05 && a.e < 0.4 && T.store > want && a.age >= 6 && !S.night) {
+        stepTo(a, T.x, T.y, 40); const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return;
+      }
     }
     if (a.age < 6) { stepTo(a, T.x, T.y, 1); a.act = { k: S.night ? 'sleep' : a.age < 2 ? 'baby' : 'play' };
       if (a.age < 2 && (a.e < 0.5 || a.mood === 'cold')) sound(a.x, a.y, 3, 'cry');

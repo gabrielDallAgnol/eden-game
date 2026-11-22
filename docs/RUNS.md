@@ -149,3 +149,21 @@ Large change, upward. Mean population at year 100 is 57.9 against 25.2 (peak 65.
 | mean |  | 13.9 | 38.2 | 48.8 | 58.9 | 14.8 | 56.7 | 0.2 | 12.8 |  | 6.6 | 9.9 | 6.7 | 22.1 | 1382.3 |
 
 Population a little below B1 (year 100 mean 48.8 against 57.9, peak 58.9 against 65.7) and still about twice the baseline; hunger deaths about the same (56.7 against 55.4). Each household now fetches wood for its own hearth from the nearest trees along the ways, and the fire only warms while that hearth has wood. A wood trip brings back less the further it goes, and a long one takes the day that would have gone to food. Firewood trips average 22 tiles by year 100 (new column 'wood trip'): the trees round the houses are gone first, as intended. In 100-year runs, hearths are lit on about 43% of cold steps in valley #1, 56% in forest #1 and under 5% in plains #1 after year 60, where the few trees have been burned. Scenarios: 21 passed, 1 warning. The deforest scenario's need.cold rises in both seeds; its new check 'hearths are lit less often once the wood round them is gone' holds in seed 2 (96% to 85%) but not seed 1 (48% to 59%, fire still being taken up in years 7-9). Tests: 268 passed, 0 failed, 2 warnings, 4 skipped; a new check that every larder and hearth's fuel stays finite and non-negative.
+
+## B3: eat at home
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 5 | 25 | 43 | 48 | 16 | 40 | 0 | 13 | 2/9/0 | 6.3 | 19 | 6.1 | 25.3 | 16 | 1.2 | 1654 |
+| valley | 2 | 23 | 63 | 68 | 77 | 18 | 70 | 0 | 12 | 3/12/0 | 6.1 | 3.2 | 6.5 | 18.4 | 43 | 1.1 | 2126 |
+| plains | 1 | 18 | 35 | 33 | 45 | 8 | 64 | 0 | 13 | 2/71/0 | 5.1 | 19.8 | 11.5 | 23.4 | 18 | 0.9 | 1422 |
+| plains | 2 | 10 | 36 | 42 | 48 | 11 | 58 | 1 | 12 | 4/36/0 | 5.6 | 37.7 | 6.9 | 24.5 | 17 | 0.8 | 1717 |
+| forest | 1 | 16 | 53 | 56 | 80 | 25 | 69 | 0 | 13 | 0/8/0 | 6.7 | 0 | 6.9 | 16.4 | 66 | 0.9 | 1660 |
+| forest | 2 | 19 | 56 | 63 | 63 | 19 | 37 | 0 | 14 | 0/1/0 | 6.8 | 4.2 | 7.2 | 13.2 | 34 | 1 | 1624 |
+| lakeland | 1 | 19 | 33 | 68 | 80 | 21 | 55 | 0 | 12 | 4/19/2 | 8.1 | 37.3 | 7.4 | 30.3 | 26 | 0.8 | 1283 |
+| lakeland | 2 | 26 | 65 | 122 | 124 | 34 | 82 | 0 | 13 | 0/1/0 | 7.9 | 0 | 7.3 | 24 | 27 | 1.1 | 1870 |
+| highland | 1 | 10 | 23 | 29 | 30 | 7 | 53 | 1 | 12 | 0/30/0 | 6.5 | 6.5 | 4.9 | 19.4 | 18 | 1 | 923 |
+| highland | 2 | 11 | 24 | 24 | 32 | 11 | 55 | 0 | 13 | 0/9/0 | 5.9 | 12.3 | 2.7 | 24.6 | 13 | 0.9 | 890 |
+| mean |  | 15.7 | 41.3 | 54.8 | 62.7 | 17 | 58.3 | 0.2 | 12.7 |  | 6.5 | 14 | 6.7 | 22 | 27.8 | 1 | 1516.9 |
+
+About the same as B2 (year 100 mean 54.8 against 48.8; seeds shift because the random stream changed). The common store is now eaten only beside the fire: someone whose own larder is empty walks to the fire to eat, and that is their day. Hungry next to full: in every world some household with an empty larder had a full one on the next lot (mean 27.8 household-years per 100-year run; new column 'hungry by full'). No starvation at the edge: the starved lived on average as far from the fire as households in general (new column 'starved out/avg', mean 1.0, range 0.6 to 1.2). Moving small children to their own door as well cost about 5 people at year 100 on highland and valley (4 seeds) and is not done; they still play by the fire. Tests: 268 passed (new unit: everyone who ate from the store was beside the fire), 0 failed, 3 warnings (food trips 8.1 and 8.2 in two big towns; one resettle), 4 skipped. Scenarios: 22 passed.

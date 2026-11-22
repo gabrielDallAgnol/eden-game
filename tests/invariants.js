@@ -432,6 +432,12 @@ UNITS.push(['save at year 20, load, run 20 more: identical to an unbroken 40-yea
   });
   return out.join('; ');
 }]);
+UNITS.push(['the common store is eaten only at the fire: everyone who went to eat from it is beside the fire (B3)', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), i, bad = 0, seen = 0, T = W.S.tribe;
+  for (i = 0; i < 24 * 12; i++) W.tick();
+  for (i = 0; i < 24 * 20; i++) { W.tick(); W.S.agents.forEach(function (a) { if (a.alive && a.act && a.act.k === 'eat') { seen++; if (Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) > 2) bad++; } }); }
+  return bad ? bad + ' of ' + seen + ' ate from the store away from the fire' : '';
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }

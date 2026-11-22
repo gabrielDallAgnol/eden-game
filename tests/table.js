@@ -21,11 +21,20 @@ var COLS = [
   ['timber trip', function (W) { var s = W.S.stat; return s ? s.timberD / Math.max(1, s.timberN) : ''; }],
   ['stone trip', function (W) { var s = W.S.stat; return s ? s.stoneD / Math.max(1, s.stoneN) : ''; }],
   /* B2: mean length of a firewood trip from the hearth */
-  ['wood trip', function (W) { var s = W.S.stat; return s && s.fuelN ? s.fuelD / s.fuelN : ''; }]
+  ['wood trip', function (W) { var s = W.S.stat; return s && s.fuelN ? s.fuelD / s.fuelN : ''; }],
+  /* B3: household-years in which a household with an empty larder had a neighbour (next lot) with a full one; and how far
+     out the starved lived, against the average household (1 = no worse at the edge) */
+  ['hungry by full', function (W, r) { return r.contrast || 0; }],
+  ['starved out/avg', function (W) { var s = W.S.stat; return s && s.starveN ? s.starveD / Math.max(0.01, s.starveRef) : ''; }]
 ];
 if (window.EdenTableExtra) COLS = COLS.concat(window.EdenTableExtra);
 // optional per-step columns that need data gathered during the run: name -> { year(W, r), col: [heading, fn] }
 var EXTRA = window.EdenTableTrack || [];
+EXTRA.push({ year: function (W, r) {
+  var homes = W.S.tribe.sites.filter(function (q) { return q.kind !== 'well' && q.members > 0; });
+  homes.forEach(function (h) { if ((h.larder || 0) >= h.members * 0.25) return;
+    if (homes.some(function (k) { return k !== h && Math.max(Math.abs(k.x - h.x), Math.abs(k.y - h.y)) <= W.PITCH && (k.larder || 0) > k.members * 1.5; })) r.contrast = (r.contrast || 0) + 1; });
+} });
 for (var e = 0; e < EXTRA.length; e++) if (EXTRA[e].col) COLS.push(EXTRA[e].col);
 var jobs = []; LANDS.forEach(function (l) { SEEDS.forEach(function (s) { jobs.push({ land: l, seed: s }); }); });
 var rows = [], at = 0, W = null, r = null, t0 = performance.now();
