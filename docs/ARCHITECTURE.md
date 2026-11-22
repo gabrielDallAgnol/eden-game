@@ -99,11 +99,11 @@ Each step is useful on its own and unlocks the next. "Check" is how to know it w
 |---|---|
 | Bigger world | Map size becomes a parameter (64, 96, 128). The ground is painted in chunks (16x16 tiles) and only dirty chunks are repainted, instead of one bitmap for the whole map. |
 | Hundreds, then thousands of people | Per-step indexes (people, by household, by lot); no `filter` over all agents inside per-person code. Started: `folk()` is cached. Distant settlements tick at a lower rate. |
-| Long games | Save and load: the world is plain data plus the RNG state; typed arrays are stored base64. Autosave to `localStorage`. |
+| Long games | Built (A5): `W.save()` / `Eden.load()`; the world is plain data plus the RNG state; typed arrays are stored base64. Autosave to `localStorage` once a game year. |
 | Changing it safely | `src/sim.js` is split into ES modules (`world`, `animals`, `people`, `households`, `building`, `ideas`, `economy`), loaded natively with no build step. Long lines are broken up as each part moves. |
 | Knowing it still works | A `tests.html` page that runs fixed-seed worlds for N years and checks invariants (nobody in water, no dwelling on a way, food conserved, no settlement extinct on easy land). It runs in the browser, so it does not depend on Node (the Node on the dev machine is broken; `brew reinstall node` fixes it and would allow the same file to run in CI). |
 | Art for many buildings | Every `BUILDINGS` row names a sprite and a tint. New buildings start as a recolour of an existing sprite or are drawn in code (`art.js`), and get a generated sprite only when the building has proved worth keeping. |
-| Resetting a settlement | One `newSettlement()` constructor used for the first camp and for resettling, so new fields cannot be forgotten in a hand-written reset. |
+| Resetting a settlement | Built (A3): one `newSettlement()` constructor used for the first camp and for resettling, so new fields cannot be forgotten in a hand-written reset. |
 
 ## Related notes
 

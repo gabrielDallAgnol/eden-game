@@ -49,6 +49,12 @@ If a rule you add is a plan rather than an outcome, list it under "Planned on pu
 - Game: `http://localhost:8765/index.html?seed=7&land=forest`. Tests: `http://localhost:8765/tests.html`.
 - Node.js on the owner's machine is broken (`brew reinstall node` would fix it; ask before running it). Do not rely on Node.
 
+### Test pages (phase A)
+
+- `/tests.html`: invariants over fixed-seed worlds plus unit checks (save/load identity, resettle, water). Must show 0 failed.
+- `/scenarios.html`: named situations with expectations; soft ones that fail are warnings meant for later phases.
+- `/table.html`: the standard 100-year table for `docs/RUNS.md`.
+
 ### Running the simulation without watching it
 
 In the page console (or a browser tool's JavaScript call):
@@ -71,7 +77,8 @@ To exercise the view's planning code without frames: `for (...) { EdenGame.W.tic
 - **Long lines.** `sim.js` and `view.js` have about ten lines each over 400 characters with several statements. Never add a `//` comment in the middle of one: it comments out the rest of the line and the failure appears far away. Put comments on their own line or use `/* */`.
 - **One random stream.** All sim randomness is `rnd()`. Adding or removing a call shifts every later event for that seed. This is fine, but compare distributions over several seeds, not one history.
 - **`S.pop` is one tick stale** after `tick()`; the tests allow for it.
-- **Resettling** resets `S.tribe` by hand inside `tick()`. A field you add to the tribe must be reset there too, until phase A replaces it with a constructor.
+- **Resettling** uses `newSettlement()` (phase A3). A field you add to the settlement goes in that constructor, with a default that is not `undefined` (save files compare by key order).
+- **Save and load** (A5): any new closure-level state in `create()` (a `let` outside `S`) must be added to `save()`/`restore()`, or a loaded game will drift from an unbroken one. The unit check in `tests.html` catches this.
 - **A stale console error** (`Identifier 'act' has already been declared`) can linger in a browser console from an earlier broken load. Check `typeof EdenGame` before believing it.
 
 ### Definition of done, for every step
