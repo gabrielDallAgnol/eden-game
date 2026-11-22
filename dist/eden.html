@@ -324,7 +324,7 @@ function create(seed, opt) {
   function wayDist(x0, y0, x1, y1, wish) {
     const m0 = mass[I(x0, y0)], m1 = reachMass(x1, y1, m0);
     if (m1 === -2) return { d: Infinity, road: 0 };
-    if (m0 < 0 || m1 === m0) return flatDist(x0, y0, x1, y1);
+    if (m0 < 0 || m1 === m0) return m0 >= 0 && wetBetween(x0, y0, x1, y1) ? aroundDist(x0, y0, x1, y1) : flatDist(x0, y0, x1, y1);
     const T = S.tribe; let best = { d: Infinity, road: 0 };
     for (const f of fords) {
       const fwd = f.ma === m0 && f.mb === m1, back = f.mb === m0 && f.ma === m1; if (!fwd && !back) continue;
@@ -335,6 +335,23 @@ function create(seed, opt) {
     }
     return best;
   }
+  /* E2: the same land can still have a bay or a river bend between two places; then the straight line is no measure,
+     and the walk is what it is around the water (or over a bridge) */
+  function wetBetween(x0, y0, x1, y1) { const br = bridgeTiles(), n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    for (let i = 1; i < n; i++) { const j = I(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n)); if (water[j] && !br[j]) return true; } return false; }
+  const walkFields = new Map(), WALK_G = new Float64Array(N * N); let walkKey = '', walkTribe = null;
+  function walkField(s0) { const br = bridgeTiles(), key = bridgeKeys + ':' + (S.stat ? S.stat.ponds : 0) + ':' + (S.tribe ? S.tribe.roadGen : 0);   /* the walk changes only when water, bridges or roads do */ if (key !== walkKey || S.tribe !== walkTribe) { walkFields.clear(); walkKey = key; walkTribe = S.tribe; }
+    let f = walkFields.get(s0); if (f) return f; f = WALK_G.fill(Infinity); f[s0] = 0; const T = S.tribe, heap = [[0, s0]];
+    const push = (k, j) => { heap.push([k, j]); let i = heap.length - 1; while (i > 0) { const q = (i - 1) >> 1; if (heap[q][0] <= heap[i][0]) break; [heap[q], heap[i]] = [heap[i], heap[q]]; i = q; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    const open = j => !water[j] || br[j];
+    while (heap.length) { const [g, c] = pop(); if (g > f[c]) continue; const cx = c % N, cy = (c / N) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+        const j = I(nx, ny); if (!open(j) || (dx && dy && (!open(I(nx, cy)) || !open(I(cx, ny))))) continue;
+        const k = g + (dx && dy ? 1.41 : 1) * (T.road[j] ? 0.67 : 1); if (k < f[j]) { f[j] = k; push(k, j); } } }
+    const keep = Float32Array.from(f); if (walkFields.size >= 256) walkFields.clear(); walkFields.set(s0, keep); return keep; }
+  function aroundDist(x0, y0, x1, y1) { const flat = flatDist(x0, y0, x1, y1), w = walkField(I(x0, y0))[I(x1, y1)];
+    return w > flat.d ? { d: isFinite(w) ? w : Infinity, road: flat.road } : flat; }
   function flatDist(x0, y0, x1, y1) {
     const T = S.tribe, vx = snapWay(x0, T.x), hy = snapWay(y1, T.y);
     /* along the ways, or straight across open ground where that is shorter: rough ground costs half again as much per tile */
@@ -1117,7 +1134,15 @@ function create(seed, opt) {
   // because it takes time, not by a factor.
   const PACE = 20;   /* tiles a grown person walks in a step: set so populations match the walking factor it replaces (E2) */
   function workAt(a, d, j, kind, budget) {
-    const T = S.tribe, eff = TPY * (1 / TPY) * S.dayK * budget / (1 + tree[j] * tree[j] * 1.2);
+    const T = S.tribe;
+    if (kind === 'timber') { const got = fell(j, CHOP * budget), ld = cartload(j); a.act = { k: 'chop', j, site: 0 }; sound(j % N, (j / N) | 0, 3.5, 'work'); if (!T.carts) T.need.toil += 0.12; return (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * got / CHOP; }
+    if (kind === 'fuel') { const got = fell(j, 0.03 * budget); a.act = { k: 'wood', j }; a.wood = j; return got / 0.03; }
+    if (kind === 'stone') {
+      const quarry = rock[j] >= 0.15, ld = cartload(j), brought = ((quarry ? 2 : 1) + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * budget * (quarry ? 1 - 0.5 * pit[j] : 1);
+      if (quarry) { const dug = Math.min(rock[j], brought / STONE_PER_TILE); rock[j] -= dug; pit[j] = Math.min(1, pit[j] + dug); S.stat.pitD += wayDist(T.x, T.y, j % N, (j / N) | 0, true).d; S.stat.pitN++; }
+      a.act = { k: 'quarry', j, site: 0 }; sound(j % N, (j / N) | 0, 4, 'work'); T.stoneWork++; if (!T.carts) T.need.toil += 0.16; return brought;
+    }
+    const eff = TPY * (1 / TPY) * S.dayK * budget / (1 + tree[j] * tree[j] * 1.2);
     if (kind === 'fish') {
       let wj = j; if (!water[wj]) { const x = j % N, y = (j / N) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N && water[I(nx, ny)]) { wj = I(nx, ny); break; } } }
       const take = Math.min(fish[wj] * 0.5, 0.31 * eff * a.skill.fish * (a.job === 'fisher' ? 1.3 : 1)) * (tempAt(wj) < -3 ? 0.65 : 1);
@@ -1130,17 +1155,37 @@ function create(seed, opt) {
     return tf * 1.6 + tg * 0.5;
   }
   /* carry a trip on for one step with the time given; returns the time left once it is over (at the door), or -1 */
+  const TRIP_ITEM = { fish: 'fish', plant: 'basket', timber: 'log', stone: 'stone', fuel: 'sticks' };
+  /* what a trip brings is set down where it was going: food in the larder, timber and stone on the village's pile, firewood at the hearth */
+  function deposit(a, tr) {
+    const T = S.tribe;
+    if (tr.kind === 'timber') { T.wood += tr.load; S.stat.woodBack = (S.stat.woodBack || 0) + tr.load; } else if (tr.kind === 'stone') T.stone += tr.load;
+    else if (tr.kind === 'fuel') { const h = doorOf(a); h.fuel = (h.fuel || 0) + tr.load; }
+    else { bring(a, tr.load); S.stat.forageD += tr.walked / 2; S.stat.forageN++; }
+  }
+  // Fetching timber, stone or firewood is a trip like any other: out along the route to the stand or the stone, the work
+  // there, and back with the load to the plot or the hearth. (E2, the rest: the walking factor is gone from these too.)
+  function startHaul(a, kind, j, home) {
+    const rt = route(a.x, a.y, j % N, (j / N) | 0, a); if (!rt.reached) return false;
+    /* nobody sets out on a haul they cannot walk there and back before dark: night would only turn them home empty-handed */
+    const speed = PACE * (a.age >= GROWN && a.age <= 46 ? 1 : 0.6), left = DAY ? DAY - 1 - S.tickNo % DAY : 99;
+    if (rt.tiles.length + wayDist(j % N, (j / N) | 0, home.x, home.y).d > left * speed) { S.stat.haulTooFar = (S.stat.haulTooFar || 0) + 1; return false; }
+    a.trip = { kind, j, phase: 'out', path: rt.tiles.slice(), back: [I(a.x, a.y)].concat(rt.tiles.slice(0, -1)).reverse(), load: 0, walked: 0, home: { x: home.x, y: home.y } };
+    if (kind === 'timber') { S.stat.timberD += rt.tiles.length; S.stat.timberN++; } else if (kind === 'stone') { S.stat.stoneD += rt.tiles.length; S.stat.stoneN++; } else if (kind === 'fuel') { S.stat.fuelD += rt.tiles.length; S.stat.fuelN++; }
+    for (const t of rt.tiles) if (!water[t]) tread[t] = Math.min(6, tread[t] + 0.04);
+    runTrip(a, a.d, a.age >= GROWN && a.age <= 46 ? 1 : 0.6, 1); return true;
+  }
   function runTrip(a, d, pace, budget) {
     const tr = a.trip, speed = PACE * pace;
     if (tr.phase !== 'work') {
       let steps = Math.floor(speed * budget + 1e-9), walked = 0;
       while (steps-- > 0 && tr.path.length) { const t = tr.path.shift(); a.x = t % N; a.y = (t / N) | 0; walked++; }
       budget -= walked / speed; tr.walked += walked;
-      if (tr.path.length) { a.act = { k: tr.phase === 'out' ? 'walkto' : 'carryhome', x: a.x, y: a.y, item: tr.kind === 'fish' ? 'fish' : 'basket' }; return -1; }
-      if (tr.phase === 'back') { bring(a, tr.load); S.stat.forageD += tr.walked / 2; S.stat.forageN++; a.trip = null; a.act = { k: 'home', x: a.x, y: a.y }; return Math.max(0, budget); }
-      tr.phase = 'work'; a.act = { k: 'walkto', x: a.x, y: a.y, item: tr.kind === 'fish' ? 'fish' : 'basket' };   /* there, with the work for the next step if no time is left */
+      if (tr.path.length) { a.act = { k: tr.phase === 'out' ? 'walkto' : 'carryhome', x: a.x, y: a.y, item: TRIP_ITEM[tr.kind] || 'basket' }; return -1; }
+      if (tr.phase === 'back') { deposit(a, tr); a.trip = null; a.act = { k: tr.home ? 'drop' : 'home', x: a.x, y: a.y, item: TRIP_ITEM[tr.kind] }; return Math.max(0, budget); }
+      tr.phase = 'work'; a.act = { k: 'walkto', x: a.x, y: a.y, item: TRIP_ITEM[tr.kind] || 'basket' };   /* there, with the work for the next step if no time is left */
     }
-    if (budget > 0.02) { tr.load += workAt(a, d, tr.j, tr.kind, budget); const door = doorOf(a); tr.phase = 'back';
+    if (budget > 0.02) { tr.load += workAt(a, d, tr.j, tr.kind, budget); const door = tr.home || doorOf(a); tr.phase = 'back';
       /* home the way they came, if they set out from the door; else by a route of its own */
       tr.path = tr.back && tr.back.length && tr.back[tr.back.length - 1] === I(door.x, door.y) ? tr.back : route(a.x, a.y, door.x, door.y, a).tiles; }
     return -1;
@@ -1162,7 +1207,7 @@ function create(seed, opt) {
       if (a.age < 2 && (a.e < 0.5 || a.mood === 'cold')) sound(a.x, a.y, 3, 'cry');
       else if (!S.night && a.age >= 2) sound(a.x, a.y, 1.6, 'play');   /* a hungry or cold baby cries, day or night; children at play are not quiet */
       return; }
-    if (a.trip) { if (S.night || a.age < SMALL) { bring(a, a.trip.load); a.trip = null; } }   /* night overtakes a trip: they come home with what they have */
+    if (a.trip) { if (S.night || a.age < SMALL) { deposit(a, a.trip); a.trip = null; } }   /* night overtakes a trip: they come home with what they have */
     if (S.night) {                                                       // nights are spent at the camp; one of the able sits up by the fire
       const hm = a.house && T.sites.find(q => q.id === a.house);      /* home is their own roof once they have one; the fire until then */
       { const h = hm || T; if (Math.max(Math.abs(a.x - h.x), Math.abs(a.y - h.y)) > 1 && (mass[I(a.x, a.y)] === mass[I(h.x, h.y)] || route(a.x, a.y, h.x, h.y, a).reached)) { a.x = h.x; a.y = h.y; } }   /* home by dusk, wherever the day ended */
@@ -1236,17 +1281,7 @@ function create(seed, opt) {
         if (lp) { const ef = 1 / (1 + lp.d / (WALK * pace)); hearth.fuel = (hearth.fuel || 0) + takePile(lp, 1) * ef; a.act = { k: 'fetch', x: lp.p.x, y: lp.p.y, item: 'sticks' }; walk(hearth.x, hearth.y, lp.p.x, lp.p.y, 0.02); a.tripD = lp.d; return; }
         const j = standFor(hearth.x, hearth.y, a, 0.1);
         if (j < 0) stretch(a);
-        if (j >= 0) {
-          fell(j, 0.03);
-          const w = wayDist(hearth.x, hearth.y, j % N, (j / N) | 0);
-          const ef = 1 / (1 + w.d / (WALK * pace * (1 + 0.5 * w.road)));
-          hearth.fuel = (hearth.fuel || 0) + ef;
-          S.stat.fuelD += w.d; S.stat.fuelN++; crossed(w); a.tripD = w.d;
-          walk(hearth.x, hearth.y, j % N, (j / N) | 0, 0.02);
-          a.wood = j;
-          /* a short trip leaves the rest of the day for finding food; a long one takes the day */
-          if (rnd() > ef) { a.act = { k: 'wood', j }; return; }
-        }
+        if (j >= 0 && startHaul(a, 'fuel', j, hearth)) return;
       }
     }
     /* meat lying out in reach is fetched home first, by a grown member of a household short of food */
@@ -1467,8 +1502,7 @@ function create(seed, opt) {
       else {
         if (fromPile(a, s.ax, s.ay, 'wood')) return true;
         const bj = standFor(s.ax, s.ay, a, 0.3); if (bj < 0) { stretch(a); return false; }
-        fell(bj, CHOP); const w = wayDist(s.ax, s.ay, bj % N, (bj / N) | 0);
-        T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) / (1 + w.d / WALK); a.act = { k: 'chop', j: bj, site: 0 }; return true;
+        return startHaul(a, 'timber', bj, { x: s.ax, y: s.ay });
       }
       if (s.wood >= s.need) { s.done = true; T.bridged[s.key] = true; tell('A bridge of logs now crosses the water where people waded every day.'); }
       return true;
@@ -1478,11 +1512,7 @@ function create(seed, opt) {
         if (fromPile(a, T.x, T.y, 'wood')) return true;
         const bj = standFor(T.x, T.y, a, 0.3);
         if (bj < 0) { stretch(a); return false; }
-        fell(bj, CHOP);
-        const ld = cartload(bj), ef = walkEff(T.x, T.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
-        T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
-        a.act = { k: 'chop', j: bj, site: 0 };
-        return true;
+        return startHaul(a, 'timber', bj, { x: T.x, y: T.y });
       }
       /* a few more stakes where the new line has none yet; stakes already standing on it are kept */
       T.wood -= 1; if (!T.fence) T.fence = new Uint8Array(N * N);
@@ -1511,15 +1541,7 @@ function create(seed, opt) {
       if (fromPile(a, s.x, s.y, 'wood')) return true;
       const bj = standFor(s.x, s.y, a, 0.3);
       if (bj < 0) { stretch(a); return false; }
-      fell(bj, CHOP);
-      const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
-      { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.timberD += w.d; S.stat.timberN++; crossed(w); a.tripD = w.d; }
-      T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
-      a.act = { k: 'chop', j: bj, site: s.id };
-      sound(bj % N, (bj / N) | 0, 3.5, 'work');
-      walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1);
-      if (!T.carts) T.need.toil += 0.12;
-      return true;
+      return startHaul(a, 'timber', bj, { x: s.x, y: s.y });
     }
     if (s.stone < needS) {
       if (T.stone >= 1) { const c = Math.min(T.stone, needS - s.stone); T.stone -= c; s.stone += c; a.act = { k: 'haul', site: s.id, item: 'stone' }; return true; }
@@ -1532,17 +1554,8 @@ function create(seed, opt) {
       const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0, reachOf(a) * 2), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
       if (bq < 0 && bc < 0) { stretch(a); return false; }
       const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
-      const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
-      { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.stoneD += w.d; S.stat.stoneN++; crossed(w); a.tripD = w.d; }
-      const brought = (got + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef * (got === 2 ? 1 - 0.5 * pit[bj] : 1);
-      T.stone += brought;
-      if (got === 2) { const dug = Math.min(rock[bj], brought / STONE_PER_TILE); rock[bj] -= dug; pit[bj] = Math.min(1, pit[bj] + dug); S.stat.pitD += wayDist(T.x, T.y, bj % N, (bj / N) | 0, true).d; S.stat.pitN++; }
-      a.act = { k: 'quarry', j: bj, site: s.id };
-      sound(bj % N, (bj / N) | 0, 4, 'work');
-      walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1);
-      T.stoneWork++; s.qtrips = (s.qtrips || 0) + 1;
-      if (!T.carts) T.need.toil += 0.16;
-      return true;
+      s.qtrips = (s.qtrips || 0) + 1;
+      return startHaul(a, 'stone', bj, { x: s.x, y: s.y });
     }
     s.stage++; a.act = { k: 'build', site: s.id, stage: s.stage }; sound(s.x, s.y, 3, 'work');
     if (raised(s)) {
@@ -3718,7 +3731,8 @@ function planPerson(r, phase, pi) {
       P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
     }
     case 'walkto': P.go(act.x + 0.5, act.y + 0.5, sp); break;                               // on the way out: as far as the simulation has them
-    case 'carryhome': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item === 'fish' ? 'fish' : 'basket' }); break;   // on the way home with a load
+    case 'carryhome': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item || 'basket' }); break;   // on the way back with a load: fish, a basket, logs, stone, sticks
+    case 'drop': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item || 'log' }); P.wait(0.05, 'work', { drop: 1 }); break;   // the load set down at the plot or the hearth
     case 'home': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house); const to = mine ? door(mine) : store; P.go(to.x, to.y, sp); P.wait(0.04, 'work', { drop: 1 }); break; }
     case 'fetch': {                                                   // out to what lies on the ground, and back with it
       const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), to = act.item === 'meat' || act.item === 'sticks' ? (mine ? door(mine) : store) : store;
