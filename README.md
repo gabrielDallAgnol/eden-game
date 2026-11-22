@@ -33,6 +33,9 @@ writes `dist/eden.html`, the whole game with its scripts and sprites inside one 
 
 Open http://localhost:8765/tests.html while the folder is being served. It runs fixed-seed worlds for 40 years each and checks invariants (nobody in water, no two buildings on one tile, stocks never negative, the same seed gives the same history, and so on). Options go in the address, e.g. `?years=10&seeds=1,2&lands=valley,highland`.
 
+- `/scenarios.html` runs named situations (population held at 30, the forest felled round the village, a permanent drought, no wolves, no stone) and says whether each expectation holds. These are the acceptance tests for the phases in `docs/PLAN.md`.
+- `/table.html` runs the standard 100-year table (5 lands x 2 seeds) that every step records in `docs/RUNS.md`.
+
 ## Building it further
 
 `docs/PLAN.md` is the ordered implementation plan, with how to work on the code and how each step is checked. `CLAUDE.md` holds the working rules.

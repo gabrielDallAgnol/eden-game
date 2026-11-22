@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eden scenarios</title>
+<style>body{margin:16px;font:14px/1.4 system-ui,sans-serif}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:3px 8px;text-align:left;vertical-align:top}
+tr.pass td.s{color:#2a7d3b}tr.warn td.s{color:#8a5f00}tr.fail td.s{color:#b3261e}td.d{font-family:ui-monospace,monospace;font-size:12px}</style>
+</head><body>
+<h1>Eden scenarios</h1>
+<p id="summary">Running...</p>
+<p>Named runs with an expectation each. FAIL is a broken hard expectation; WARN is an expectation the current code does not meet yet (later phases are meant to). Options: <code>?only=held30&amp;seeds=1,2</code></p>
+<table><thead><tr><th>Scenario</th><th>Result</th><th>Expectation</th><th>Detail</th></tr></thead><tbody id="rows"></tbody></table>
+<script src="src/sim.js"></script>
+<script src="tests/scenarios.js"></script>
+</body></html>

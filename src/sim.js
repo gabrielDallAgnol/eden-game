@@ -134,7 +134,7 @@ function create(seed, opt) {
     return T;
   }
   const S = { t: opt.startT || 0, agents: [], pop: {}, tribe: newSettlement(0, 0), log: [], deaths: {}, nextId: 1,
-    rainY: 1, warmOff: LAND.warm, river: 1, air: 0, precip: 0, sky: 'clear', fx: [], emptyT: 0, homes: new Map(), tickNo: 0, night: false, dayK: 1, byId: new Map(), problems: [] };
+    rainY: 1, warmOff: LAND.warm, river: 1, air: 0, precip: 0, sky: 'clear', fx: [], emptyT: 0, homes: new Map(), tickNo: 0, night: false, dayK: 1, byId: new Map(), problems: [], levers: { hold: {}, banned: {} } };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
 
   // ---------------------------------------------------------------- physics
@@ -331,7 +331,8 @@ function create(seed, opt) {
       if (!a.house) { const free = T.sites.find(st => live(st) && !P.some(b => b.house === st.id)); if (free) { a.house = free.id; if (q) q.house = free.id; tell((q ? a.name + ' and ' + q.name : a.name) + ' moved into a ' + (free.was || free.kind) + ' of their own.'); } }
     }
     // no one to choose: when the grown and free have only kin around them, in time someone comes over the hills
-    if (!opt.closed && S.tickNo % TPY === 0) {
+    const held = S.levers.hold[P[0].sp];
+    if (!opt.closed && S.tickNo % TPY === 0 && !(held !== undefined && P.length >= held)) {
       for (const a of P) {
         if (a.partner || a.age < WED || a.age > 40 || a.grief > 0.3) continue;
         if (P.some(b => b !== a && b.fem !== a.fem && !b.partner && b.age >= WED - 2 && !kin(a, b) && Math.abs(a.age - b.age) <= 14)) continue;
@@ -952,7 +953,8 @@ function create(seed, opt) {
         for (let k = 0; k < n; k++) born.push([a.sp, a.x, a.y, a.home, a.id]);
       }
     }
-    for (const b of born) { const c = add(b[0], b[1], b[2], 0, 0.55); c.mom = b[4]; { const mm = S.byId.get(b[4]); if (mm && mm.tame) c.tame = true; } if (c.d.people) { const m = S.byId.get(b[4]), f = m && S.byId.get(m.partner); c.dad = f ? f.id : 0; if (m) { c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin; c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair; } for (const k of CRAFTS) c.skill[k] = clamp(((m ? m.skill[k] : 1) + (f ? f.skill[k] : 1)) / 2 * 0.3 + R(0.6, 0.8), 0.6, 1.2); if (m) tell(m.name + (f ? ' and ' + f.name : '') + ' have a ' + (c.fem ? 'daughter' : 'son') + ', ' + c.name + '.'); } if (b[3] && S.homes.has(b[3])) c.home = b[3]; S.fx.push({ kind: 'birth', sp: b[0], x: c.x, y: c.y, id: c.id, mom: b[4] }); if (SP[b[0]].people) T.born++; }
+    /* test levers (G.hold, G.ban): no young beyond a held number, none at all of a banned kind */
+    for (const b of born) { const cap = S.levers.hold[b[0]]; if (S.levers.banned[b[0]] || (cap !== undefined && (SP[b[0]].people ? folk().length : S.pop[b[0]]) >= cap)) continue; const c = add(b[0], b[1], b[2], 0, 0.55); c.mom = b[4]; { const mm = S.byId.get(b[4]); if (mm && mm.tame) c.tame = true; } if (c.d.people) { const m = S.byId.get(b[4]), f = m && S.byId.get(m.partner); c.dad = f ? f.id : 0; if (m) { c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin; c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair; } for (const k of CRAFTS) c.skill[k] = clamp(((m ? m.skill[k] : 1) + (f ? f.skill[k] : 1)) / 2 * 0.3 + R(0.6, 0.8), 0.6, 1.2); if (m) tell(m.name + (f ? ' and ' + f.name : '') + ' have a ' + (c.fem ? 'daughter' : 'son') + ', ' + c.name + '.'); } if (b[3] && S.homes.has(b[3])) c.home = b[3]; S.fx.push({ kind: 'birth', sp: b[0], x: c.x, y: c.y, id: c.id, mom: b[4] }); if (SP[b[0]].people) T.born++; }
     if (S.fx.length > 200) S.fx.splice(0, S.fx.length - 200);
     // an empty valley does not stay empty of people for ever: after a few years, strangers find it
     if (opt.resettle) { if (S.popPeople) S.emptyT = 0; else { S.emptyT += dt; if (S.emptyT > 3) { S.emptyT = 0; resettle(T); for (const sp in SP) if (SP[sp].people) for (let k = 0; k < 2; k++) { const c = add(sp, T.x, T.y, 18 + k * 2, 1); S.fx.push({ kind: 'arrive', id: c.id, x: c.x, y: c.y }); } S.fx.push({ kind: 'settlers', x: T.x, y: T.y }); S.log.push({ t: S.t, text: 'Two strangers have come over the hills.' }); } } }
@@ -964,6 +966,7 @@ function create(seed, opt) {
         const d = SP[sp]; if (!d.wanders) continue; let come = false;
         if (d.eats.meat && !plantEater(d)) { let game = 0; for (const q in SP) if (!SP[q].people && !SP[q].eats.meat && SP[q].mass <= d.mass * reach(d)) game += S.pop[q] * SP[q].mass; come = game / (S.pop[sp] + 1) > 6 * d.mass && S.pop[sp] < 16 && rnd() < 0.5; }
         else come = S.pop[sp] < 3 && rnd() < 0.3;
+        if (S.levers.banned[sp]) come = false;
         if (come) { const ex = rnd() < 0.5 ? 1 : N - 2, ey = R(2, N - 2); for (let k = 0; k < (d.mass < 1 ? 4 : 2); k++) { const c = add(sp, ex, ey, d.mature * 1.2, 0.9); S.fx.push({ kind: 'arrive', id: c.id, x: c.x, y: c.y }); } }
       }
     }
@@ -989,7 +992,13 @@ function create(seed, opt) {
     feed(sp, amt) { for (const a of S.agents) if (a.alive && a.sp === sp) a.e = Math.min(1.2, a.e + amt); },
     give(amt) { S.tribe.store += amt; },
     climate(f) { S.rainY = f; }, drought(f) { S.rainY = f; }, warm(deg) { S.warmOff = deg; },
-    teach(skill) { S.tribe.skills[skill] = true; }
+    teach(skill) { S.tribe.skills[skill] = true; },
+    // scenario levers: hold a kind at a number (no births or arrivals beyond it), ban a kind outright, fell every tree
+    // within r tiles of a point, take away all bare stone
+    hold(sp, n) { S.levers.hold[sp] = n; },
+    ban(sp) { S.levers.banned[sp] = true; for (const a of S.agents) if (a.alive && a.sp === sp) die(a, 'struck'); },
+    fell(x, y, r) { area(x, y, r, i => { tree[i] = 0; fruit[i] = 0; }); },
+    noStone() { rock.fill(0); }
   };
   const stats = () => { let g = 0, t = 0, n = 0, sn = 0, so = 0, fl = 0; for (let i = 0; i < N * N; i++) if (!water[i]) { g += grass[i]; t += tree[i]; sn += snow[i]; so += soil[i]; fl += flood[i]; n++; } return { grass: g / n, tree: t / n, snow: sn / n, soil: so / n, flood: fl / n, store: S.tribe.store, huts: S.tribe.huts, air: S.air, river: S.river }; };
   tick();
