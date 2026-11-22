@@ -1,6 +1,6 @@
 # The living ground: how the environment grows and reacts
 
-Design note, 2026-11-22. Not yet built. It plans phase M in `docs/PLAN.md`. Function names are given, not line numbers.
+Design note, 2026-11-22. Not yet built. Layers 1 to 6 are the core; layers 7 to 12 (added the same day) are more life and beauty on top. It plans phase M in `docs/PLAN.md`. Function names are given, not line numbers.
 
 ## The idea in one paragraph
 
@@ -110,6 +110,94 @@ These are the scenarios to test. Times are expected ranges, to be confirmed by r
 | A village empties | Fields go to grass. | Scrub over lots and fields; middens make that ground richest. | Wood with a rich, open heart; a newcomer settles there first. |
 | A big fire | Bare, ash, hot. | Rich grass, rabbits and deer boom, seedlings in the light. | A young wood that will not carry a big fire again for decades. |
 
+## More life and more beauty: layers 7 to 12
+
+Added 2026-11-22 at the owner's request: everything that makes the world more interesting to watch and better to look at, under the same two rules. Each idea says what causes it, what it makes happen, and what the player sees.
+
+### 7. Lie of the land: height and slope
+
+Today the map is flat; water sits where world creation put it. A `height` field (from seeded noise at fixed wavelengths, the same pass that D4 needs for water) changes most things at once:
+
+- **Water runs downhill.** Rivers are found by flowing from high ground to the edge, not placed at `N * 0.62`. Lakes fill hollows. Runoff (layer 2) collects into the lowest tiles first, so floods come down valleys.
+- **Erosion and silt.** Rain on bare slopes carries `fert` down to the valley floor and the banks. A cleared hillside gets poorer and the bottom land richer.
+- **Frost hollows and warm slopes.** Cold air settles in low ground on still nights (lower `tempAt` in hollows); slopes facing the sun warm sooner. Fruit trees do best on slopes, first snow lies longest in hollows.
+- **Terraces.** Farming a slope loses soil; the want shows as falling yields, and terracing is the idea that answers it. Terraces are a fixed form (rule 2): steps along the contour, code-drawn.
+- **Later:** the fall of a river is what a watermill needs.
+- **Seen:** the isometric view gets real relief: raised tiles, cliffs inside the map (the map edge already draws a cliff), shading by slope. This is the biggest visual win in the whole note and the biggest change to `view.js`.
+
+**Decision for the owner:** height touches world creation, `colorAt()`, props and routing. It is best done together with D4 (water from noise, map size), in one commit that re-baselines every seed.
+
+### 8. Wind
+
+- One wind for the map: a direction and a strength that drift slowly (given from outside, like the sun; a planned rule), stronger in storms and in winter.
+- **Fire** spreads faster downwind and hardly upwind. A village downwind of a dry wood is in danger; one upwind is safe. People who lost huts to fire build upwind of woods next time, because the loss is felt (rule 1).
+- **Seed** (layer 4) drifts downwind, so woods creep in the wind's direction.
+- **Smoke** from hearths and fires leans with the wind (view). **Sound** carries further downwind, so wolves smell and hear the camp from one side.
+- **Shelter:** a wood or a hedge upwind of a house makes it warmer in winter wind, so the cold felt by that household is less. People who feel the wind keep, plant or grow shelter.
+- **Later:** windmills on exposed high ground.
+- **Seen:** grass and crops ripple, smoke leans, snow drifts against the lee side of houses and hedges, leaves blow off in autumn gales.
+
+### 9. Mast years and the cascade
+
+- Oaks, beech and hazel (a kind tag on `tree` tiles, from noise at world creation) set a heavy crop of nuts when spring was warm and had no late frost, the same warmth count `warmSum` already keeps for fruit. Trees that cropped heavily rest the next year (their stored strength is spent: a per-tile reserve, not a timer).
+- **Cascade:** a mast autumn feeds deer, boar and rabbits through winter → more young in spring → wolves breed better the year after → deer fall the year after that. People gather nuts and store them; a mast year fills larders and a lean one empties them.
+- **Seen:** the ground under oaks brown with acorns, squirrels, deer gathered in the woods in autumn, a log line ("The oaks dropped a heavy crop this year").
+
+### 10. Living edges: hedges, coppice, old marks on the land
+
+- **Hedges grow on their own.** Under a fence line nothing grazes, so once scrub exists (M5) a hedge grows there in a few years. Field edges and lot boundaries become green lines with no extra rule. Hedges give shelter (layer 8), berries, nesting birds and a barrier to deer.
+- **Coppice.** A woodcutter who cuts young wood near home instead of walking to the old wood (the idea comes from long timber trips) leaves stools that regrow fast. A coppiced wood looks like rows of bushy stumps in rotation.
+- **The land remembers.** Old ploughed fields keep ridges that show in low sun for decades; ruined houses leave mounds and nettles (rich middens); graves stay as mounds; tracks no longer used fade slowly. The view reads these from state (`fert`, an old-use field, `tread` history), so a player can read the history of a valley from its ground.
+- **Seen:** green field boundaries, rows of coppice, humps and ridges under grass.
+
+### 11. More creatures that shape the land
+
+Each is a row in `SPECIES` plus, where needed, one behaviour, like the three animals today.
+
+| Creature | Lives by | Changes | Brings to people |
+|---|---|---|---|
+| **Beaver** | Young trees by streams | Fells bank trees and dams narrow water: a pond and a marsh grow behind the dam; fish and reeds follow; a dam can flood a field. | Ponds and marsh made for them; pelts; a dammed ford. |
+| **Boar** | Roots, nuts, crops | Roots up ground (bare patches that grow back rich); raids fields at night. | Want for fences and hunting; meat in mast years. |
+| **Birds** (as state, not decoration) | Seed, fruit, insects | Carry tree seed far (layer 4); flocks raid ripe crops; return in spring when the days lengthen and leave when they shorten, like `lateLight`. | Want to guard fields (scarecrows, children sent out); eggs; the first sign of spring. |
+| **Rats and mice** | Middens and stores | Eat stored food; breed where food is lying about. | Real spoilage cause for the granary (F3) and for keeping a cat or dog. |
+| **Bees** | Flowers | More fruit where they are (pollination); live in old hollow trees. | Honey and wax gathered from wild hives, later hives kept. |
+| **Geese, ducks, herons** | Water and marsh | Graze banks, fish the shallows. | Fowling; feathers; life on the water. |
+
+### 12. The land and people's health, and the seasons that draw people
+
+**Health** (ties into medicine and the healer's house in F7):
+
+- **Foul water.** Middens, latrines, tanneries and pens near water raise a `foul` value on water tiles, carried downstream by the river. People drinking foul water fall sick; sickness is felt as the want `loss` and, once enough is lost, as a want for clean water. Answers: a well away from the river, a latrine downhill, the tannery downstream. Settlements arrange themselves along the river by this.
+- **Marsh fever.** Marsh (layer 2) breeds biting flies in warm months; those living near it sicken more. People drain it (an idea) or build away from it, so the driest ground fills first.
+
+**Seasons that draw people:**
+
+- **Fish run.** When the spring river rises and the water warms, fish crowd into the shallows and fords for a few weeks. People who notice it gather at the river: a seasonal camp, drying racks, a feast. Caused by water and warmth, not a date.
+- **Frozen river.** When water stays below about -3 long enough, the ice holds: fords and rivers become walkable in `wayDist`, for people and for wolves. Winter visits across the river and wolves at the gate both follow. Builds on the fords and bridges already in the code.
+- **Rut and calving.** Deer gather and are bold in autumn (easy to hunt, dangerous to meet); in spring, calves hide in long grass and gatherers find them.
+- **Autumn gathering.** Nuts, mushrooms after warm rain in old woods, berries on scrub: a short rich season that sends whole households into the woods.
+
+### Seeing it (view only, any time)
+
+- **Props from state.** Bushes from `scrub`, reeds from marsh, flowers from meadow, stumps where wood was felled, rocks from `rock`. Nothing important drawn from a random hash.
+- **Atmosphere.** Morning fog in low ground on still cold mornings; mist over water; heat shimmer on dry summer days; puddles after rain; frost on roofs; rainbows after a storm with sun; long shadows in low sun.
+- **Seasons in colour.** Autumn colour by tree kind (oak brown, birch yellow, maple red) driven by the cold, not a date; spring green coming in from the warm slopes; flowers in waves (spring white and yellow, summer pink and red).
+- **Small life from the simulation.** Fish jump where `fish` is high; butterflies where flowers are; birds over fields at harvest and over water; frogs calling at marsh on spring nights (sound).
+- **Overlays** (phase L): fertility, ground water, wind, foul water, known land.
+- **A nature log.** Short lines for things worth noticing: the first geese back, the river frozen hard enough to walk, a heavy mast, a fire on the hill, the beavers' new pond.
+
+### How the new layers react: more worked chains
+
+| Cause | Within a year | Within ten years | Over decades |
+|---|---|---|---|
+| Hillside cleared for fields | Grass up, timber trips shorter. | Yields fall on the slope, rise on the valley floor; floods muddier. | Terraces, or the slope goes back to scrub. |
+| Village built downwind of a dry wood | Nothing. | A summer fire reaches the huts in some seeds. | Next houses built upwind or with a cleared gap. |
+| Warm spring, no late frost | Mast autumn; full larders. | Deer and boar boom, then wolves, then deer fall. | Repeats with the weather, never on a schedule. |
+| Fence left standing | Nothing. | Hedge along it; birds nest; deer kept out. | A patchwork of hedged fields. |
+| Midden by the river | Rats. | Foul water downstream; sickness; a well dug away from the river. | Tanneries and pens moved downstream. |
+| Beavers move into a stream | A few bank trees felled. | Pond and marsh; more fish and reeds; a field drowned. | A wetland that outlives the beavers. |
+| A hard winter | River freezes; people cross; wolves cross. | — | — |
+
 ## Order of work: phase M
 
 Phase A is done, so M can start now; B1 to B3 are in. It should land **before phase D** retunes the ecology at 128x128, so the retune happens once. Each step follows the definition of done in `docs/PLAN.md` and adds its columns to the standard table.
@@ -127,10 +215,31 @@ Phase A is done, so M can start now; B1 to B3 are in. It should land **before ph
 
 **View work** goes with each step, code-drawn first: stumps, ash and charred ground, scrub density, marsh tint, silt sheen after a flood, worn-field colour from low `fert`. Reeds and bushes switch from hash to state. No sprite generation without asking (budget at $7.48 of $8.00).
 
+### Phase M, second part: life and beauty (M9 to M18)
+
+After M1 to M8. Order by value and risk; M9 is a decision, not a step.
+
+| Step | Do | Check | Table columns |
+|---|---|---|---|
+| M9 | **Decide on height** with the owner. If yes, do it with D4 in one commit: `height`, rivers and lakes by flow, frost hollows, erosion downhill, relief drawn in the view. | Rivers reach the edge; no water uphill; tests pass at 40, 96, 128. Screenshot before and after. | mean slope farmed |
+| M10 | **Wind.** Direction and strength; fire, seed, smoke, sound and shelter use it. List under "Planned on purpose". | Fire spreads mostly downwind across seeds. Houses with a wood upwind feel less cold. | fires downwind share |
+| M11 | **Tree kinds and mast.** Kind per tree tile; nut crop from spring warmth and a per-tile reserve; nuts eaten by deer, boar, people. | Mast years vary with weather; deer peak follows a mast; wolves a year later. | mast years |
+| M12 | **Hedges and coppice.** Scrub under fence lines (falls out of M5; check it); coppicing as an idea from long timber trips. | Hedges along every fence older than 10 years in most seeds. | hedge tiles |
+| M13 | **Boar and birds** as `SPECIES` rows; birds carry seed and raid crops; migration by day length. | Crop losses to birds in some years; boar rooting visible. | boar, birds |
+| M14 | **Beavers.** Dams on narrow water make ponds and marsh. | At least one pond made by beavers in most lakeland and valley runs. | beaver ponds |
+| M15 | **Rats, foul water, sickness.** Middens and stores feed rats; `foul` on water carried downstream; sickness from foul water and marsh. | Sickness higher downstream of middens; a well away from the river follows in some seeds. | sick, foul |
+| M16 | **Seasons that draw people.** Fish run; frozen river walkable in `wayDist`; rut; autumn gathering. | People at the river in fish-run weeks; crossings on ice in hard winters only. | ice crossings |
+| M17 | **Bees and fowl.** Pollination raises fruit near hives; honey; waterfowl on marsh. | Fruit higher near hollow-tree hives. | |
+| M18 | **The land remembers.** Old-use field for ridges, mounds, faded tracks; drawn in low sun. | A 200-year run shows old field ridges where fields were abandoned. | |
+
+**View work for this part,** code-drawn and recoloured first: relief and slope shading, leaning smoke, rippling grass, snow drifts, autumn colour by kind, fog and mist, puddles, hedges, coppice stools, beaver dams, boar rooting, flocks, nature log lines. Generated sprites only for the new animals (boar, beaver, birds) and only after asking, with the cost shown; the sprite budget has $0.52 left, so likely recolours and code-drawn animals.
+
+
 ## Engineering
 
 - **Cost.** `land()` is one loop over tiles; each new field adds a few multiply-adds. Slow layers (`deep`, `fert`, `seed`, `deadwood`, `wood`) may integrate every 4th tick with `dt * 4`. That is numerical step size, not a gameplay timer, and it keeps 128x128 well under the 30 s per 100 years target in D4.
-- **Memory.** Five new `Float32Array(N * N)` fields: 320 KB at 128x128.
+- **Memory.** Five new `Float32Array(N * N)` fields for M1 to M8: 320 KB at 128x128. The second part adds about six more (`height`, tree kind, nut reserve, `foul`, old use, hedge age): under 1 MB in all.
+- **Animals.** Four new species multiply creature cost; phase D1's removal of the quadratic loops must come first.
 - **Save and load.** Every new field must be added to `FIELDS` in `sim.js`, or save and load silently drop it. Add a test that every typed array the world allocates is in `FIELDS`.
 - **Determinism.** Seed spread and lightning call `rnd()`. Expect every history to change at M2 and M5; compare distributions over seeds, not one history.
 - **Long lines.** A6 broke lines up to under 200 characters; keep it so. Never a `//` mid-line.
@@ -144,6 +253,9 @@ Phase A is done, so M can start now; B1 to B3 are in. It should land **before ph
 4. Scrub growth against grazing. Too fast and the whole map becomes thicket.
 5. Deadwood build-up and rot. Too fast and the map burns every summer.
 6. Amplitude of the wet and dry swing. Too strong and the village empties in the first dry decade.
+7. Wind strength on fire spread. Too strong and every fire crosses the map.
+8. Erosion on slopes (with height). Too strong and the hills go bare in a century.
+9. Sickness from foul water. Too strong and every riverside village dies; it should steer where people live, not empty places.
 
 ## Failure modes to watch
 
@@ -152,8 +264,12 @@ Phase A is done, so M can start now; B1 to B3 are in. It should land **before ph
 - Fertility drifts to a wall (0 or 1) everywhere.
 - Fire every year, or never.
 - The view drawing scrub so thickly that people and paths disappear.
+- Fog, smoke and weather effects hiding the town. Keep them light and short.
+- New species wiping one another out (boar eating all nuts, beavers drowning every stream). Each needs a check across seeds like deer and wolves have.
 
 ## Planned on purpose (to add to `docs/ARCHITECTURE.md` when built)
 
 - The slow swing of wet and dry years, drawn once from the seed. Like the sun, it is given from outside.
+- The slow drift of the wind's direction and strength. Given from outside, like the sun.
+- Tree kinds and the height map, drawn from the seed at world creation, like the rock and water are today.
 - The physical constants of each flow (growth, rot, runoff shares, seed distances). These are tuning numbers, like an animal's metabolism.
