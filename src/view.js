@@ -355,7 +355,7 @@ function leafState(i, T, falling) {
 }
 const props = new Map();
 function wantProps() {
-  const want = new Map(), falling = !W.daysLengthen(), cR = campR();
+  const want = new Map(), falling = !W.daysLengthen(), cR = campR(), ripe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const i = y * N + x; if (W.water[i]) continue;
     const tr = W.tree[i], h0 = hash(i, 1), jx = (hash(i, 2) - 0.5) * 0.5, jy = (hash(i, 3) - 0.5) * 0.5, T = W.tempAt(i), snowy = W.snow[i] > 0.08;
@@ -364,6 +364,11 @@ function wantProps() {
     if (tr >= 0.06 + lag && !inCamp && !W.field[i] && !T0.road[i] && h0 < (tr < 0.42 ? 0.5 : 0.42 + tr * 0.4)) {
       const lk = treeLook(i, T, W.warmSum[i] > 0, snowy, falling), stage = Math.round(clamp((tr - 0.06 - lag) / (0.45 + lag * 2), 0, 1) * (STAGES - 1));
       want.set('t' + i, { kind: 'tree', i, x: px, y: py, base: lk.base + lk.state, stage, img: stageImg(lk.img, stage), dy: 0 }); continue;
+    }
+    /* what is sown comes up on the field, as far on as the season's warmth has brought it; each plant a little ahead or behind its neighbours */
+    if (W.field[i] && A.crop && ripe > 0 && !snowy) {
+      const r = clamp(ripe + (hash(i, 11) - 0.5) * 0.12, 0, 1), k = r < 0.2 ? 0 : r < 0.45 ? 1 : r < 0.8 ? 2 : 3, img = k === 2 && W.soil[i] < 0.26 && A.cropDry ? A.cropDry : A.crop[k];
+      want.set('c' + i, { kind: 'crop', i, x: x + 0.5 + jx * 0.3, y: y + 0.5 + jy * 0.3, base: 'c' + k + (img === A.cropDry), img, dy: 3 });
     }
     if (inCamp || W.field[i] || T0.road[i]) continue;   /* no bush or rock drawn on a field or a made road */
     if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) {

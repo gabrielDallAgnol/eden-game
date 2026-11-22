@@ -183,7 +183,11 @@ function yarProps(A, one, sized, mk, snowOn, hash) {
     x.putImageData(d, 0, 0); return c; };
   /* the leafy things: every state the valley can put them in */
   const leafy = src => { const o = { spring: g(src, 'spring'), plain: g(src, 'plain'), dry: g(src, 'dry'), gold: g(src, 'gold'), red: g(src, 'red'), frost: g(src, 'frost') }; o.berry = berries(o.plain); o.goldBerry = berries(o.gold); o.redBerry = berries(o.red); o.snow = snowOn(o.frost); return o; };
-  A.bush = [leafy(raw('yar_bush_a', 0.62)), leafy(raw('yar_bush_b', 1)), leafy(raw('yar_bush_c', 1))];
+  /* the leafiest of the three is what people sow: wild bushes keep the other two drawings, so a field is told apart at a glance */
+  A.bush = [leafy(raw('yar_bush_b', 1)), leafy(raw('yar_bush_c', 1))];
+  /* a crop as it grows: a sprout in spring green, a plant, a full plant, and ripe, gold and hung with fruit */
+  { const st = (f, r, fruit) => { const c = g(raw('yar_bush_a', f), r); return fruit ? berries(c) : c; };
+    A.crop = [st(0.2, 'spring'), st(0.28, 'spring'), st(0.36, 'plain'), st(0.42, 'gold', true)]; A.cropDry = st(0.36, 'dry'); }
   A.tuft = [leafy(raw('yar_grass_a', 0.8)), leafy(raw('yar_grass_b', 0.8))];
   const stone = src => { const plain = g(src, 'rock'); return { plain, wet: g(src, 'wet'), snow: snowOn(plain) }; };
   A.rock = [stone(raw('yar_rock_a', 1)), stone(raw('yar_rock_b', 1)), stone(raw('yar_rock_c', 0.66))];
