@@ -780,6 +780,7 @@ function planPerson(r, phase, pi) {
       P.go(st.x, st.y, sp); P.wait(0.22, 'work', { fx: 'dust', lx: st.lx, ly: st.ly });
       P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
     }
+    case 'craft': { const tx = act.j % N + 0.5, ty = ((act.j / N) | 0) + 0.5; P.go(tx + 0.4, ty + 0.4, sp); P.wait(0.6, 'work', { fx: act.at === 'kiln' ? 'dust' : 'hammer', lx: tx, ly: ty }); break; }   // a day at the kiln, the anvil or the bench
     case 'walkto': P.go(act.x + 0.5, act.y + 0.5, sp); break;                               // on the way out: as far as the simulation has them
     case 'carryhome': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item || 'basket' }); break;   // on the way back with a load: fish, a basket, logs, stone, sticks
     case 'drop': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item || 'log' }); P.wait(0.05, 'work', { drop: 1 }); break;   // the load set down at the plot or the hearth

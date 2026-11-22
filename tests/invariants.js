@@ -509,6 +509,13 @@ UNITS.push(['food in common keeps only while a store stands: burn the granary an
   if (!(open > kept * 1.5)) return 'grain lost in a step: ' + kept.toFixed(3) + ' with the granary standing, ' + open.toFixed(3) + ' once it is gone';
   return '';
 }]);
+UNITS.push(['tools are made at a smithy: with no smithy, none are made and those there wear out (F4)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), T = W.S.tribe, i, last;
+  for (i = 0; i < 24 * 3; i++) W.tick();
+  T.skills.tools = true; T.tools = 10; T.ore = 50; W.G.ruin('smithy'); last = T.tools;
+  for (i = 0; i < 24 * 2; i++) { W.G.ruin('smithy'); W.tick(); if (T.tools > last + 1e-9) return 'tools rose from ' + last.toFixed(3) + ' to ' + T.tools.toFixed(3) + ' at step ' + i + ' with no smithy standing'; last = T.tools; }
+  return T.tools < 10 * 0.7 ? '' : 'tools only wore from 10 to ' + T.tools.toFixed(2) + ' in two years';
+}]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
   for (var i = 0; i < 48; i++) W.tick();

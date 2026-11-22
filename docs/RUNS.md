@@ -639,3 +639,32 @@ Size 96, seeds 1 and 2:
 | mean |  | 15.9 | 77 | 146.3 | 174.2 | 49.4 | 165.7 | 0.1 | 12.8 |  | 2.6 | 8.8 | 16.8 | 5.3 | 69.7 | 1.1 | 1193 | 61.1 | 26.3 | 8.7 |  |  | 44.3 | 5.9 | 18.9 | 0.4 | 0 | 14738.4 |
 
 Year 100 mean 146.3 (141.4 before), year 25 15.9 (16.5), dwellings 49.4 (51.6), hunger deaths 165.7 (164.4), 1 resettle (valley 2).
+
+
+## F4: kiln, smithy, workshop
+
+Tools, pots and carts are made things. Three `BUILDINGS` rows: a kiln (needs pottery; a potter makes pots, 0.3 timber of firing each), a smithy (needs the tools idea; a smith makes tools, 0.25 ore and 0.3 timber each) and a workshop (needs the wheel; a wright makes carts, 4 timber each). Ore is found while quarrying stone (0.12 of what is broken). Each is raised when its good is short (pots fewer than households, tools fewer than grown hands, carts fewer than grown tame beasts) and the idea is known. A smith, potter or wright walks to the place on a real trip and makes what a day there and the materials allow. Things wear: tools by a quarter a year, pots a tenth, carts 8%.
+
+Effects that used to come from knowing an idea now come from having the thing: a grown worker holding a tool (tools go to the longest in the place first) fells, quarries and builds at the old tool rate, others at the plain rate; a household with pots (oldest roofs first) loses 0.7 of the food its roof would lose; the number of carts in use is the carts made, up to the beasts to draw them (before: one per point of felt toil, up to the beasts).
+
+Two fixes found on the way: a haul that cannot be walked before dark now looks for its way only as far as can be walked today (the route search had no limit and swept the whole map), and a plot whose haul failed waits for the next morning instead of trying every step (plains 1 had 13 133 stone-haul attempts in its last 20 years; 100 years now take 23 s, not 97).
+
+Checks. Unit: with the smithy ruined, tools never rise and 10 tools wear below 7 in two years. In valley 1 a potter takes up the kiln at year 18 and a smith the smithy at year 20. Tools stay few (often under 2): a smith is only appointed when the food supply can spare hands; F6 changes that. Tests 445 passed, 0 failed; scenarios 23 passed (one warning: in a deforest run people died out). Code-drawn sprites for the three.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 7 | 53 | 289 | 318 | 77 | 199 | 0 | 15 | 10/140/0 | 2.8 | 20.8 | 23.2 | 5.9 | 69 | 1 | 2654 | 200 | 39.6 | 4.8 | 0.5 (2) | 83/0/3/2/10 | 64 | 6.4 | 25 | 5 | 0 | 21352 |
+| valley | 2 | 26 | 87 | 208 | 212 | 74 | 170 | 0 | 14 | 17/198/5 | 2.8 | 0 | 25.3 | 4.7 | 168 | 1 | 1300 | 228 | 33.4 | 5.4 | 4 (1) | 85/0/3/0/11 | 70 | 5.6 | 21 | 0 | 0 | 23715 |
+| plains | 1 | 9 | 78 | 351 | 351 | 76 | 311 | 0 | 14 | 7/281/5 | 2.6 | 21.4 | 22.5 | 7.7 | 89 | 0.9 | 2459 | 88 | 33.5 | 5.7 | 0 (4) | 81/0/1/0/12 | 56 | 10.9 | 29 | 0 | 0 | 22979 |
+| plains | 2 | 3 | 17 | 91 | 152 | 37 | 126 | 2 | 12 | 2/214/5 | 2.4 | 3.5 | 16.6 | 6 | 13 | 0.9 | 580 | 44 | 29.9 | 5.3 |  | 87/1/1/0/10 | 36 | 7.1 | 21 | 0 | 0 | 12411 |
+| forest | 1 | 9 | 55 | 77 | 126 | 37 | 115 | 0 | 13 | 39/90/5 | 2.6 | 27.7 | 20.9 | 3.7 | 39 | 1.1 | 191 | 78 | 20.7 | 5 | 0 (4) | 84/0/2/0/13 | 37 | 3.9 | 13 | 0 | 0 | 14146 |
+| forest | 2 | 32 | 104 | 87 | 143 | 40 | 170 | 0 | 13 | 2/95/0 | 2.4 | 0 | 23.2 | 4 | 144 | 1 | 321 | 66 | 19 | 5.7 | 0 (3) | 91/0/2/0/6 | 31 | 5.1 | 13 | 0 | 0 | 14762 |
+| lakeland | 1 | 10 | 67 | 232 | 233 | 75 | 157 | 0 | 13 | 14/65/5 | 2.8 | 0 | 21.6 | 5 | 182 | 1 | 1858 | 99 | 28.3 | 5.1 |  | 83/0/2/0/12 | 62 | 5.6 | 25 | 0 | 0 | 17884 |
+| lakeland | 2 | 23 | 93 | 102 | 119 | 37 | 143 | 0 | 12 | 8/195/5 | 2.4 | 0 | 14.4 | 4.7 | 50 | 1.1 | 605 | 68 | 22.1 | 3.8 |  | 87/0/1/0/11 | 36 | 4.9 | 21 | 0 | 0 | 12350 |
+| highland | 1 | 18 | 56 | 57 | 63 | 23 | 93 | 0 | 13 | 7/75/5 | 2.8 | 0 | 16.5 | 6.4 | 107 | 1.1 | 81 | 65 | 21.3 | 2.9 | 0 (2) | 76/0/3/0/21 | 54 | 5.6 | 13 | 0 | 0 | 9000 |
+| highland | 2 | 13 | 53 | 65 | 74 | 22 | 101 | 0 | 13 | 6/60/0 | 3 | 13.7 | 8.8 | 8 | 18 | 1.1 | 125 | 67 | 25.7 | 5.5 | 6 (1) | 82/0/4/0/13 | 37 | 10.4 | 13 | 0 | 0 | 10584 |
+| mean |  | 15 | 66.3 | 155.9 | 179.1 | 49.8 | 158.5 | 0.2 | 13.2 |  | 2.7 | 8.7 | 19.3 | 5.6 | 87.9 | 1 | 1017.4 | 100.3 | 27.4 | 4.9 |  |  | 48.3 | 6.6 | 19.4 | 0.5 | 0 | 15918.3 |
+
+Year 100 mean 155.9 (146.3 before), year 25 15.0 (15.9), dwellings 49.8 (49.4), hunger deaths 158.5 (165.7), 2 resettles (plains 2).
