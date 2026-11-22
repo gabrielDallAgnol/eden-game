@@ -565,6 +565,17 @@ UNITS.push(['strike leaves meat from an animal, logs from a tree, stone from roc
   if (tj >= 0 && !(after < before)) out.push('logs by the village untouched after 2 years (' + before.toFixed(1) + ')');
   return out.join('; ');
 }]);
+UNITS.push(['a route exists between any two land tiles on the same piece of land, and never crosses open water (E1)', function () {
+  var out = [];
+  [40, 96].forEach(function (size) { ['valley', 'lakeland', 'highland'].forEach(function (land) {
+    var W = Eden.create(2, { land: land, size: size }), N = W.N, cnt = {}, i, k, bad = 0, n = 0;
+    for (i = 0; i < N * N; i++) cnt[W.mass[i]] = (cnt[W.mass[i]] || 0) + 1;
+    /* every 37th land tile against every 53rd, on the same piece of land */
+    for (i = 0; i < N * N && n < 60; i += 37) { if (W.water[i] || cnt[W.mass[i]] < 30) continue; for (k = 11; k < N * N && n < 60; k += 53 * 7) { if (W.water[k] || W.mass[k] !== W.mass[i]) continue; var r = W.route(i % N, (i / N) | 0, k % N, (k / N) | 0); n++; if (!r.reached || r.tiles.some(function (j) { return W.water[j]; })) bad++; } }
+    if (bad) out.push(land + ' at ' + size + ': ' + bad + ' of ' + n + ' routes failed');
+  }); });
+  return out.join('; ');
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }

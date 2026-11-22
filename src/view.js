@@ -522,33 +522,12 @@ function clear(x0, y0, x1, y1) {
   }
   return true;
 }
-const prevA = new Int16Array(N * N);
 function route(x0, y0, x1, y1) {
   if (clear(x0, y0, x1, y1)) return [{ x: x1, y: y1 }];
-  let cl = v => clamp(v | 0, 0, N - 1), s = cl(y0) * N + cl(x0), e = cl(y1) * N + cl(x1);
-  prevA.fill(-1); /* someone walking in from beyond the edge starts at the edge */
-  prevA[s] = s;
-  const q = [s];
-  for (let h = 0; h < q.length && prevA[e] < 0; h++) {
-    const c = q[h], cx0 = c % N, cy0 = (c / N) | 0;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
-      const nx = cx0 + dx, ny = cy0 + dy;
-      if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
-      const j = ny * N + nx;
-      const wet = k => W.water[k] && !crossing[k];
-      if (prevA[j] >= 0 || wet(j) || (dx && dy && (wet(cy0 * N + nx) || wet(ny * N + cx0)))) continue;
-      prevA[j] = c;
-      q.push(j);
-    }
-  }
-  let x1e = x1, y1e = y1, end = e;
-  if (prevA[e] < 0) {
-    /* the far side cannot be reached on foot: go as near as this side allows, to the water's edge, and no further */
-    let bd = 1e9; for (let c = 0; c < N * N; c++) if (prevA[c] >= 0) { const d = Math.hypot((c % N) + 0.5 - x1, ((c / N) | 0) + 0.5 - y1); if (d < bd) { bd = d; end = c; } }
-    x1e = (end % N) + 0.5; y1e = ((end / N) | 0) + 0.5; if (end === s) return [{ x: x0, y: y0 }];
-  }
-  x1 = x1e; y1 = y1e; e = end;
-  const cellsP = []; for (let c = e, g = 0; c !== s && g < N * N; c = prevA[c], g++) cellsP.push(c); cellsP.reverse();
+  /* the way is the simulation's (E1): over land and bridges, roads quicker; if the far side cannot be reached, as near as this side allows */
+  const cl = v => clamp(v | 0, 0, N - 1), rt = W.route(cl(x0), cl(y0), cl(x1), cl(y1));
+  if (!rt.reached) { const end = rt.tiles.length ? rt.tiles[rt.tiles.length - 1] : cl(y0) * N + cl(x0); x1 = (end % N) + 0.5; y1 = ((end / N) | 0) + 0.5; if (!rt.tiles.length) return [{ x: x0, y: y0 }]; }
+  const cellsP = rt.tiles;
   const pts = []; let ax = x0, ay = y0;
   for (let k = 0; k < cellsP.length; k++) {
     const c = cellsP[k], px = (c % N) + 0.5, py = ((c / N) | 0) + 0.5, nx = k + 1 < cellsP.length ? (cellsP[k + 1] % N) + 0.5 : x1, ny = k + 1 < cellsP.length ? ((cellsP[k + 1] / N) | 0) + 0.5 : y1;

@@ -746,6 +746,35 @@ function create(seed, opt) {
       a.x = nx; a.y = ny;
     }
   }
+  // ---- routes (E1). The way a body actually goes from one tile to another: over dry ground and bridges, never over open
+  // water, round a closed fence unless it is a person or led; a made road is quicker going. A* over tiles, diagonal steps only
+  // where both sides are open. If the goal cannot be reached, the route goes to the reachable tile nearest it.
+  let bridgeSet = null, bridgeKeys = -1;
+  function bridgeTiles() { const T = S.tribe, k = Object.keys(T.bridged || {}).length; if (bridgeSet && k === bridgeKeys) return bridgeSet; bridgeSet = new Uint8Array(N * N); for (const f of fords) if (T.bridged[f.key]) for (const t of f.tiles) bridgeSet[t] = 1; bridgeKeys = k; return bridgeSet; }
+  const ROUTE_G = new Float64Array(N * N), ROUTE_FROM = new Int32Array(N * N), ROUTE_SEEN = new Int32Array(N * N); let routeGen = 0;
+  function route(x0, y0, x1, y1, a) {
+    const T = S.tribe, br = bridgeTiles(), s0 = I(clamp(x0, 0, N - 1), clamp(y0, 0, N - 1)), goal = I(clamp(x1, 0, N - 1), clamp(y1, 0, N - 1)), gx = goal % N, gy = (goal / N) | 0;
+    const open = j => (!water[j] || br[j]) && !(a && T.fence && T.fence[j] && !a.d.people && !a.tame && !within(a));
+    const hcost = j => { const dx = Math.abs(j % N - gx), dy = Math.abs(((j / N) | 0) - gy); return 0.67 * (Math.max(dx, dy) + 0.41 * Math.min(dx, dy)); };
+    routeGen++; const heap = [];
+    const push = (j, k) => { heap.push([k, j]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    ROUTE_SEEN[s0] = routeGen; ROUTE_G[s0] = 0; ROUTE_FROM[s0] = -1; push(s0, hcost(s0));
+    let best = s0, bh = hcost(s0), found = false;
+    while (heap.length) {
+      const [, c] = pop(); if (c === goal) { found = true; break; }
+      const cx = c % N, cy = (c / N) | 0, h = hcost(c); if (h < bh) { bh = h; best = c; }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue; const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+        const j = I(nx, ny); if (!open(j) || (dx && dy && (!open(I(nx, cy)) || !open(I(cx, ny))))) continue;
+        const g = ROUTE_G[c] + (dx && dy ? 1.41 : 1) * (T.road[j] ? 0.67 : 1);
+        if (ROUTE_SEEN[j] === routeGen && ROUTE_G[j] <= g) continue;
+        ROUTE_SEEN[j] = routeGen; ROUTE_G[j] = g; ROUTE_FROM[j] = c; push(j, g + hcost(j));
+      }
+    }
+    const end = found ? goal : best, tiles = []; for (let c = end; c !== s0 && c >= 0; c = ROUTE_FROM[c]) tiles.push(c); tiles.reverse();
+    return { tiles, reached: found, cost: found ? ROUTE_G[goal] : Infinity };
+  }
   const roam = (a, r, n) => stepTo(a, a.x + ((rnd() * (2 * r + 1)) | 0) - r, a.y + ((rnd() * (2 * r + 1)) | 0) - r, n);
 
   // ---- homes: an animal with a home trait keeps a burrow or den, shares it with its kind, and digs a new one when it is full or too far
@@ -1959,6 +1988,7 @@ function create(seed, opt) {
     fords: () => fords,
     wayDist,
     around,
+    route,
     stats,
     tread,
     PITCH,
