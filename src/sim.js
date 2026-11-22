@@ -608,6 +608,15 @@ function create(seed, opt) {
     }
     return best;
   }
+  // every living creature within r tiles that passes ok (from the per-tile lists, not the whole world)
+  function around(a, r, ok) {
+    const out = [];
+    for (let y = Math.max(0, a.y - r); y <= Math.min(N - 1, a.y + r); y++) for (let x = Math.max(0, a.x - r); x <= Math.min(N - 1, a.x + r); x++) for (const b of cells[I(x, y)]) if (b.alive && b !== a && ok(b)) out.push(b);
+    return out;
+  }
+  // the tiles under crop, gathered once each sowing (and after a load) rather than searched for every step
+  let fieldList = null;
+  const fieldTiles = () => { if (!fieldList) { fieldList = []; for (let i = 0; i < N * N; i++) if (field[i]) fieldList.push(i); } return fieldList; };
   // like nearest, but each candidate's distance is shifted by a bias: a way to prefer the weak, the young, the unwary
   function nearestBy(a, r, ok, bias) {
     let best = null, bd = 1e9;
@@ -723,7 +732,7 @@ function create(seed, opt) {
       const p = 0.42 * (pm < 1 ? 0.72 : 1) * Math.pow(Math.min(1, d.mass / pm), 5) * together * watched * (1 - cover(j)) * TPY * dt * 1.6;
       if (rnd() < p) {
         die(prey, 'eaten', a.id); const meal = pm / d.mass; a.act = { k: 'kill', id: prey.id, x: prey.x, y: prey.y };
-        const pk = d.social === 'pack' ? S.agents.filter(b => b.alive && b.sp === a.sp && b !== a && cheb(b, a) <= 5) : [];
+        const pk = d.social === 'pack' ? around(a, 5, b => b.sp === a.sp) : [];
         for (const b of pk) b.feedAt = { x: prey.x, y: prey.y };                    // the pack comes to the kill
         a.e = Math.min(1.25, a.e + meal * (pk.length ? 0.45 : 1)); for (const b of pk) b.e = Math.min(1.25, b.e + meal * 0.55 / pk.length);
       }
@@ -932,7 +941,7 @@ function create(seed, opt) {
     if (T.huts > 0 && a.e > 0.6 && (hm ? (hm.larder || 0) > mouths * 0.9 : T.store > pop * 1.1)) {
       const ct = tempAt(I(T.x, T.y)); if (ct < d.comfort - 9 || (S.precip > 0 && ct >= 0 && ct < 5)) { stepTo(a, T.x, T.y, 3); a.act = { k: 'shelter' }; return; }
     }
-    const adults = S.agents.filter(b => b.alive && b.sp === a.sp && b.age >= d.mature).length, campT = tempAt(I(T.x, T.y));
+    const adults = S.adults[a.sp] || 0, campT = tempAt(I(T.x, T.y));
     // huts and firewood come out of the nearest trees
     // houses: a plot is chosen, timber is felled and carried to it, and the house goes up a stage at a time
     const trade = a.job && (a.job === 'builder' || a.job === 'woodcutter' || a.job === 'mason');
@@ -1463,7 +1472,7 @@ function create(seed, opt) {
         }
         h.fields = have; total += have;
       }
-      T.fields = total; T.sown = true; T.cropWarm = 0;
+      T.fields = total; T.sown = true; T.cropWarm = 0; fieldList = null;
     }
     if (T.sown) {
       T.cropWarm += Math.max(0, ct) * dt;
@@ -1471,7 +1480,7 @@ function create(seed, opt) {
       if (ripe || frost) {
         let dry = 0, nf = 0, got = 0; const by = new Map(T.sites.map(q => [q.id, q])), P = folk();
         const boost = (T.carts ? 1.3 : 1) * (T.skills.plough && S.agents.some(b => b.alive && b.tame) ? 1.4 : 1);
-        for (let i = 0; i < N * N; i++) if (field[i]) {
+        for (const i of fieldTiles()) if (field[i]) {
           nf++; if (soil[i] < 0.32) dry++;
           const h = by.get(owner[i]); let y = flood[i] ? 0 : Math.max(0, grass[i] - 0.1) * 2.6 * (ripe ? 1 : 0.5) * boost; grass[i] = Math.min(grass[i], 0.1);
           if (h) {
@@ -1506,7 +1515,8 @@ function create(seed, opt) {
     const dt = 1 / TPY; S.t += dt; S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
     for (const q of S.homes.values()) q.n = 0;
     for (const L of cells) L.length = 0; S.pop = {}; for (const sp in SP) S.pop[sp] = 0; S.popPeople = 0;
-    for (const a of S.agents) if (a.alive) { cells[I(a.x, a.y)].push(a); S.pop[a.sp]++; if (a.d.people) S.popPeople++; const q = a.home && S.homes.get(a.home); if (q) q.n++; else a.home = 0; }
+    S.adults = {};
+    for (const a of S.agents) if (a.alive) { cells[I(a.x, a.y)].push(a); S.pop[a.sp]++; if (a.age >= a.d.mature) S.adults[a.sp] = (S.adults[a.sp] || 0) + 1; if (a.d.people) S.popPeople++; const q = a.home && S.homes.get(a.home); if (q) q.n++; else a.home = 0; }
     for (const q of S.homes.values()) { if (q.n) q.emptyT = 0; else if ((q.emptyT += dt) > 2 || flood[I(q.x, q.y)]) S.homes.delete(q.id); }
     const T = S.tribe, born = [], campI = I(T.x, T.y), lengthening = daysLengthen(), sunH = sunHeight();
     {
@@ -1555,7 +1565,7 @@ function create(seed, opt) {
       if (!(h.fuel > 0) || tempAt(I(h.x, h.y)) >= HUMAN.comfort - 3) continue;
       h.fuel = Math.max(0, h.fuel - FUEL_BURN); h.lit = S.tickNo; T.fireT = S.t;
     }
-    if (T.well && S.popPeople) for (let i = 0; i < N * N; i++) if (field[i] && soil[i] < (T.skills.irrigation ? 0.7 : 0.45)) soil[i] = T.skills.irrigation
+    if (T.well && S.popPeople) for (const i of fieldTiles()) if (field[i] && soil[i] < (T.skills.irrigation ? 0.7 : 0.45)) soil[i] = T.skills.irrigation
         ? 0.7 : 0.45;   // carried from the well, a bucket at a time
     for (const a of S.agents) {
       if (!a.alive) continue; const d = a.d, i = I(a.x, a.y), Tc = tempAt(i); if (a.fear > 0) a.fear -= dt * 1.4;
@@ -1603,7 +1613,7 @@ function create(seed, opt) {
         }   // a household can carry only so many small children at once
         else {
           if (!nearest(a, 7, b => b.sp === a.sp && b.age >= d.mature)) continue;
-          if (d.territory) { let c = 0; for (const b of S.agents) if (b.alive && b.sp === a.sp && cheb(b, a) <= d.territory * 2) c++; if (c > d.territory) continue; }
+          if (d.territory) { const c = around(a, d.territory * 2, b => b.sp === a.sp).length + 1; if (c > d.territory) continue; }
         }
         const n = d.litter[0] + ((rnd() * (d.litter[1] - d.litter[0] + 1)) | 0); a.e -= 0.25 + 0.08 * n; a.cd = d.interval * (d.people ? 0.85 : 1) * R(0.85, 1.2);
         for (let k = 0; k < n; k++) born.push([a.sp, a.x, a.y, a.home, a.id]);
@@ -1785,7 +1795,7 @@ function create(seed, opt) {
       if (!S.stat) S.stat = {}; for (const k of ['ponds', 'newTrips', 'newN', 'reTrips', 'reN', 'pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }
     S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }
-    folkList = null;
+    folkList = null; fieldList = null;
   }
   tick();
   return { S,
@@ -1800,6 +1810,7 @@ function create(seed, opt) {
     mass,
     fords: () => fords,
     wayDist,
+    around,
     stats,
     tread,
     PITCH,

@@ -283,3 +283,21 @@ No simulation change: the table is identical to B8's. Checked instead: the groun
 ## C2 and C3: chunk-sized buffers, noise tile, skipping unchanged chunks (view only)
 
 No simulation change: the table is identical to B8's. C2: the smoothed fields are now held for one chunk at a time (10 buffers of 128 x 128 samples instead of 320 x 320 at 40x40, and 1024 x 1024 at 128x128), and the ground speckle is a 512 x 512 tile repeated. Ground memory at 40x40, counted in the page: 27.7 MB (9 chunk canvases, fade pool, scratch, buffers, noise tile); the plan's limit is 40 MB. Before, the two full-map canvases alone were about 32 MB. Still pixel-exact against colorAt() after load and after 3 years (lakeland #4, forest #7). Stills look the same; the speckle sits at other places (6.8% of pixels differ, all by small amounts). C3: a chunk is repainted only when its averages of grass, snow, soil, trees, flood, burn scars and paths (in steps of 1/24) or any of its ways, fields, pits or water tiles have changed. Over one year of forest #7: in mid-summer, 3 to 9 of the 9 chunks were skipped per step; in winter every chunk repainted on every step, because snow fell on most steps. A dry winter step changes nothing and is skipped. Done together in one commit (C2 and C3 touch the same lines).
+
+## D1: no whole-world loops inside per-creature code
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 14 | 40 | 53 | 73 | 16 | 57 | 0 | 13 | 9/18/0 | 6.2 | 5.5 | 7.3 | 21.8 | 40 | 1 | 67703 | 33 | 14.8 | 2.3 |  | 77/0/3/0/20 | 5 | 2 | 2305 |
+| valley | 2 | 13 | 55 | 80 | 99 | 21 | 78 | 0 | 15 | 0/9/0 | 6.2 | 7.2 | 11.4 | 20.2 | 65 | 0.8 | 30434 | 53 | 16 | 2.4 | 1 (1) | 83/0/5/0/12 | 7 | 0 | 2602 |
+| plains | 1 | 1 | 8 | 41 | 49 | 8 | 35 | 1 | 13 | 0/35/0 | 6 | 21.3 | 10.9 | 24.6 | 10 | 0.7 | 53 | 20 | 18.8 | 3.3 |  | 89/2/0/0/9 | 1 | 2 | 1596 |
+| plains | 2 | 18 | 34 | 40 | 51 | 11 | 58 | 0 | 14 | 0/5/0 | 6 | 30.2 | 9.4 | 25.7 | 54 | 0.8 | 106 | 19 | 20 | 2.8 |  | 88/8/0/0/3 | 3 | 4 | 1927 |
+| forest | 1 | 7 | 28 | 91 | 91 | 26 | 13 | 0 | 13 | 1/16/0 | 6.5 | 0 | 7.2 | 10 | 7 | 0.9 | 322 | 53 | 11.3 | 2 |  | 78/0/4/3/16 | 6 | 2 | 1344 |
+| forest | 2 | 16 | 50 | 84 | 98 | 22 | 38 | 0 | 15 | 0/8/0 | 6.8 | 4.5 | 10.4 | 13.1 | 21 | 0.9 | 7751 | 48 | 17.4 | 2.4 | 1 (1) | 87/1/4/0/8 | 6 | 1 | 1755 |
+| lakeland | 1 | 18 | 44 | 32 | 60 | 9 | 44 | 0 | 12 | 13/0/0 | 5.7 | 0 | 5.3 | 24.9 | 6 | 1.2 | 9868 | 10 | 18.4 | 2.5 |  | 84/1/0/6/9 | 2 | 0 | 1378 |
+| lakeland | 2 | 16 | 54 | 69 | 69 | 9 | 41 | 0 | 14 | 0/16/0 | 6.4 | 0 | 6.6 | 20 | 15 | 1.2 | 8973 | 20 | 15.9 | 2.5 | 1 (2) | 80/0/5/0/15 | 3 | 6 | 1953 |
+| highland | 1 | 5 | 26 | 17 | 35 | 10 | 46 | 0 | 14 | 4/1/0 | 7.4 | 6.3 | 4.4 | 16.1 | 17 | 1.2 | 74 | 23 | 12.6 | 1.9 | 0.5 (2) | 65/3/3/0/30 | 3 | 1 | 1090 |
+| highland | 2 | 12 | 23 | 37 | 38 | 12 | 44 | 0 | 15 | 3/9/0 | 6.6 | 28.8 | 3.5 | 23 | 7 | 1 | 58 | 23 | 9.9 | 1.6 | 0 (1) | 82/0/9/0/9 | 5 | 2 | 1151 |
+| mean |  | 12 | 36.2 | 54.4 | 66.3 | 14.4 | 45.4 | 0.1 | 13.8 |  | 6.4 | 10.4 | 7.6 | 19.9 | 24.2 | 1 | 12534.2 | 30.2 | 15.5 | 2.4 |  |  | 4.1 | 2 | 1710.1 |
+
+Re-baseline, as the plan expects: histories shift because counts are now taken from the per-tile lists at the start of a step. Year 100 mean 54.4 (B8 56.4), peak 66.3, hunger deaths 45.4. Replaced: the pack filter at a kill and the territory count at birth (now around(), from the per-tile lists), the count of grown people in person() (counted once a step), and the harvest and well-watering loops over every tile (now the list of field tiles made at sowing). Time per 100-year run, 6 worlds in Node: 1925 ms before, 1847 after (4%): at 40x40 these loops are not what costs most; the walking-distance searches are (profiled: about 30% of the time). The gain grows with the map. Tests: 312 passed, 0 failed (new: around() finds exactly what a scan of every tile's list finds), 2 warnings, 14 skipped. Scenarios: 21 passed, 1 warning.

@@ -497,6 +497,17 @@ UNITS.push(['a worked-out pit on wet ground becomes a pond; on dry ground it set
   if (W.water[wet] && W.mass[wet] !== -1) out.push('the new pond is still counted as dry land');
   return out.join('; ');
 }]);
+UNITS.push(['around() finds exactly the creatures a scan of the whole world finds (D1)', function () {
+  var W = Eden.create(5, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'forest' }), i, bad = 0;
+  for (i = 0; i < 24 * 10; i++) W.tick();
+  /* positions move during a step; compare against the per-tile lists as they stand after one more */
+  W.tick(); var live = W.S.agents.filter(function (a) { return a.alive && W.cells[a.y * W.N + a.x].indexOf(a) >= 0; });
+  live.slice(0, 40).forEach(function (a) { [3, 5, 12].forEach(function (r) {
+    var got = W.around(a, r, function (b) { return b.sp === a.sp; }).length, want = 0;
+    for (var c = 0; c < W.cells.length; c++) { var cx = c % W.N, cy = (c / W.N) | 0; if (Math.max(Math.abs(cx - a.x), Math.abs(cy - a.y)) > r) continue; W.cells[c].forEach(function (b) { if (b.alive && b !== a && b.sp === a.sp) want++; }); }
+    if (got !== want) bad++; }); });
+  return bad ? bad + ' of 120 lookups differ' : '';
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }
