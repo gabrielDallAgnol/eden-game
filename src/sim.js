@@ -196,6 +196,15 @@ function create(seed, opt) {
     }
     return best;
   }
+  // like nearest, but each candidate's distance is shifted by a bias: a way to prefer the weak, the young, the unwary
+  function nearestBy(a, r, ok, bias) {
+    let best = null, bd = 1e9;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const x = a.x + dx, y = a.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue;
+      for (const b of cells[I(x, y)]) { if (!b.alive || b === a || !ok(b)) continue; const d = Math.max(Math.abs(dx), Math.abs(dy)) + bias(b); if (d < bd) { bd = d; best = b; } }
+    }
+    return best;
+  }
   function stepTo(a, tx, ty, n) {
     for (let k = 0; k < n; k++) {
       const dx = Math.sign(tx - a.x), dy = Math.sign(ty - a.y); if (!dx && !dy) return;
@@ -244,7 +253,7 @@ function create(seed, opt) {
   const onHunt = b => b.act && (b.act.k === 'stalk' || b.act.k === 'chase' || b.act.k === 'hunt' || b.act.k === 'kill');
   // ---- eating meat: find a body small enough, close in, and try
   function hunt(a, d, dt) {
-    const prey = nearest(a, d.sense, b => {
+    const prey = nearestBy(a, d.sense, b => {
       if (b.hidden || !canTake(a, b)) return false;
       if (S.popPeople >= 3 && a.e > 0.3 && cheb(b, S.tribe) <= 3) return false;   // nothing hunts inside a peopled camp unless it is starving
       const j = I(b.x, b.y);
@@ -255,13 +264,13 @@ function create(seed, opt) {
       // the young are guarded: not worth it while a grown one too big to fight stands beside them
       if (b.age < b.d.mature && nearest(b, 1, c => c.sp === b.sp && c.age >= c.d.mature && c.d.mass > d.mass)) return false;
       return rnd() > cover(j) * 1.1 + hideBonus(b);
-    });
+    }, b => (b.age < b.d.mature || b.age > b.life * 0.8 || b.e < 0.4) ? -2 : 0);   // the young, the old and the starved are taken first
     if (!prey) return false;
     a.act = { k: cheb(prey, a) > 2 ? 'stalk' : 'chase', id: prey.id };
     stepTo(a, prey.x, prey.y, d.speed);
     if (cheb(prey, a) <= 1) {
       const j = I(prey.x, prey.y), pm = bodyOf(prey), together = d.social === 'pack' && nearest(a, 3, b => b.sp === a.sp) ? 1.6 : 1;
-      const watched = prey.d.social === 'herd' && herdSize(prey) >= 2 ? 0.55 : 1;                 // many eyes
+      const watched = prey.d.social === 'herd' && herdSize(prey) >= 2 ? (nearest(prey, 3, c => c.sp === prey.sp && (c.watch === S.tickNo - 1 || c.watch === S.tickNo)) ? 0.35 : 0.55) : 1;                 // many eyes
       const p = 0.42 * (pm < 1 ? 0.72 : 1) * Math.pow(Math.min(1, d.mass / pm), 5) * together * watched * (1 - cover(j)) * TPY * dt * 1.6;
       if (rnd() < p) {
         die(prey, 'eaten', a.id); const meal = pm / d.mass; a.act = { k: 'kill', id: prey.id, x: prey.x, y: prey.y };
@@ -289,10 +298,11 @@ function create(seed, opt) {
   function animal(a, d, dt) {
     // fear: whatever could eat it is fled from when close; from further off when it is plainly hunting and can be seen,
     // or when one of its kind was lately killed by that sort of hunter
-    const threat = (d.eats.meat && a.e < 0.3) ? null : nearest(a, Math.min(d.sense, 4), b => {
+    const onWatch = a.watch === S.tickNo - 1;                          // it spent the last while with its head up
+    const threat = (d.eats.meat && a.e < 0.3) ? null : nearest(a, onWatch ? d.sense + 1 : Math.min(d.sense, 4), b => {
       if (b.hidden || !canTake(b, a) || b.d.mass <= bodyOf(a) * 0.8) return false;
       if (cheb(b, a) <= 2 || (a.fear > 0 && a.fearSp === b.sp)) return true;
-      return onHunt(b) && rnd() > cover(I(b.x, b.y));
+      return onHunt(b) && (onWatch || rnd() > cover(I(b.x, b.y)));
     });
     const h = d.home ? homeOf(a) : null;
     if (!threat && d.social === 'herd') {                              // one startled deer starts the herd
@@ -305,6 +315,8 @@ function create(seed, opt) {
     }
     if (threat) {
       a.mood = 'afraid'; a.act = { k: 'flee', id: threat.id, fx: threat.x, fy: threat.y };
+      // the very young of animals without a hole do not run: they drop where they stand and lie still, if there is anything to lie in
+      if (!h && a.age < d.mature * 0.5 && cheb(threat, a) > 1 && cover(I(a.x, a.y)) > 0.3) { a.hidden = true; a.act.k = 'hide'; return; }
       if (h && Math.max(Math.abs(h.x - a.x), Math.abs(h.y - a.y)) <= 5) { stepTo(a, h.x, h.y, d.speed + 1); a.act.home = h.id; if (atHome(a, h)) { a.hidden = true; a.act.k = 'hide'; } return; }   // bolt for the hole
       stepTo(a, a.x + (a.x - threat.x) * 3, a.y + (a.y - threat.y) * 3, d.speed); return;
     }
@@ -319,6 +331,16 @@ function create(seed, opt) {
     if (d.eats.meat && a.e < 0.8 && hunt(a, d, dt)) return;
     if (d.eats.fish && a.e < 0.85 && fishing(a, d, dt)) { a.act = { k: 'fish', x: a.x, y: a.y }; return; }
     if (plantEater(d)) {
+      if (d.social === 'herd' && !S.night) {
+        const here = I(a.x, a.y);
+        // in the heat of the day a fed herd goes and lies in the shade
+        if (a.e > 0.6 && tempAt(here) > 24 && tree[here] < 0.4) {
+          let bj = -1, bd = 1e9; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const x = a.x + dx, y = a.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y); if (water[j] || tree[j] < 0.4) continue; const dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; bj = j; } }
+          if (bj >= 0) { stepTo(a, bj % N, (bj / N) | 0, d.speed); a.act = { k: 'rest', x: a.x, y: a.y, shade: 1 }; return; }
+        }
+        // while the others eat, one that has eaten stands with its head up; they take it in turns
+        if (a.e > 0.7 && a.age >= d.mature && (a.id + S.tickNo) % 5 === 0 && herdSize(a) >= 2) { a.watch = S.tickNo; a.act = { k: 'watch', x: a.x, y: a.y }; return; }
+      }
       if (S.night && d.social === 'herd') { settle(a, d, anc, 'sleep'); return; }   // herds sleep at night, lying close together; small grazers nibble on in the dark
       if (a.e < 0.95) {
         // a hunter on the move nearby: drift away from it while eating
@@ -349,13 +371,18 @@ function create(seed, opt) {
       if (a.age < d.mature || band < 3) { a.mood = 'afraid'; stepTo(a, dist > 1 ? T.x : a.x + (a.x - beast.x), dist > 1 ? T.y : a.y + (a.y - beast.y), 2); a.act = { k: 'flee', id: beast.id }; return; }
     }
     a.act = { k: 'idle' };
+    const grown = a.age >= d.mature, old = a.age > 46, able = grown && !old;   // children help close to home; the old keep the camp
+    // foul weather: with a roof, food in the store and nothing pressing, people stay in
+    if (T.huts > 0 && a.e > 0.6 && T.store > pop * 1.1) {
+      const ct = tempAt(I(T.x, T.y)); if (ct < d.comfort - 9 || (S.precip > 0 && ct >= 0 && ct < 5)) { stepTo(a, T.x, T.y, 3); a.act = { k: 'shelter' }; return; }
+    }
     const adults = S.agents.filter(b => b.alive && b.sp === a.sp && b.age >= d.mature).length, campT = tempAt(I(T.x, T.y));
     // huts and firewood come out of the nearest trees
     // houses: a plot is chosen, timber is felled and carried to it, and the house goes up a stage at a time
-    if (T.skills.hut && a.age >= d.mature && rnd() < dt * 12) construct(a);
+    if (T.skills.hut && able && rnd() < dt * 12) construct(a);
     if (T.skills.fire && campT < d.comfort - 3 && rnd() < dt * 8) { for (let k = 0; k < 20; k++) { const j = I(clamp(T.x + ((rnd() * 11) | 0) - 5, 0, N - 1), clamp(T.y + ((rnd() * 11) | 0) - 5, 0, N - 1)); if (tree[j] > 0.1) { tree[j] -= 0.03; T.fireT = S.t; a.wood = j; break; } } }
     // look for food: plants, fish, game. What is found is carried home and shared.
-    const range = 7; let bestV = 0, bx = a.x, by = a.y, kind = '';
+    const range = able ? 7 : old ? 5 : 4; let bestV = 0, bx = a.x, by = a.y, kind = '';
     for (let k = 0; k < 10; k++) {
       const x = clamp(T.x + ((rnd() * (2 * range + 1)) | 0) - range, 0, N - 1), y = clamp(T.y + ((rnd() * (2 * range + 1)) | 0) - range, 0, N - 1), j = I(x, y), dd = 1 / (1 + Math.max(Math.abs(x - T.x), Math.abs(y - T.y)) / 5);
       let v = 0, kd = '';
@@ -363,9 +390,31 @@ function create(seed, opt) {
       else { v = fruit[j] * 1.6 + grass[j] * 0.12 * (1 - snowBlock(j, d.mass)); kd = 'plant'; }
       v *= dd; if (v > bestV) { bestV = v; bx = x; by = y; kind = kd; }
     }
-    // game: anything small enough that is not itself a hunter of people-sized things
+    // the hunt: when the stores run low, the able go out together in the morning after the nearest big game.
+    // One walks straight at it; the others swing wide and get beyond it, so that what runs from the first runs onto them.
+    if (able && T.skills.hunt) {
+      let P = T.party; if (P) { const q = S.byId.get(P.prey); if (!q || !q.alive || q.hidden || S.t > P.until || P.day !== Math.floor(S.tickNo / (DAY || 1))) P = T.party = null; }
+      if (!P && T.store < pop * 1.2 && adults >= 2 && S.t > (T.noHunt || 0) && (!DAY || S.tickNo % DAY === 0)) {
+        const q = nearest({ x: T.x, y: T.y }, 7, b => !b.d.people && !b.hidden && bodyOf(b) >= 1 && canTake(a, b) && !(b.d.eats.meat && b.d.mass > d.mass * 0.5));
+        T.noHunt = S.t + 6 * dt;                                       // a hunt, good or bad, and then other work for a day or two
+        if (q) P = T.party = { prey: q.id, until: S.t + 3 * dt, day: Math.floor(S.tickNo / (DAY || 1)), ids: [] };
+      }
+      if (P && !P.ids.includes(a.id) && P.ids.length < 3 && a.e > 0.35) P.ids.push(a.id);
+      if (P && P.ids.includes(a.id)) {
+        const q = S.byId.get(P.prey), k = P.ids.indexOf(a.id), ux = Math.sign(q.x - T.x) || 1, uy = Math.sign(q.y - T.y), side = k === 0 ? 0 : (k % 2 ? 2 : -2);
+        const close = cheb(q, a) <= 2, tx = close || k === 0 ? q.x : q.x + ux * 2 - uy * side, ty = close || k === 0 ? q.y : q.y + uy * 2 + ux * side;
+        stepTo(a, clamp(tx, 0, N - 1), clamp(ty, 0, N - 1), 3); a.act = { k: 'hunt', id: q.id, party: k + 1 };   // hunters run their game down
+        const reach = cheb(q, a); if (reach <= 2) {                      // within a spear's throw; surer from close in
+          let near = 0; for (const id of P.ids) { const m = S.byId.get(id); if (m && m.alive && cheb(m, q) <= 3) near++; }
+          const gm = bodyOf(q), p = (reach <= 1 ? 1 : 0.5) * (0.3 + 0.2 * (near - 1)) * Math.min(1, 4.5 / gm) * (1 - 0.5 * cover(I(q.x, q.y))) * TPY * dt * S.dayK;
+          if (rnd() < p) { die(q, 'hunted', a.id); T.store += gm * 0.9; a.act = { k: 'hunt', id: q.id, kill: 1, x: q.x, y: q.y, party: k + 1 }; T.party = null; T.hunts = (T.hunts || 0) + 1; }
+        }
+        return;
+      }
+    }
+    // small game met by chance while out: anything small enough that is not itself a hunter of people-sized things
     const game = T.skills.hunt && T.store < pop * 1.2 ? nearest(a, 5, b => !b.d.people && !b.hidden && canTake(a, b) && !(b.d.eats.meat && b.d.mass > d.mass * 0.5) && rnd() > cover(I(b.x, b.y)) * 1.25 + (bodyOf(b) < 1 ? 0.4 : 0.15)) : null;
-    if (game && rnd() < 0.3) {
+    if (game && able && rnd() < 0.3) {
       if (a.act.k === 'idle') a.act = { k: 'hunt', id: game.id };
       stepTo(a, game.x, game.y, 2);
       if (cheb(game, a) <= 1) { const gm = bodyOf(game), helpers = Math.min(3, adults - 1), p = (gm < 1 ? 0.22 : (0.07 + 0.05 * helpers) * Math.min(1, 4.5 / gm)) * (1 - 0.5 * cover(I(game.x, game.y))) * TPY * dt * S.dayK; if (rnd() < p) { die(game, 'hunted', a.id); T.store += gm * 0.9; a.act = { k: 'hunt', id: game.id, kill: 1, x: game.x, y: game.y }; } }

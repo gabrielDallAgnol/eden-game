@@ -310,6 +310,7 @@ function planPerson(r, phase, pi) {
       break;
     }
     case 'flee': { r.bub = 'afraid'; r.bubT = now; P.go(end.x, end.y, SPEED.person.run, 'run'); P.done('look', { at: act.id }); return; }
+    case 'shelter': home(); return;                                    // foul weather: indoors
     case 'guard': { const tg = recOf(act.id); if (tg) { P.go(tg.x, tg.y, SPEED.person.run, 'run', { killMark: 1 }); P.wait(0.1, 'work', { fx: 'blood', at: act.id }); } break; }
     default: {   // nothing worth fetching this time: firewood, the fields, a chat by the fire
       if (a.wood >= 0) { const tx = a.wood % N, ty = (a.wood / N) | 0, st = standBy(tx, ty, r); P.go(st.x, st.y, sp); P.wait(0.08, 'work', { fx: 'chips', lx: st.lx, ly: st.ly }); P.go(fire.x - 0.3, fire.y + 0.2, sp, 'carry', { item: 'sticks' }); P.wait(0.04, 'work', { drop: 1 }); }
@@ -346,6 +347,7 @@ function planAnimal(r) {
       const h = homeAt(a.home) || end; P.go(h.x, h.y, act.k === 'hide' ? V.run : V.walk, act.k === 'hide' ? 'run' : hop);
       if (a.hidden) { P.wait(0.03, 'enter'); P.done('hidden'); } else P.done('idle'); return;
     }
+    case 'watch': P.go(end.x, end.y, V.walk, hop); P.done('look', { at: 0 }); return;   // head up while the herd eats
     case 'stalk': P.wait(R(0.02, 0.1), 'look', { at: act.id }); P.go(end.x, end.y, V.walk * 0.45, 'creep', { at: act.id }); P.done('look', { at: act.id }); return;
     case 'chase': P.wait(R(0.04, 0.12), 'look', { at: act.id }); P.go(end.x, end.y, V.run, 'run'); P.wait(0.06, 'idle'); P.done('look', { at: act.id }); return;
     case 'kill': { const sx = act.x + 0.5, sy = act.y + 0.5; P.wait(R(0.05, 0.12), 'look', { at: act.id }); P.go(sx, sy, V.run, 'run', { killMark: 1 }); P.done('feed', { lx: sx, ly: sy }); return; }
