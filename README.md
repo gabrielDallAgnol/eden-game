@@ -23,6 +23,10 @@ Then open http://localhost:8765 (add `?seed=7` for a fixed valley). It has to be
 - **People:** named individuals with parents, partners, children, households and crafts they improve at (see `src/sim.js`, "people are someone").
 - **Village:** a tent of hides first, then huts once a winter has been spent under hides, then timber-and-stone houses when the camp is large. Each goes up in stages that wait for timber and stone carried to the plot. Dwellings near water stand on posts; a well is dug once there are several roofs; paths wear between the fire, the doors and the water.
 
+## Where it is going
+
+`docs/ARCHITECTURE.md` has the two design rules (causes decide what, where and when; fixed forms decide how it sits on the ground), the target data model and the roadmap from camp to city.
+
 ## Layout
 
 - `index.html` — page, styles and the loader

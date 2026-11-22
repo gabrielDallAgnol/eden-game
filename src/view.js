@@ -205,6 +205,7 @@ const dwellImg = (kind, lake, snowy) => A[kind + (lake && (kind === 'hut' || kin
 // well-trodden ways: from the fire to every door, to the well, and down to the nearest water
 let waterSpot = null;
 function wearPaths() {
+  return;   /* the engine keeps the ways now (W.tread on the lattice); nothing is drawn across the lots */
   if (!campOn) return;
   const tread = (x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 3); for (let k = 0; k <= n; k++) { const x = lerp(x0, x1, k / n) | 0, y = lerp(y0, y1, k / n) | 0; if (x >= 0 && y >= 0 && x < N && y < N && !W.water[y * N + x]) trail[y * N + x] = Math.max(trail[y * N + x], 0.95); } };
   for (const h of huts) if (h && !h.die && h.p > 0.3) { const d = door(h); tread(fire.x, fire.y, d.x, d.y); }
@@ -262,7 +263,13 @@ function route(x0, y0, x1, y1) {
 // a plan: moves and pauses laid out over the step (u runs 0 to 1)
 class Plan {
   constructor(r) { this.r = r; this.steps = []; this.u = 0; this.x = r.x; this.y = r.y; }
-  go(x, y, sp, pose, o) { for (const p of route(this.x, this.y, x, y)) { const d = Math.hypot(p.x - this.x, p.y - this.y); if (d < 0.02) continue; const du = d / (sp * TS); this.steps.push(Object.assign({ t: 'm', u0: this.u, u1: this.u + du, x1: p.x, y1: p.y, pose: pose || 'walk' }, o)); this.u += du; this.x = p.x; this.y = p.y; } return this; }
+  // people keep to the ways between lots: out to the nearest way, along the ways, and in at the other end
+  go(x, y, sp, pose, o) {
+    if (this.r.a.d.people && campOn && Math.hypot(x - this.x, y - this.y) > 2.5 && !this.noWay) {
+      const snap = (v, c) => c + Math.round((v - c) / W.PITCH) * W.PITCH, vx = snap(this.x - 0.5, T0.x) + 0.5, hy = snap(y - 0.5, T0.y) + 0.5;
+      this.noWay = 1; for (const [wx, wy] of [[vx, this.y], [vx, hy], [x, hy]]) if (!isWater(wx, wy) && wx > 0.3 && wy > 0.3 && wx < N - 0.3 && wy < N - 0.3) this.go(wx, wy, sp, pose, o); this.go(x, y, sp, pose, o); this.noWay = 0; return this;
+    }
+    for (const p of route(this.x, this.y, x, y)) { const d = Math.hypot(p.x - this.x, p.y - this.y); if (d < 0.02) continue; const du = d / (sp * TS); this.steps.push(Object.assign({ t: 'm', u0: this.u, u1: this.u + du, x1: p.x, y1: p.y, pose: pose || 'walk' }, o)); this.u += du; this.x = p.x; this.y = p.y; } return this; }
   wait(du, pose, o) { if (du > 0) { this.steps.push(Object.assign({ t: 's', u0: this.u, u1: this.u + du, pose: pose || 'idle' }, o)); this.u += du; } return this; }
   until(u, pose, o) { return this.wait(u - this.u, pose, o); }
   follow(du, id, o) { this.steps.push(Object.assign({ t: 'f', u0: this.u, u1: this.u + du, id, pose: 'walk' }, o)); this.u += du; const m = recOf(id); if (m) { this.x = m.x; this.y = m.y; } return this; }

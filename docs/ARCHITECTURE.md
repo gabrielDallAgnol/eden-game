@@ -1,0 +1,116 @@
+# Eden: how it is built and how it grows
+
+This is the technical plan for taking Eden from a camp of a few dozen people to a city, without rewriting it each time. It records decisions, not wishes: each section says what exists today, what the target is, and what has to change.
+
+## Two rules
+
+1. **Causes decide what, where and when.** Nothing happens because a timer, a head count or a settlement level was reached. A thing is made because a want was felt (cold, hunger, danger, toil, loss) and the means were at hand. In code: wants are measured where they occur and stored in `need`; `IDEAS` and `townLife` read them.
+2. **Fixed forms decide how it sits on the ground.** So that a place looks good and not random, geometry is constrained: land is taken in lots on a lattice (`PITCH` tiles apart), ways run between lots, a building has a footprint, a door and a fixed set of construction stages. Wants choose the lot; the lattice chooses the shape.
+
+Anything that must stay a planned rule is listed in "Planned on purpose" at the end, so it is never mistaken for emergent behaviour.
+
+## Where it stands (2026-11)
+
+| Part | File | State |
+|---|---|---|
+| World: weather, soil, plants, fire, flood | `src/sim.js` `land()`, `weather()` | Solid. One closure per world. |
+| Animals: rows of traits, one behaviour | `SPECIES`, `animal()` | Solid. A new animal is a new row. |
+| People: named, kin, couples, crafts, looks | `soul()`, `society()`, `person()` | Individuals exist, but act as one camp. |
+| Settlement: one `S.tribe` with one store, one set of wants | `T.*` everywhere | The main limit. See below. |
+| Building: `DWELL` tiers, stages, materials, lots | `choosePlot()`, `construct()` | Works for dwellings, a well and a fence only. |
+| Ideas and trades from wants | `IDEAS`, `reckonYear()`, `townLife()` | Ideas are global switches; trades are job labels with multipliers. |
+| View | `src/view.js` | Reads state and invents the walking. One full-map ground bitmap. |
+| Art | `src/art.js`, `src/sprites.js`, `art/` | Code-drawn and generated sprites, recoloured per person. |
+
+### The main limit
+
+Everything hangs off one point (`T.x, T.y`), one shared `T.store` and one shared `T.need`. A person has a house, a partner and children, but no larder, no field and nothing of their own. That is why towns stay small and why barter, wealth, rent, flats and markets cannot exist yet: there is nobody to own, owe or want anything.
+
+## Target model
+
+Plain data, no classes, so the whole world can be saved as JSON.
+
+```
+World       { land fields, agents[], settlements[], rng state, t }
+Settlement  { id, origin (lattice anchor), lots{}, buildings[], households[], ways (tread, road), wants (derived), ideas known }
+Household   { id, members[], lot, larder{food, wood, ...}, fields[], wants{cold, hunger, ...}, wealth }
+Person      { id, name, kin, household, craft skills, job, bonds{id: warmth}, carrying, position }
+Lot         { x, y, owner household, building, value }
+Building    { id, type, lot, stage, materials on site, workers[], stock{} }
+```
+
+Registries are data rows, like `SPECIES` today. A new thing is a new row plus, if needed, a sprite:
+
+- `BUILDINGS`: footprint in lots, stages with materials, capacity (people or goods), what work happens there, which idea makes it possible.
+- `GOODS`: food kinds, timber, stone, tools, cloth, later coin. Each has weight, how it spoils, what makes it.
+- `IDEAS`: the want that prompts it, how much of it, the means, and what it enables. An idea enables; only a standing, staffed building has an effect.
+- `JOBS`: the building a job is done in and the skill it uses.
+
+## Roadmap
+
+Each step is useful on its own and unlocks the next. "Check" is how to know it worked.
+
+### 1. Households are real
+- Food, firewood and tools are carried to the household's lot and kept in its larder. The common store becomes what is left over (later: the granary).
+- Cold and hunger are felt per household. `need` for the settlement is the sum of what households feel.
+- Fields are cleared, sown and reaped by the household beside its lot. `farm()`'s population formula goes.
+- People sleep, eat and warm themselves at home (started: nights and shelter already use the house).
+- **Check:** a hungry household can stand next to a full one; evening lights spread down the street; removing a family's field makes that family go short, not the village.
+
+### 2. Buildings do the work
+- Granary, storehouse, smithy, workshop, pen, bridge become `BUILDINGS` rows that take a lot, materials and labour.
+- Pottery, granary, tools, masonry and medicine stop being global multipliers. Their effect applies to goods that pass through the building and to the households that use it.
+- Carts are built from timber in a workshop and stand somewhere.
+- **Check:** burning the granary brings spoilage back; killing the smith stops new tools.
+
+### 3. One truth about where people are
+- People move cell by cell along the ways in the simulation; the view only smooths it. `route()` moves from the view into the sim, with made roads cheaper.
+- Hunts, wolf attacks and meetings happen where the player sees them.
+- **Check:** a person shown by the river is at the river in the state.
+
+### 4. Friends, rivals, exchange
+- `bond` grows between any two people who worked, ate or mourned together, and falls after a refused share, a rival suitor or a taken plot. Bonds pull plot choice and who helps whom build.
+- A household with more than it needs and a neighbour in want: giving first (kin and friends), then barter, with the rate set by how badly each wants what the other has.
+- The want "too much to keep track of" rises with the number of open debts, not households. Writing answers it.
+- **Check:** two households that never deal with each other; a family moving to the far end of the street after a quarrel.
+
+### 5. Coin, prices and wages
+- When barter fails often enough for want of a matching good, the good most often accepted (grain, then metal) becomes the measure. That is coin.
+- Each settlement has a price per good that moves with what is offered and wanted. Jobs are taken for what they pay, replacing `townLife`'s shares.
+- **Check:** a bad harvest raises the price of grain and pulls hands into farming the next year.
+
+### 6. Land, rent and density
+- A lot has an owner and a value: what households have paid or would pay to be there (near the square, the well, the market, off the flood line).
+- When the value of a lot exceeds the cost of building on it again, the owner builds for others: a second roof on the lot, then an upper storey, then flats. Capacity per lot rises; the household pays rent.
+- Those priced out build at the edge. That is the suburb, and the reason the settlement spreads.
+- **Check:** the centre grows taller while the edge grows wider; rents fall when a new district opens.
+
+### 7. More than one place
+- `S.tribe` becomes `settlements[]`. A household with no affordable lot in reach founds or joins another place. Ways between places carry trade.
+- Rival places are the cause of walls in stone, a keep, a castle: the want is "danger from people", which does not exist until there is someone else.
+- **Check:** a second hamlet across the river with carts going between.
+
+### 8. Later ages
+- Each age is the same mechanism with new rows: a want (fuel running short, more goods than hands, too many people for the water), a means, a building. Mills, mines, factories, rail, power, modern flats and offices are rows in `BUILDINGS`, `GOODS` and `IDEAS`, not new systems.
+
+## Engineering that makes this possible
+
+| Need | Decision |
+|---|---|
+| Bigger world | Map size becomes a parameter (64, 96, 128). The ground is painted in chunks (16x16 tiles) and only dirty chunks are repainted, instead of one bitmap for the whole map. |
+| Hundreds, then thousands of people | Per-step indexes (people, by household, by lot); no `filter` over all agents inside per-person code. Started: `folk()` is cached. Distant settlements tick at a lower rate. |
+| Long games | Save and load: the world is plain data plus the RNG state; typed arrays are stored base64. Autosave to `localStorage`. |
+| Changing it safely | `src/sim.js` is split into ES modules (`world`, `animals`, `people`, `households`, `building`, `ideas`, `economy`), loaded natively with no build step. Long lines are broken up as each part moves. |
+| Knowing it still works | A `tests.html` page that runs fixed-seed worlds for N years and checks invariants (nobody in water, no dwelling on a way, food conserved, no settlement extinct on easy land). It runs in the browser, so it does not depend on Node (the Node on the dev machine is broken; `brew reinstall node` fixes it and would allow the same file to run in CI). |
+| Art for many buildings | Every `BUILDINGS` row names a sprite and a tint. New buildings start as a recolour of an existing sprite or are drawn in code (`art.js`), and get a generated sprite only when the building has proved worth keeping. |
+| Resetting a settlement | One `newSettlement()` constructor used for the first camp and for resettling, so new fields cannot be forgotten in a hand-written reset. |
+
+## Planned on purpose
+
+These are rules, not outcomes, and are meant to stay that way:
+
+- The lattice: lots `PITCH` tiles apart, ways between them, one building footprint per lot until density (step 6).
+- Construction stages and what each building costs.
+- How much of a want an idea takes (`IDEAS[k].at`). These are tuning numbers, like an animal's metabolism.
+- The fence is a rectangle round the outermost lots.
+- A stranger arrives when a grown person has only kin to choose from. To be replaced by step 7 (people moving between places).
