@@ -343,7 +343,13 @@ const ICON = {
   grief: [['.......', '.k...k.', '.......', '.......', '..kkk..', '.k...k.', '.......'], { k: '#3a3340' }],
   warm: [['.......', '.k...k.', '.......', 'o.....o', '.k...k.', '..kkk..', '.......'], { k: '#3a3340', o: '#f0a0a0' }],
   chat: [['.......', '.......', '.......', 'k.k.k..', '.......', '.......', '.......'], { k: '#3a3340' }],
-  play: [['...y...', '..yyy..', 'yyyyyyy', '.yyyyy.', '.yy.yy.', 'y.....y', '.......'], { y: '#f2c14e' }]
+  play: [['...y...', '..yyy..', 'yyyyyyy', '.yyyyy.', '.yy.yy.', 'y.....y', '.......'], { y: '#f2c14e' }],
+  /* what people love doing, shown over them while they do it */
+  music: [['...kkk.', '...k..k', '...k...', '...k...', '.kkk...', 'kkkk...', '.kk....'], { k: '#4a3a6a' }],
+  garden: [['..r....', '.rpr.r.', '..r.rpr', '...g.r.', '..gg.g.', '...gg..', '..ggg..'], { r: '#e0507a', p: '#ffd95a', g: '#5fae4c' }],
+  story: [['kkkkkkk', 'k.....k', 'k.kkk.k', 'k.....k', 'k.kk..k', 'kkkkkkk', '..k....'], { k: '#5b4632' }],
+  carve: [['.....ww', '....ww.', '...ww..', '..k....', '.k.....', 'k......', '.......'], { w: '#c9c4b8', k: '#8a6a48' }],
+  dance: [['..k.k..', '.kk.kk.', '..k.k..', '..k.k..', 'kkk.kkk', 'kk..kk.', '.......'], { k: '#c0407a' }]
 };
 function bubble(icon) {
   const c = mk(13, 14), g = c.getContext('2d');
@@ -433,6 +439,35 @@ function bridgeSprite(horiz, piles) {
     /* half built: a cross-beam on the piles, waiting for its planks */
     for (const u of [0.18, 0.82]) line(at(u, 0.08, D), at(u, 0.92, D), '#6e5137', 2);
   }
+  return outlineCanvas(c, OUT);
+}
+// a garden bed by the door: dug earth with flowers, fuller the more it is tended (stage 1 to 3)
+function gardenSprite(stage) {
+  const c = mk(40, 24), x = c.getContext('2d');
+  x.fillStyle = '#7a5a3a'; x.beginPath(); x.moveTo(20, 2); x.lineTo(38, 11); x.lineTo(20, 20); x.lineTo(2, 11); x.closePath(); x.fill();
+  x.fillStyle = '#5e4630'; for (let k = 0; k < 4; k++) { x.fillRect(8 + k * 6, 8 + (k % 2) * 2, 5, 1); }
+  const r = rngOf(7 + stage), cols = ['#e0507a', '#ffd95a', '#f2f0e8', '#b06ad8', '#ff8a3a'];
+  for (let k = 0; k < 6 + stage * 5; k++) { const px = 6 + r() * 28, py = 6 + r() * 10; if (Math.abs(px - 20) / 18 + Math.abs(py - 11) / 9 > 1) continue; x.fillStyle = '#4f8a3a'; x.fillRect(px | 0, (py | 0) - 1, 1, 3); x.fillStyle = cols[(r() * cols.length) | 0]; x.fillRect((px | 0) - 1, (py | 0) - 2, 2, 2); }
+  return outlineCanvas(c, OUT);
+}
+// a carved bench, set by the door of someone who carves
+function benchSprite(carved) {
+  const c = mk(30, 22), x = c.getContext('2d');
+  x.fillStyle = '#6e5137'; x.fillRect(4, 12, 3, 8); x.fillRect(23, 12, 3, 8);
+  x.fillStyle = '#a8855c'; x.fillRect(2, 9, 26, 4); x.fillStyle = '#86694a'; x.fillRect(2, 12, 26, 1);
+  if (carved) { x.fillStyle = '#a8855c'; x.fillRect(3, 2, 24, 3); x.fillRect(4, 5, 2, 4); x.fillRect(24, 5, 2, 4); x.fillStyle = '#6e5137'; for (let k = 0; k < 5; k++) x.fillRect(7 + k * 4, 3, 2, 1); }
+  return outlineCanvas(c, OUT);
+}
+// firewood stacked by a door: one to three rows of log ends
+function woodpileSprite(n) {
+  const c = mk(26, 20), x = c.getContext('2d');
+  for (let row = 0; row < n; row++) for (let k = 0; k < 4 - row; k++) { const px = 3 + k * 5 + row * 2.5, py = 15 - row * 4; x.fillStyle = '#7a5a3a'; x.fillRect(px | 0, py | 0, 5, 4); x.fillStyle = '#c9a779'; x.fillRect((px | 0) + 1, (py | 0) + 1, 3, 2); x.fillStyle = '#8a6a48'; x.fillRect((px | 0) + 2, (py | 0) + 1, 1, 1); }
+  return outlineCanvas(c, OUT);
+}
+// a log to sit on by the fire
+function logSeatSprite() {
+  const c = mk(26, 12), x = c.getContext('2d');
+  x.fillStyle = '#7a5a3a'; x.fillRect(2, 4, 20, 6); x.fillStyle = '#9a7a52'; x.fillRect(2, 4, 20, 2); x.fillStyle = '#c9a779'; x.fillRect(21, 4, 3, 6); x.fillStyle = '#8a6a48'; x.fillRect(22, 6, 1, 2);
   return outlineCanvas(c, OUT);
 }
 // a run of sharpened stakes across one tile, along one of the two ground directions; and the two posts of a gate
@@ -593,7 +628,7 @@ function build() {
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
   A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
-  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.bridgePilesX = bridgeSprite(true, true); A.bridgePilesY = bridgeSprite(false, true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
+  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.garden = [1, 2, 3].map(gardenSprite); A.bench = benchSprite(false); A.benchCarved = benchSprite(true); A.woodpile = [1, 2, 3].map(woodpileSprite); A.logSeat = logSeatSprite(); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.bridgePilesX = bridgeSprite(true, true); A.bridgePilesY = bridgeSprite(false, true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
   A.fire = fire.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.flame = flame.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.basket = sprite(basket, BASK, { x2: true }); A.bones = sprite(bones, BONE, { x2: true });
   A.bubble = {}; for (const k in ICON) A.bubble[k] = bubble(ICON[k]);
   A.item = {}; for (const k in ITEMS) A.item[k] = sprite(ITEMS[k][0], ITEMS[k][1]); A.item.basket = sprite(basket, BASK);

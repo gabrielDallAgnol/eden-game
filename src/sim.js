@@ -541,9 +541,31 @@ function create(seed, opt) {
     if (single) { a.fem = !single.fem; a.partner = single.id; single.partner = a.id; }   // those who arrive together are a couple already
     else a.fem = a.age >= WED && !others.length ? false : rnd() < 0.5;
     a.name = nameFor(a); a.partner = a.partner || 0; a.dad = a.dad || 0; a.house = 0; a.grief = 0; a.bond = {};
+    a.likes = [LIKE_KEYS[(rnd() * LIKE_KEYS.length) | 0]]; if (rnd() < 0.4) { const k = LIKE_KEYS[(rnd() * LIKE_KEYS.length) | 0]; if (!a.likes.includes(k)) a.likes.push(k); } a.joy = 0.5;
     a.skill = {}; for (const k of CRAFTS) a.skill[k] = R(0.8, 1.1);
     // how they look: skin and hair come down from the parents, clothes are their own (the view turns these numbers into colours)
     a.looks = { skin: (rnd() * 5) | 0, hair: (rnd() * 6) | 0, top: (rnd() * 10) | 0, legs: (rnd() * 6) | 0 };
+  }
+  // What people love doing. Each person has one to three things they turn to on a fed, free evening; a child takes after a
+  // parent more often than not, and a grown person comes to love what they do every day (the gatherer the garden, the
+  // builder carving, the hunter the tale told after). Doing what they love, being fed, warm and with their own makes
+  // them glad; hunger, cold and loss take it away. Gladness helps grief pass.
+  const LIKES = {
+    music:   { word: 'music',        where: 'fire', act: 'music', says: 'plays music by the fire' },
+    singing: { word: 'singing',      where: 'fire', act: 'music', says: 'sings by the fire' },
+    stories: { word: 'telling tales', where: 'fire', act: 'story', says: 'tells tales by the fire' },
+    dancing: { word: 'dancing',      where: 'fire', act: 'dance', says: 'dances when there is music' },
+    gardens: { word: 'gardening',    where: 'home', act: 'garden', says: 'tends a garden by the door' },
+    carving: { word: 'carving',      where: 'home', act: 'carve', says: 'carves wood at the door' }
+  };
+  const LIKE_KEYS = Object.keys(LIKES), LEARN = { gather: 'gardens', build: 'carving', hunt: 'stories', fish: 'singing' };
+  function hobby(a, d) {
+    const T = S.tribe, h = homeSite(a), musicNow = S.musicT >= S.tickNo - 1;
+    let k = a.likes[(rnd() * a.likes.length) | 0]; if (k === 'dancing' && !musicNow) { const o = a.likes.find(q => q !== 'dancing'); if (!o) return false; k = o; }
+    const L = LIKES[k];
+    if (L.where === 'home') { if (!h) return false; a.x = h.x; a.y = h.y; if (k === 'gardens') h.garden = Math.min(1, (h.garden || 0) + 0.08); else h.carved = Math.min(1, (h.carved || 0) + 0.05); }
+    else { if (!(mass[I(a.x, a.y)] === mass[I(T.x, T.y)] || route(a.x, a.y, T.x, T.y, a, 60).reached)) return false; a.x = T.x; a.y = T.y; if (L.act === 'music') { S.musicT = S.tickNo; sound(T.x, T.y, 2.5, 'play'); } }
+    a.joy = Math.min(1, (a.joy || 0) + 0.12); a.act = { k: L.act, like: k }; S.stat.hobbies = (S.stat.hobbies || 0) + 1; return true;
   }
   const craftOf = a => { let b = 'gather'; for (const k of CRAFTS) if (a.skill[k] > a.skill[b]) b = k; return b; };
   const practise = (a, k, amt) => { a.skill[k] = Math.min(1.6, a.skill[k] + (amt || 0.004)); };
@@ -556,13 +578,14 @@ function create(seed, opt) {
     const age = Math.floor(a.age), p = S.byId.get(a.partner), kids = childrenOf(a).map(b => b.name);
     const what = a.job && a.age >= GROWN && a.age <= 46 ? 'a ' + a.job : a.age < 2 ? 'a baby' : a.age < SMALL ? 'a small child' : a.age < GROWN ? 'a child, learning to '
         + craftOf(a) : a.age > 46 ? 'an elder' : 'a ' + CRAFT_NAME[craftOf(a)];
-    const mood = a.grief > 0.2 ? 'grieving' : a.mood === 'afraid' ? 'afraid' : a.e < 0.3 ? 'hungry' : a.mood === 'cold' ? 'cold' : a.e > 0.8 ? 'content' : 'getting by';
+    const glad = (a.joy || 0) > 0.7 && a.e > 0.6 && a.grief < 0.2;
+    const mood = a.grief > 0.2 ? 'grieving' : glad && a.act && LIKES[a.act.like] ? 'happy, ' + (a.fem ? 'she ' : 'he ') + LIKES[a.act.like].says : glad ? 'happy' : a.mood === 'afraid' ? 'afraid' : a.e < 0.3 ? 'hungry' : a.mood === 'cold' ? 'cold' : a.e > 0.8 ? 'content' : 'getting by';
     const mom = S.byId.get(a.mom), dad = S.byId.get(a.dad), par = [mom, dad].filter(q => q && q.alive).map(q => q.name);
     const hh = homeSite(a),
       keeps = hh && hh.members ? ' The household of ' + hh.members + ' has ' + (hh.larder > hh.members * 1.5 ? 'a full larder' : hh.larder > hh.members * 0.5
           ? 'enough put by' : 'an empty larder') + (hh.fields ? ' and ' + hh.fields + ' field' + (hh.fields > 1 ? 's' : '') : '') + '.' : '';
     return a.name + ', ' + age + ', ' + what + '. ' + (p && p.alive ? (a.fem ? 'Her' : 'His') + ' partner is ' + p.name + '. ' : a.age >= WED ? 'On ' + (a.fem ? 'her' : 'his') + ' own. ' : '')
-      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + keeps;
+      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps;
   }
   // Once in each step the camp's ties are looked over: who has grown close, who needs a roof, who has no one to choose
   function society(dt) {
@@ -605,7 +628,9 @@ function create(seed, opt) {
       if (!wl && T.waterAt) walk(T.x, T.y, T.waterAt % N, (T.waterAt / N) | 0, 0.01 * P.length);
       if (S.tickNo % 4 === 0) for (let i = 0; i < N * N; i++) if (tread[i] > 0) tread[i] *= 0.965; }
     for (const a of P) {
-      if (a.grief > 0) a.grief = Math.max(0, a.grief - dt * 1.2);
+      if (a.grief > 0) a.grief = Math.max(0, a.grief - dt * 1.2 * (1 + (a.joy || 0)));   /* the glad get over loss sooner */
+      /* gladness: fed, warm and with their own it holds; hunger, cold and grief wear it down */
+      { const pt = S.byId.get(a.partner); a.joy = clamp((a.joy || 0.5) * 0.97 + (a.e > 0.7 ? 0.012 : -0.02) + (a.mood === 'cold' ? -0.02 : 0) + (pt && pt.alive ? 0.006 : 0) - a.grief * 0.03, 0, 1); }
       if (a.partner) { const q = S.byId.get(a.partner); if (!q || !q.alive) a.partner = 0; }
       // the young learn by going along: a child picks up whatever its parents are doing
       if (a.age >= SMALL && a.age < GROWN) for (const id of [a.mom, a.dad]) {
@@ -1133,6 +1158,8 @@ function create(seed, opt) {
     /* someone out on a trip carries on with it; time left at the door goes to whatever comes next */
     let budget = 1;
     if (a.trip) { budget = runTrip(a, d, pace, 1); if (budget < 0.1) return; }
+    /* a fed, free evening goes to what they love */
+    if (DAY && S.tickNo % DAY === DAY - 2 && !a.trip && a.e > 0.65 && a.likes && a.likes.length && rnd() < 0.6 && hobby(a, d)) return;
     if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { stepTo(a, T.x, T.y, 2); a.act = { k: 'mourn' }; return; }   // the newly bereaved sit by the fire and do little
     // foul weather: with a roof, food in the store and nothing pressing, people stay in
     if (T.huts > 0 && a.e > 0.6 && (hm ? (hm.larder || 0) > mouths * 0.9 : T.store > pop * 1.1)) {
@@ -1649,6 +1676,7 @@ function create(seed, opt) {
         T.bridge = { key: bf.key, ax, ay, bx: near ? bf.bx : bf.ax, by: near ? bf.by : bf.ay, horiz: bf.horiz, tiles: bf.tiles.slice(), need: 3 * bf.w, wood: 0, done: false }; N_.cross *= 0.5; }
     }
     T.fordUse = {};
+    for (const a of folk()) if (a.age >= GROWN && a.likes && a.likes.length < 3 && rnd() < 0.08) { const k = LEARN[craftOf(a)]; if (k && !a.likes.includes(k)) { a.likes.push(k); if (rnd() < 0.3) tell(a.name + ' has come to love ' + LIKES[k].word + '.'); } }
     for (const q of T.sites) { q.tripsLast = q.trips || {}; q.tripDLast = q.tripD || {}; q.workDaysLast = q.workDays || 0; q.trips = {}; q.tripD = {}; q.workDays = 0; }
 
     for (const k in N_) if (k !== 'danger') N_[k] *= 0.85;
@@ -1861,7 +1889,9 @@ function create(seed, opt) {
           c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin;
           c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair;
         }
-        for (const k of CRAFTS) c.skill[k] = clamp(((m ? m.skill[k] : 1) + (f ? f.skill[k] : 1)) / 2 * 0.3 + R(0.6, 0.8), 0.6, 1.2);
+        /* a child takes after a parent in what it loves, more often than not */
+      { const par = [m, f].filter(Boolean), src = par.length && rnd() < 0.65 ? par[(rnd() * par.length) | 0] : null; if (src && src.likes && src.likes.length) c.likes = [src.likes[(rnd() * src.likes.length) | 0]]; }
+      for (const k of CRAFTS) c.skill[k] = clamp(((m ? m.skill[k] : 1) + (f ? f.skill[k] : 1)) / 2 * 0.3 + R(0.6, 0.8), 0.6, 1.2);
         if (m) tell(m.name + (f ? ' and ' + f.name : '') + ' have a ' + (c.fem ? 'daughter' : 'son') + ', ' + c.name + '.');
       }
       if (b[3] && S.homes.has(b[3])) c.home = b[3];
@@ -2036,6 +2066,7 @@ function create(seed, opt) {
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
       if (!S.piles) S.piles = [];
+      for (const a of S.agents) if (a.d.people && !a.likes) { a.likes = [LIKE_KEYS[a.id % LIKE_KEYS.length]]; a.joy = 0.5; }   /* people from an older save love something too */
       if (!S.stat) S.stat = {}; for (const k of ['wishes', 'ponds', 'newTrips', 'newN', 'reTrips', 'reN', 'pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }
     S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }

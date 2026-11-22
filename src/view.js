@@ -387,6 +387,15 @@ function wantProps() {
       want.set('f' + c, { kind: 'fence', i: c, x: fx + 0.5, y: fy + 0.5, base: 'f' + alongX + gate, img: gate ? (alongX ? A.gateX : A.gateY) : (alongX ? A.fenceX : A.fenceY), dy: 14 });
     }
   }
+  /* what households make of their own place: a garden as tended as it is, a carved bench, the firewood they have put by */
+  if (campOn) for (const q of T0.sites) {
+    if (q.kind === 'well' || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
+    if ((q.garden || 0) > 0.15) want.set('gd' + q.id, { kind: 'garden', x: q.x + 1.45, y: q.y + 0.55, base: 'gd' + q.id, img: A.garden[Math.min(2, Math.floor(q.garden * 3))], dy: 6 });
+    if ((q.carved || 0) > 0.2) want.set('bn' + q.id, { kind: 'bench', x: q.x + 0.4, y: q.y + 1.45, base: 'bn' + q.id, img: q.carved > 0.6 ? A.benchCarved : A.bench, dy: 4 });
+    if ((q.fuel || 0) > 0.2) want.set('wp' + q.id, { kind: 'woodpile', x: q.x + 1.4, y: q.y - 0.2, base: 'wp', img: A.woodpile[Math.min(2, Math.floor(q.fuel))], dy: 3 });
+  }
+  /* once there has been music by the fire, there are logs to sit on round it */
+  if (campOn && S.musicT) for (let k = 0; k < 3; k++) { const ang = k * 2.1 + 0.5; want.set('ls' + k, { kind: 'seat', x: fire.x + Math.cos(ang) * 1.1, y: fire.y + Math.sin(ang) * 0.9, base: 'ls', img: A.logSeat, dy: 2 }); }
   /* bridges: every one finished, and the one being laid as far as its timber goes */
   if (campOn) {
     const byKey = new Map(W.fords().map(f => [f.key, f]));
@@ -729,6 +738,10 @@ function planPerson(r, phase, pi) {
       return;
     }
     case 'shelter': home(); return;
+    case 'music': case 'story': { const s = seat(pi); P.go(s.x, s.y, sp); r.bub = act.k === 'story' ? 'story' : 'music'; r.bubT = now + R(0, 900); P.done('sit'); return; }   // an evening by the fire with what they love
+    case 'dance': { const s = seat(pi + 3); P.go(s.x, s.y, sp); r.bub = 'dance'; r.bubT = now + R(0, 900); for (let k = 0; k < 4; k++) P.go(s.x + R(-0.3, 0.3), s.y + R(-0.3, 0.3), sp * 1.2, 'hop'); P.done('idle'); return; }
+    case 'garden': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), at = mine ? { x: mine.x + 1.0, y: mine.y + 0.5 } : { x: end.x, y: end.y }; P.go(at.x, at.y, sp); r.bub = 'garden'; r.bubT = now + R(0, 900); P.wait(0.6, 'work', { fx: 'grass', lx: at.x + 0.3, ly: at.y }); P.done('idle'); return; }
+    case 'carve': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), at = mine ? { x: mine.x + 0.2, y: mine.y + 1.1 } : { x: end.x, y: end.y }; P.go(at.x, at.y, sp); r.bub = 'carve'; r.bubT = now + R(0, 900); P.wait(0.6, 'sit', { fx: 'chips', lx: at.x, ly: at.y }); P.done('sit'); return; }
     case 'watch': { const s = seat(pi); P.go(s.x, s.y, sp); P.done('sit'); return; }   // the night watch, awake by the fire
     case 'mourn': { const s = seat(pi); r.bub = 'grief'; r.bubT = now + 800; P.go(s.x, s.y, sp * 0.7); P.done('sit'); return; }                                    // foul weather: indoors
     case 'guard': { const tg = recOf(act.id); if (tg) { P.go(tg.x, tg.y, SPEED.person.run, 'run', { killMark: 1 }); P.wait(0.1, 'work', { fx: 'blood', at: act.id }); } break; }
