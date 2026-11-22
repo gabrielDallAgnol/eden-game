@@ -842,6 +842,8 @@ function takeEvents(instant) {
 }
 function onTick() {
   syncCrossings();
+  /* the year and the season, from how high the sun stands */
+  { const el = document.getElementById('when'); if (el) { const ph = (((S.t - 0.08) % 1) + 1) % 1; el.textContent = 'Year ' + Math.floor(S.t) + ' \u00b7 ' + (ph < 0.125 || ph >= 0.875 ? 'winter' : ph < 0.375 ? 'spring' : ph < 0.625 ? 'summer' : 'autumn'); } }
   /* newcomers to an emptied valley may camp somewhere else: the fixed places of the camp follow the fire */
   if (camp.x !== T0.x + 0.5 || camp.y !== T0.y + 0.5) { camp.x = T0.x + 0.5; camp.y = T0.y + 0.5; fire.x = camp.x + 0.55; fire.y = camp.y + 0.15; store.x = camp.x - 0.45; store.y = camp.y + 0.35; }
   if (S.tickNo % W.TPY === 0 && !window.EDEN_NOSAVE) { try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }   /* autosave once a game year */
@@ -1044,11 +1046,13 @@ function lightAt(tod) { // 0 = full day, 1 = full night; tod runs over one day o
   if (tod < 0.06) return 1 - tod / 0.06; if (tod < 0.6) return 0; if (tod < 0.76) return (tod - 0.6) / 0.16; if (tod < 0.94) return 1; return 1 - (tod - 0.94) / 0.12;
 }
 function frame(t) {
-  requestAnimationFrame(frame); const dtMs = Math.min(100, t - now); now = t;
+  requestAnimationFrame(frame); const dtMs = Math.min(250, t - now); now = t;
   const dts = paused ? 0 : dtMs * speed / 1000;
   if (!paused) {
     usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
-    if (tickFrac >= 1) { tickFrac -= Math.floor(tickFrac); W.tick(); onTick(); }
+    /* a slow frame catches up on the steps it missed, a few at a time, so fast speeds stay fast on a slow device */
+    for (let n = 0; tickFrac >= 1 && n < 6; n++) { tickFrac -= 1; W.tick(); onTick(); }
+    if (tickFrac >= 1) tickFrac = 0.99;
   }
   if (!paint && groundWanted) startPaint(); if (paint) paintSome(speed > 1 || act ? 200 : 90);
   const z = cam.z, u = tickFrac, tod = ((S.tickNo % DAY) + u) / DAY, dark = lightAt(tod) * (speed >= 8 ? 0.5 : 1);
@@ -1250,6 +1254,8 @@ function frame(t) {
     }
     // the newborn and the newly arrived ease into view
     let al = r.alpha; if (r.newborn) { const k2 = clamp((now - r.born) / 1400, 0, 1); if (k2 >= 1) r.newborn = 0; extra.grow = 0.45 + 0.55 * ease(k2); }
+    /* children grow a little every year, not only when they move up to the next size of sprite */
+    { const ag = r.a.age, dd = r.a.d; if (dd.people && ag >= 2 && ag < dd.mature) extra.grow = (extra.grow || 1) * (ag < 6 ? 0.8 + 0.2 * (ag - 2) / 4 : 0.8 + 0.2 * (ag - 6) / (dd.mature - 6)); }
     if (extra.alpha !== undefined) al = Math.min(al, extra.alpha);
     if (s && s.cart && A.cart) extra.cart = face;
     const d = put(im, wx, wy - lift, Object.assign(extra, { y: wy,
@@ -1587,7 +1593,7 @@ for (const [id, label] of [['hand', 'Hand'], ['rain', 'Rain'], ['sun', 'Sun'], [
   b.appendChild(document.createTextNode(label));
   b.onclick = () => { tool = id; for (const q of tools.children) q.classList.toggle('sel', q.dataset.t === id); }; tools.appendChild(b);
 }
-const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 3, 8, 0];
+const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 4, 16, 48, 0];
 bS2.onclick = () => {
   speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
   bS2.textContent = speed === 0 ? 'II' : speed + 'x';
