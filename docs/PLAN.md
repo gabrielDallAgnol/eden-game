@@ -108,9 +108,10 @@ I  Land value, rent, density   needs B, F, H
 J  More than one settlement    needs D, E
 K  Ages and their buildings    rows added from F onward; landmarks need I and J
 L  Seeing and hearing it       any time after A
+M  The living ground           after A; land before D's ecology retune
 ```
 
-Phases A to D are the foundation the owner asked for. Do not start G or later before F is solid.
+Phases A to D are the foundation the owner asked for. Phase M (the environment) is planned in `docs/ENVIRONMENT.md`. Do not start G or later before F is solid.
 
 ---
 
@@ -328,6 +329,16 @@ Can be done at any time after A; each item is small.
 - **Speed and time:** a clear year and season display.
 
 ---
+
+## Phase M. The living ground
+
+**Design note:** `docs/ENVIRONMENT.md`. Steps M1 to M8, checks and tuning order are there.
+
+**Goal:** the land grows, wears out, burns and heals from flows of water, warmth, nutrients and seed, and reacts to people and animals through the same numbers.
+
+**Cause chain (example):** fields farmed year after year → nutrients carried away in the harvest → yields fall → that household feels hunger → it clears new ground, or the idea of fallow and manure comes from that want.
+
+**Trap:** M2 and M5 add `rnd()` calls and change every history. Re-baseline the table in the same commit.
 
 ## 3. Tuning method
 
