@@ -121,4 +121,7 @@ These are rules, not outcomes, and are meant to stay that way:
 - Construction stages and what each building costs.
 - How much of a want an idea takes (`IDEAS[k].at`). These are tuning numbers, like an animal's metabolism.
 - The fence is a rectangle round the outermost lots.
+- Where a camp is made (the first one, and again after a valley has emptied): a fixed score of water close by, fruiting trees, fertility and the size of the bank that can be walked without wading.
+- How people search for food: places nearer the door are looked at more often (distance drawn from an exponential with mean `WALK` tiles). The choice among them is by value and walking cost.
+- Walking across open ground costs 1.5 times a way; wading costs 3 + 3 per tile of water; a ford is closed while the river is above 1.4. These are physical tuning numbers.
 - A stranger arrives when a grown person has only kin to choose from. To be replaced by step 7 (people moving between places).
