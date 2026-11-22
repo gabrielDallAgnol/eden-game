@@ -576,6 +576,15 @@ UNITS.push(['a route exists between any two land tiles on the same piece of land
   }); });
   return out.join('; ');
 }]);
+UNITS.push(['strike hits the creature aimed at wherever it is; a pile set down by the fire goes into the store', function () {
+  var W = Eden.create(3, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), i, out = [], T = W.S.tribe;
+  for (i = 0; i < 24 * 3; i++) W.tick();
+  var a = W.S.agents.filter(function (b) { return b.alive && !b.d.people; })[0];
+  W.G.strike(0, 0, a.id); if (a.alive) out.push('the aimed ' + a.sp + ' is still alive');
+  var p = W.S.piles.filter(function (q) { return q.kind === 'meat'; })[0];
+  if (!p) out.push('no meat left'); else { var s0 = T.store, amt = p.amt; W.G.movePile(p.x, p.y, 'meat', T.x, T.y); if (!(T.store > s0 + amt - 0.01)) out.push('store went ' + s0.toFixed(2) + ' to ' + T.store.toFixed(2)); }
+  return out.join('; ');
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }

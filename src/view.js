@@ -939,7 +939,7 @@ function clampCam() {
 const toWorld = (sx, sy) => ({ x: cam.x + sx * dpr / cam.z, y: cam.y + sy * dpr / cam.z });
 const toCell = (sx, sy) => { const w = toWorld(sx, sy), c = cellAt(w.x, w.y); return { x: clamp(c.x, 0, N - 0.01), y: clamp(c.y, 0, N - 0.01), wx: w.x, wy: w.y }; };
 function zoomAt(sx, sy, f) { const w = toWorld(sx, sy); cam.z = clamp(cam.z * f, minZ(), maxZ()); cam.x = w.x - sx * dpr / cam.z; cam.y = w.y - sy * dpr / cam.z; clampCam(); }
-const ptrs = new Map(); let pinch = null, held = null, act = null, lastStrike = 0, bolt = null;
+const ptrs = new Map(); let pinch = null, held = null, heldPile = null, act = null, lastStrike = 0, bolt = null;
 function actorAt(w) {
   let best = null, bd = 26;
   for (const r of actors.values()) {
@@ -967,13 +967,17 @@ cv.addEventListener('pointerdown', e => {
       const who = W.describe(r.a);
       if (who) say(who);
     }
-    act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r };
+    /* no creature under the hand: a pile of meat, logs or stone can be picked up instead */
+    let pile = null; if (!r) { let bd = 30; for (const p of S.piles || []) { const d = Math.hypot(isoX(p.x + 0.5, p.y + 0.5) - w.x, isoY(p.x + 0.5, p.y + 0.5) - 4 - w.y); if (d < bd) { bd = d; pile = p; } } }
+    if (pile) { heldPile = { x: pile.x, y: pile.y, kind: pile.kind, wx: w.x, wy: w.y }; say({ meat: 'Meat', wood: 'Logs', stone: 'Stone' }[pile.kind] + ': set it down by the fire for the village, or anywhere for people to fetch.'); }
+    act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r && !pile };
   }
   else if (tool === 'strike') {
     if (now - lastStrike > 600) {
       lastStrike = now;
-      const c = toCell(e.clientX, e.clientY);
-      W.G.strike(c.x | 0, c.y | 0);
+      const c = toCell(e.clientX, e.clientY), r = actorAt(w);
+      /* the bolt hits the creature under the pointer, wherever the simulation has it; else the tile */
+      if (r && !r.dead) W.G.strike(r.a.x, r.a.y, r.a.id); else W.G.strike(c.x | 0, c.y | 0);
       bolt = { x: w.x, y: w.y, t: now, seed: (Math.random() * 99) | 0 };
       takeEvents(true);
       scatterFrom(c.x, c.y, 4);
@@ -998,6 +1002,7 @@ cv.addEventListener('pointermove', e => {
   }
   if (!act || act.id !== e.pointerId) return; act.x = p.x; act.y = p.y;
   if (held) { const c = toCell(p.x, p.y + 10); held.x = c.x; held.y = c.y; }
+  else if (heldPile) { const w2 = toWorld(p.x, p.y); heldPile.wx = w2.x; heldPile.wy = w2.y; }
   else if (act.pan) { cam.x -= (p.x - ox) * dpr / cam.z; cam.y -= (p.y - oy) * dpr / cam.z; clampCam(); }
 });
 function dropHeld() {
@@ -1009,7 +1014,12 @@ function dropHeld() {
   if (r.a.d.people) { P.go(camp.x + R(-1, 1), camp.y + R(-1, 1), SPEED.person.walk); } else { const e = endOf(r.a); P.go(e.x, e.y, SPEED[kind(r.a)].walk); }
   P.done('idle'); r.si = -1; for (const s of r.plan) if (s.u1 <= u) { s.u0 = s.u1 = u; }
 }
-const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (act && act.id === e.pointerId) { if (held) dropHeld(); act = null; } };
+const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (act && act.id === e.pointerId) { if (held) dropHeld(); if (heldPile) dropPile(e); act = null; } };
+function dropPile(e) {
+  const hp = heldPile; heldPile = null; const c = toCell(e.clientX, e.clientY), where = W.G.movePile(hp.x, hp.y, hp.kind, clamp(c.x | 0, 0, N - 1), clamp(c.y | 0, 0, N - 1));
+  if (where === 'store') say({ meat: 'The meat is in the common store by the fire.', wood: 'The logs are on the woodpile.', stone: 'The stone is stacked by the fire.' }[hp.kind]);
+  burst(c.x, c.y, 'dust', 6); reconcile();
+}
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 0.87); }, { passive: false });
 let lastTap = 0; cv.addEventListener('click', e => { if (now - lastTap < 320 && tool === 'hand') zoomAt(e.clientX, e.clientY, 1.8); lastTap = now; });
@@ -1482,6 +1492,7 @@ function frame(t) {
     }
     else if (tool === 'grow') { cx.strokeStyle = 'rgba(214,245,166,.5)'; cx.lineWidth = 1; cx.beginPath(); cx.ellipse(wx, wy, 140, 70, 0, 0, 6.3); cx.stroke(); }
   }
+  if (heldPile) { const im = A.item[heldPile.kind === 'wood' ? 'log' : heldPile.kind]; for (let k = 0; k < 3; k++) cx.drawImage(im, Math.round(heldPile.wx - im.width / 2 + (k - 1) * 4), Math.round(heldPile.wy - 18 - k * 3)); }
   if (bolt) {
     const age = now - bolt.t;
     if (age > 300) bolt = null; else {

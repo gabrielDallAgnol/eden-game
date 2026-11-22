@@ -1895,12 +1895,23 @@ function create(seed, opt) {
     // fire and force on one spot: kills what stands there, and sets light to anything dry enough to burn
     // what it breaks is left lying there: an animal's body as meat, a tree as logs, bare rock as loose stone; only dry grass
     // with nothing standing on it catches fire
-    strike(x, y) {
-      const i = I(x, y); for (const a of cells[i]) { if (a.alive && !a.d.people) dropPile(a.x, a.y, 'meat', bodyOf(a) * 0.9); die(a, 'struck'); }
+    strike(x, y, id) {
+      /* whatever stands on the tile now (or the one creature aimed at, wherever it is) */
+      const aimed = id ? S.byId.get(id) : null; if (aimed && aimed.alive) { x = aimed.x; y = aimed.y; }
+      const i = I(x, y), hit = S.agents.filter(a => a.alive && ((a.x === x && a.y === y) || a === aimed));
+      for (const a of hit) { if (!a.d.people) dropPile(a.x, a.y, 'meat', bodyOf(a) * 0.9); die(a, 'struck'); }
       if (!water[i] && tree[i] > 0.1) { dropPile(x, y, 'wood', tree[i] * 12); tree[i] = 0; fruit[i] = 0; cut[i] = 0; }
       else if (!water[i] && rock[i] >= 0.15) { const dug = Math.min(rock[i], 0.06); rock[i] -= dug; pit[i] = Math.min(1, pit[i] + dug); dropPile(x, y, 'stone', dug * STONE_PER_TILE); }
       else if (!water[i] && snow[i] < 0.05 && soil[i] < 0.9 && grass[i] > 0.5) burn[i] = 1;
       heat[i] += 4; },
+    // the hand moves a pile: set down by the fire it goes into the common store (meat), the timber or the stone; anywhere
+    // else it lies where it is put, to be fetched
+    movePile(x, y, kind, tx, ty) {
+      const p = S.piles.find(q => q.x === x && q.y === y && q.kind === kind); if (!p) return '';
+      S.piles.splice(S.piles.indexOf(p), 1); const T = S.tribe;
+      if (S.popPeople && Math.max(Math.abs(tx - T.x), Math.abs(ty - T.y)) <= 2) { if (kind === 'meat') T.store += p.amt; else if (kind === 'wood') T.wood += p.amt; else T.stone += p.amt; return 'store'; }
+      const f = free(tx, ty); dropPile(f[0], f[1], kind, p.amt); return 'ground';
+    },
     // test levers
     cull(sp, frac) { for (const a of S.agents) if (a.alive && a.sp === sp && rnd() < frac) die(a, 'struck'); },
     feed(sp, amt) { for (const a of S.agents) if (a.alive && a.sp === sp) a.e = Math.min(1.2, a.e + amt); },
