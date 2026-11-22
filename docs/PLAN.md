@@ -50,7 +50,7 @@ If a rule you add is a plan rather than an outcome, list it under "Planned on pu
 | C | Done: C1, C2 and C3 (one commit). Ground memory 27.7 MB at 40x40. |
 | D | Done: D1 to D5 (D4 with height H1; game map 96 tiles). D5: all three animal kinds alive at year 100 in 7 of 10 standard worlds (8 of 10 at 128, 1 of 10 at the old 40). Also done on the owner's request: no crossing without a bridge, timber only from chopping, faster speeds (up to 48x). Next: E. |
 | E | E1 done (routes). E2 done: gathering, fishing, felling, firewood and quarrying are real trips (pace 20 tiles a step, home before dark); hunting moves 3 tiles a step toward the game. E3, E4 done: the view walks each creature along the tiles the simulation moved it through and keeps its work within 1.4 tiles of its state position. |
-| F | F1 done (BUILDINGS registry; DWELL derived from it). |
+| F | F1 done (BUILDINGS registry; DWELL derived from it). F2 done (GOODS; larders and the store hold food by kind, each spoiling at its own rate). |
 
 ## 1. How to work on it
 

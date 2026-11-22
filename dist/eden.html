@@ -231,7 +231,27 @@ function create(seed, opt) {
   // by the fire) is only what households have put there because they had more than they could use, and what those without
   // a roof of their own live from.
   const homeSite = a => a.house ? S.tribe.sites.find(q => q.id === a.house) || null : null;
-  const bring = (a, amt) => { const h = homeSite(a); if (h) h.larder = (h.larder || 0) + amt; else S.tribe.store += amt; };
+  /* F2. Goods. Food is of four kinds, each keeping for as long as it does (the share of it lost in a year, before any pot or
+     granary); a larder or the common store holds its total as before, and beside it how much of each kind (mix). Food is
+     marked with its kind where it comes in; what is taken out without a kind (eaten, given) comes out of every kind alike.
+     The rest of the goods are kept where they always were: timber and stone in the settlement's piles, firewood at each
+     hearth, tools as know-how (F4 makes them things). */
+  const GOODS = {
+    grain: { food: true, spoil: 0.12, says: 'grain' }, meat: { food: true, spoil: 0.6, says: 'meat' },
+    fish: { food: true, spoil: 0.7, says: 'fish' }, fruit: { food: true, spoil: 0.4, says: 'fruit and roots' },
+    timber: { food: false, spoil: 0 }, stone: { food: false, spoil: 0 }, firewood: { food: false, spoil: 0 }, tools: { food: false, spoil: 0 }
+  };
+  const FOODS = ['grain', 'meat', 'fish', 'fruit'];
+  /* the mix of what a holder (a household's site, field 'larder', or the settlement, field 'store') has, scaled to its total now */
+  function mixOf(o, f) { const tot = Math.max(0, o[f] || 0); let m = o.mix; if (!m) m = o.mix = { grain: 0, meat: 0, fish: 0, fruit: 0 };
+    let sum = m.grain + m.meat + m.fish + m.fruit; if (tot <= 1e-9) { m.grain = m.meat = m.fish = m.fruit = 0; return m; }
+    if (sum <= 1e-9) { m.fruit = tot; return m; }   /* food of no known kind (an old save, the first store) counts as gathered */
+    const k = tot / sum; if (Math.abs(k - 1) > 1e-12) { m.grain *= k; m.meat *= k; m.fish *= k; m.fruit *= k; } return m; }
+  function addFood(o, f, kind, amt) { if (!(amt > 0)) return; const m = mixOf(o, f); o[f] = (o[f] || 0) + amt; m[kind] += amt; }
+  /* food moved from one holder to another goes as it is mixed */
+  function moveFood(a, fa, b, fb, amt) { if (!(amt > 0)) return; const ma = mixOf(a, fa), mb = mixOf(b, fb), tot = Math.max(1e-9, a[fa]), k = Math.min(1, amt / tot);
+    for (const g of FOODS) { const x = ma[g] * k; ma[g] -= x; mb[g] += x; } a[fa] -= amt; b[fb] = (b[fb] || 0) + amt; }
+  const bring = (a, amt, kind) => { const h = homeSite(a); if (h) addFood(h, 'larder', kind || 'fruit', amt); else addFood(S.tribe, 'store', kind || 'fruit', amt); };
   const allFood = () => { let f = S.tribe.store; for (const q of S.tribe.sites) f += q.larder || 0; return f; };
   const owner = new Int32Array(N * N);
   // Quarries leave holes. rock is the stone still in the ground (about STONE_PER_TILE stone at 1); pit is how deep it has
@@ -655,7 +675,7 @@ function create(seed, opt) {
     // More than a household can eat before it spoils goes to the common store. A household gone short is helped first by
     // its own kin, if they have it to give.
     for (const q of T.sites) {
-      if (!q.members) { if (q.larder > 0) { T.store += q.larder; q.larder = 0; } continue; }
+      if (!q.members) { if (q.larder > 0) moveFood(q, 'larder', T, 'store', q.larder); continue; }
       { const room = { tent: 4, hut: 6, house: 8 }[q.was || q.kind] || 6;            // too many under one roof: the eldest grown child with no partner goes to make a place of their own
         if (q.members > room && S.tickNo % TPY === 5) {
           const out = P.filter(b => b.house === q.id && b.age >= WED + 1 && !b.partner && [b.mom, b.dad].some(id => {
@@ -667,13 +687,12 @@ function create(seed, opt) {
             T.need.crowd += 1;
           }
         } }
-      if (q.larder > q.members * 2.6) { const give = (q.larder - q.members * 2.6) * 0.3; q.larder -= give; T.store += give; }
+      if (q.larder > q.members * 2.6) { const give = (q.larder - q.members * 2.6) * 0.3; moveFood(q, 'larder', T, 'store', give); }
       else if (q.larder < q.members * 0.25) {
         const mine = P.filter(b => b.house === q.id), kinRoof = T.sites.find(k => k !== q && k.members && k.larder > k.members * 1.2 && P.some(b => b.house === k.id && mine.some(m => kin(m, b))));
         if (kinRoof) {
           const give = Math.min(kinRoof.larder - kinRoof.members * 1.0, q.members * 0.5);
-          kinRoof.larder -= give;
-          q.larder += give;
+          moveFood(kinRoof, 'larder', q, 'larder', give);
           if (!T.gaveTold && give > 0.5) {
             T.gaveTold = true;
             const g = P.find(b => b.house === kinRoof.id && b.age >= WED), r = mine.find(b => b.age >= WED);
@@ -1170,7 +1189,7 @@ function create(seed, opt) {
     const T = S.tribe;
     if (tr.kind === 'timber') { T.wood += tr.load; S.stat.woodBack = (S.stat.woodBack || 0) + tr.load; } else if (tr.kind === 'stone') T.stone += tr.load;
     else if (tr.kind === 'fuel') { const h = doorOf(a); h.fuel = (h.fuel || 0) + tr.load; }
-    else { bring(a, tr.load); S.stat.forageD += tr.walked / 2; S.stat.forageN++; }
+    else { bring(a, tr.load, tr.kind === 'fish' ? 'fish' : 'fruit'); S.stat.forageD += tr.walked / 2; S.stat.forageN++; }
   }
   // Fetching timber, stone or firewood is a trip like any other: out along the route to the stand or the stone, the work
   // there, and back with the load to the plot or the hearth. (E2, the rest: the walking factor is gone from these too.)
@@ -1295,7 +1314,7 @@ function create(seed, opt) {
     }
     /* meat lying out in reach is fetched home first, by a grown member of a household short of food */
     if (grown && !S.night && allFood() < pop * 2) { const door0 = doorOf(a), pl = pileFor(door0.x, door0.y, 'meat', a);
-      if (pl) { const ef = 1 / (1 + pl.d / (WALK * pace)), got = takePile(pl, 1.5 * ef + 0.2); bring(a, got); walk(door0.x, door0.y, pl.p.x, pl.p.y, 0.03); a.tripD = pl.d; a.act = { k: 'fetch', x: pl.p.x, y: pl.p.y, item: 'meat' }; T.got.hunt += got; return; } }
+      if (pl) { const ef = 1 / (1 + pl.d / (WALK * pace)), got = takePile(pl, 1.5 * ef + 0.2); bring(a, got, pl.p.kind === 'meat' ? 'meat' : 'fruit'); walk(door0.x, door0.y, pl.p.x, pl.p.y, 0.03); a.tripD = pl.d; a.act = { k: 'fetch', x: pl.p.x, y: pl.p.y, item: 'meat' }; T.got.hunt += got; return; } }
     // look for food: plants, fish, game, from their own door. Places near the door are looked at most; nothing is out of
     // bounds, but a far place has to be worth the walk. What is found is carried home.
     const door = doorOf(a), cands = []; let wishV = 0, wishF = null, bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
@@ -1331,7 +1350,7 @@ function create(seed, opt) {
         const reach = cheb(q, a); if (reach <= 2) {                      // within a spear's throw; surer from close in
           let near = 0; for (const id of P.ids) { const m = S.byId.get(id); if (m && m.alive && cheb(m, q) <= 3) near++; }
           const gm = bodyOf(q), p = (reach <= 1 ? 1 : 0.5) * a.skill.hunt * (0.3 + 0.2 * (near - 1)) * Math.min(1, 4.5 / gm) * (1 - 0.5 * cover(I(q.x, q.y))) * TPY * dt * S.dayK;
-          if (rnd() < p) { die(q, 'hunted', a.id); { const sh = gm * 0.9 / P.ids.length; for (const id of P.ids) { const m = S.byId.get(id); if (m) bring(m, sh); } } T.got.hunt += gm * 0.9;
+          if (rnd() < p) { die(q, 'hunted', a.id); { const sh = gm * 0.9 / P.ids.length; for (const id of P.ids) { const m = S.byId.get(id); if (m) bring(m, sh, 'meat'); } } T.got.hunt += gm * 0.9;
             {
               const orphan = S.agents.find(b => b.alive && b.mom === q.id && !b.d.people && b.age < b.d.mature * 0.6 && cheb(b,
                   q) <= 3);   /* the young one left standing by its dead mother is carried home */
@@ -1363,7 +1382,7 @@ function create(seed, opt) {
         const gm = bodyOf(game), helpers = Math.min(3, adults - 1), p = (gm < 1 ? 0.22 : (0.07 + 0.05 * helpers) * Math.min(1, 4.5 / gm)) * (1 - 0.5 * cover(I(game.x, game.y))) * TPY * dt * S.dayK;
         if (rnd() < p) {
           die(game, 'hunted', a.id);
-          bring(a, gm * 0.9);
+          bring(a, gm * 0.9, 'meat');
           a.act = { k: 'hunt', id: game.id, kill: 1, x: game.x, y: game.y };
         }
       }
@@ -1813,8 +1832,8 @@ function create(seed, opt) {
               h.farmerT = S.tickNo;
             }
             if (h.farmer) y *= 1.3;
-            h.larder = (h.larder || 0) + y;
-          } else T.store += y;
+            addFood(h, 'larder', 'grain', y);
+          } else addFood(T, 'store', 'grain', y);
           got += y;
         }
         if (nf && dry / nf > 0.3) T.need.water += 1.5;
@@ -1846,13 +1865,10 @@ function create(seed, opt) {
     const T = S.tribe, born = [], campI = I(T.x, T.y), lengthening = daysLengthen(), sunH = sunHeight();
     {
       const keep = (T.skills.pottery ? 0.7 : 1) * (T.skills.granary ? 0.55 : 1);
-      let lost = T.store * 0.35 * keep * dt;
-      T.store = Math.max(0, T.store - lost);   /* what rots is seen rotting, in every larder */
-      for (const q of T.sites) if (q.larder > 0) {
-        const l = q.larder * 0.35 * ((q.was || q.kind) === 'tent' ? 1 : 0.75) * keep * dt;
-        q.larder -= l;
-        lost += l;
-      }
+      /* what rots is seen rotting, in every larder: each kind of food at its own pace (F2) */
+      const rot = (o, f, k) => { if (!(o[f] > 0)) return 0; const m = mixOf(o, f); let l = 0; for (const g of FOODS) { const x = m[g] * GOODS[g].spoil * k * dt; m[g] -= x; l += x; } o[f] = Math.max(0, o[f] - l); return l; };
+      let lost = rot(T, 'store', keep);
+      for (const q of T.sites) lost += rot(q, 'larder', ((q.was || q.kind) === 'tent' ? 1 : 0.75) * keep);
       if (S.popPeople) T.need.spoil += lost / S.popPeople;
     }
     if (flood[campI]) { T.store *= 1 - Math.min(1, 2.5 * dt); T.need.flood += dt * 2; }
@@ -2077,13 +2093,13 @@ function create(seed, opt) {
     movePile(x, y, kind, tx, ty) {
       const p = S.piles.find(q => q.x === x && q.y === y && q.kind === kind); if (!p) return '';
       S.piles.splice(S.piles.indexOf(p), 1); const T = S.tribe;
-      if (S.popPeople && Math.max(Math.abs(tx - T.x), Math.abs(ty - T.y)) <= 2) { if (kind === 'meat') T.store += p.amt; else if (kind === 'wood') T.wood += p.amt; else T.stone += p.amt; return 'store'; }
+      if (S.popPeople && Math.max(Math.abs(tx - T.x), Math.abs(ty - T.y)) <= 2) { if (kind === 'meat') addFood(T, 'store', 'meat', p.amt); else if (kind === 'wood') T.wood += p.amt; else T.stone += p.amt; return 'store'; }
       const f = free(tx, ty); dropPile(f[0], f[1], kind, p.amt); return 'ground';
     },
     // test levers
     cull(sp, frac) { for (const a of S.agents) if (a.alive && a.sp === sp && rnd() < frac) die(a, 'struck'); },
     feed(sp, amt) { for (const a of S.agents) if (a.alive && a.sp === sp) a.e = Math.min(1.2, a.e + amt); },
-    give(amt) { S.tribe.store += amt; },
+    give(amt) { addFood(S.tribe, 'store', 'grain', amt); },
     climate(f) { S.rainY = f; }, drought(f) { S.rainY = f; }, warm(deg) { S.warmOff = deg; },
     teach(skill) { S.tribe.skills[skill] = true; },
     // scenario levers: hold a kind at a number (no births or arrivals beyond it), ban a kind outright, fell every tree
@@ -2192,6 +2208,8 @@ function create(seed, opt) {
     LANDS,
     DWELL,
     BUILDINGS,
+    GOODS,
+    mixOf: (o, f) => mixOf(o, f),
     SPECIES: SP,
     SKILLS,
     tempAt,

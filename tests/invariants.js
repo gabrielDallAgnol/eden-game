@@ -79,6 +79,7 @@ function WorldRun(land, seed, years, size) {
   add('problems', 'the sim reports no defects in S.problems');
   add('pitFree', 'no lot or field on a quarry pit (B5)');
   add('killNear', 'every kill is made by a creature standing within 3 tiles of what it killed, by the state (E3)');
+  add('mix', 'every larder\'s and the store\'s kinds of food add up to its total and none is negative (F2)');
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
@@ -305,6 +306,15 @@ WorldRun.prototype.yearly = function () {
       else if (!Array.isArray(tr.back) || !tr.back.length) bad.push(a.name + ' has no way home from a ' + tr.kind + ' trip'); });
     if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else if (seen) c.ok(); else c.skip('nobody hauling at this check');
   });
+  this.guard('mix', function (c) {
+    if (!W.mixOf || !T) return c.skip('W.mixOf is missing'); var bad = [];
+    var look = function (o, f, lab) { if (!(o[f] > 0.01) || !o.mix) return; var m = o.mix, sum = m.grain + m.meat + m.fish + m.fruit;
+      if (m.grain < -1e-6 || m.meat < -1e-6 || m.fish < -1e-6 || m.fruit < -1e-6) bad.push(lab + ' holds a negative kind ' + JSON.stringify(m));
+      else if (Math.abs(sum - o[f]) > 0.02 * o[f] + 0.05 && sum > 1e-9) bad.push(lab + ' kinds add to ' + sum.toFixed(2) + ' of ' + o[f].toFixed(2)); };
+    W.mixOf(T, 'store'); look(T, 'store', 'the store');
+    (T.sites || []).forEach(function (q) { if (q.larder > 0.01) { W.mixOf(q, 'larder'); look(q, 'larder', q.kind + ' ' + q.id); } });
+    if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else c.ok();
+  });
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');
     var bad = 0, ex = '';
@@ -477,6 +487,18 @@ UNITS.push(['every BUILDINGS row is whole: stages with finite wood and stone, a 
     if (K.needsIdea && ideas && ideas.indexOf(K.needsIdea) < 0) bad.push(k + ' needs an idea that is not in IDEAS: ' + K.needsIdea);
     if (K.next && !B[K.next]) bad.push(k + ' is rebuilt into an unknown kind ' + K.next); });
   return bad.slice(0, 4).join('; ');
+}]);
+UNITS.push(['meat and fish spoil faster than grain; households eat differently (F2)', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland' }), T = W.S.tribe;
+  T.store = 0; T.mix = { grain: 30, meat: 30, fish: 30, fruit: 30 }; T.store = 120;
+  W.tick(); W.tick(); W.tick(); var m = W.mixOf(T, 'store');
+  if (!(m.meat < m.grain && m.fish < m.grain)) return 'after three steps grain ' + m.grain.toFixed(2) + ', meat ' + m.meat.toFixed(2) + ', fish ' + m.fish.toFixed(2);
+  var V = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), i, shares = [];
+  for (i = 0; i < 24 * 30; i++) V.tick();
+  V.S.tribe.sites.forEach(function (q) { if (q.larder > 1) { var k = V.mixOf(q, 'larder'); shares.push(k.grain / q.larder); } });
+  if (shares.length < 2) return 'fewer than two households with food at year 30';
+  var lo = Math.min.apply(null, shares), hi = Math.max.apply(null, shares);
+  return hi - lo > 0.1 ? '' : 'every household eats much the same: grain share ' + lo.toFixed(2) + ' to ' + hi.toFixed(2);
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
