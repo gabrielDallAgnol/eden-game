@@ -504,3 +504,29 @@ Size 96, seeds 1 and 2:
 | mean |  | 20 | 90.8 | 153.3 | 182.8 | 60.2 | 189.6 | 0.4 | 13 |  | 2.6 | 8.4 | 17.1 | 5.4 | 103.6 | 1 | 1312.9 | 84.1 | 32.2 | 7 |  |  | 51.5 | 6.2 | 20.2 | 0.5 | 0 | 16505.8 |
 
 Year 100 mean 153.3 (before this step 168.5 in the table; 172.5 in a direct run with the same options), year 25 20.0 (28.1), dwellings 60.2 (64.2), hunger deaths 189.6 (200.1), 2 resettles (forest 1, highland 2). Stone trips are now measured as the real route walked from where the person stands: 17.1 tiles against 5.9 straight-line from the site before; timber trips 8.4, firewood 5.4. Without the before-dark check, year 100 was 112.6. Speed: 16.5 s per world (14.3). Tests 413 passed, 0 failed; scenarios 22 passed.
+
+
+## Owner's report: wolves' den by the camp, furniture too early, yard under a tent, floating sleepers
+
+- A pack does not dig a den within 12 tiles of the camp or 8 of a household; a resettling camp avoids existing dens. Strike breaks a den or burrow.
+- Furniture follows what the people can make: nothing round a tent; joinery (table, crates, coop, racks, toys) once there is a timber roof; barrels, rocking chair, loom, workbench, hives and barrow need the tools idea (the barrow also the wheel); market stalls wait for trade (phase G/H), so none show yet; a haystack needs farming.
+- A tent leaves the ground as it is (no yard square); huts and houses still mark theirs. Stumps are not drawn on household plots.
+- Lying people are trimmed to their painted rows, so a sleeper lies on the ground, not on the empty margin of the standing sprite.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 41 | 199 | 314 | 356 | 118 | 296 | 0 | 15 | 7/144/0 | 2.5 | 27.4 | 20.5 | 5.7 | 251 | 1 | 4546 | 194 | 50.5 | 8.3 | 33.5 (2) | 85/0/3/0/10 | 73 | 6.8 | 33 | 3 | 0 | 30781 |
+| valley | 2 | 30 | 74 | 107 | 116 | 39 | 154 | 0 | 12 | 6/254/5 | 2.8 | 0 | 16.1 | 4.4 | 109 | 1.1 | 320 | 100 | 21.1 | 4.1 | 0 (1) | 85/2/2/0/10 | 51 | 4.4 | 13 | 0 | 0 | 14754 |
+| plains | 1 | 23 | 134 | 249 | 269 | 91 | 291 | 0 | 13 | 4/265/3 | 2.5 | 19.9 | 22.4 | 8.7 | 230 | 1 | 3460 | 69 | 31.3 | 4.4 |  | 86/0/1/0/9 | 68 | 9.6 | 29 | 0 | 0 | 22419 |
+| plains | 2 | 17 | 116 | 194 | 255 | 82 | 260 | 0 | 12 | 9/149/5 | 2.4 | 10.8 | 22.3 | 6.4 | 131 | 1 | 3271 | 77 | 29.5 | 6.3 |  | 83/0/1/0/15 | 56 | 5.1 | 33 | 0 | 0 | 17472 |
+| forest | 1 | 4 | 4 | 7 | 7 | 3 | 7 | 1 | 8 | 30/282/11 | 2.6 | 27.9 | 5.9 | 2.9 | 9 | 1.5 | 3 | 5 | 6.2 | 3.5 |  | 32/0/1/21/46 | 7 | 3.2 | 8 | 0 | 0 | 5154 |
+| forest | 2 | 32 | 98 | 95 | 126 | 44 | 190 | 0 | 13 | 12/139/4 | 2.3 | 2 | 13.6 | 3.8 | 46 | 1.1 | 353 | 21 | 20.2 | 4.4 | 0 (2) | 85/1/2/1/9 | 32 | 5.5 | 13 | 0 | 0 | 13520 |
+| lakeland | 1 | 20 | 103 | 240 | 249 | 90 | 222 | 0 | 14 | 34/95/0 | 2.7 | 0 | 19.3 | 5.7 | 100 | 1 | 2226 | 87 | 27.9 | 4.2 | 5 (1) | 84/0/1/0/13 | 67 | 6.6 | 25 | 0 | 0 | 20881 |
+| lakeland | 2 | 37 | 111 | 175 | 192 | 63 | 199 | 0 | 14 | 27/99/7 | 2.5 | 3 | 21.6 | 5 | 107 | 1.1 | 1019 | 66 | 24.8 | 5 | 0 (1) | 82/1/2/2/13 | 50 | 5.7 | 25 | 0 | 0 | 17210 |
+| highland | 1 | 10 | 57 | 77 | 81 | 28 | 105 | 0 | 14 | 5/65/5 | 2.9 | 0 | 16.4 | 6.7 | 76 | 1.1 | 193 | 67 | 15 | 2.7 | 0 (1) | 76/0/3/0/19 | 53 | 6.5 | 13 | 0 | 0 | 9111 |
+| highland | 2 | 22 | 49 | 64 | 83 | 23 | 145 | 0 | 13 | 9/106/5 | 2.9 | 21.2 | 6.5 | 8.6 | 55 | 1 | 91 | 53 | 26.7 | 4.7 | 0 (1) | 79/1/3/0/16 | 33 | 9.2 | 9 | 0 | 0 | 8893 |
+| mean |  | 23.6 | 94.5 | 152.2 | 173.4 | 58.1 | 186.9 | 0.1 | 12.8 |  | 2.6 | 11.2 | 16.5 | 5.8 | 111.4 | 1.1 | 1548.2 | 73.9 | 25.3 | 4.8 |  |  | 49 | 6.3 | 20.1 | 0.3 | 0 | 16019.5 |
+
+Year 100 mean 152.2 (153.3 before), one resettle (forest 1 emptied at year 25 against none there before). Tests 417 passed, 0 failed, with a new check that no den lies within 12 tiles of the camp in 9 worlds over 12 years and that a struck den is broken.

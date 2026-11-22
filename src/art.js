@@ -2,6 +2,10 @@
 // A species row can name its look; an unknown animal gets a body built from its traits, so new rows still appear.
 (function (root) {
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+/* the canvas cut down to its painted rows, so whatever is drawn standing on its bottom edge touches the ground */
+const trimRows = c => { const w = c.width, h = c.height, px = c.getContext('2d').getImageData(0, 0, w, h).data; let top = h, bot = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (px[(y * w + x) * 4 + 3] > 8) { if (y < top) top = y; bot = y; break; }
+  if (bot < 0 || (top === 0 && bot === h - 1)) return c; const o = mk(w, bot - top + 1); o.getContext('2d').drawImage(c, 0, -top); return o; };
 const OUT = '#2a1c16';
 function grid(rows) { const h = rows.length, w = Math.max(...rows.map(r => r.length)); return rows.map(r => (r + '.'.repeat(w - r.length)).replace(/ /g, '.').split('')); }
 // smooth doubling (EPX): keeps hand-drawn curves round instead of blocky
@@ -624,7 +628,7 @@ function build() {
   const people = { grown: [], young: [], old: [] };
   for (let v = 0; v < 12; v++) { const pal = { s: SKIN[v % 4], h: HAIR[(v * 7) % 4], t: CLOTH[(v * 5 + 1) % 6], u: CLOTH[(v + 3) % 6], l: '#5a4a3a', b: '#3a2c22', k: '#1a1412' }, grey = Object.assign({}, pal, { h: HAIR[elderHair] }); const W2 = { sit: SIT.woman, up: armsUp(womanA), upB: armsUp(womanB) }, M2 = { sit: SIT.man, up: armsUp(manA), upB: armsUp(manB) }; people.grown.push(v % 2 ? two(womanA, womanB, pal, true, W2) : two(manA, manB, pal, true, M2)); people.old.push(v % 2 ? two(womanA, womanB, grey, true, W2) : two(manA, manB, grey, true, M2)); people.young.push(two(childA, childB, pal, true, { sit: childA.slice(0, 9).concat(['.bb...bb.']), up: childA, upB: childB })); people.tot = people.tot || []; people.tot.push(two(toddlerA, toddlerB, pal, true, { sit: toddlerSit })); people.baby = people.baby || []; people.baby.push(sprite(babyMap, Object.assign({ c: '#efe2c4' }, pal), { x2: true })); }
   // people lying down: the standing figure laid on its side
-  const rot = c => { const d = mk(c.height, c.width), g = d.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return d; };
+  const rot = c => { const d = mk(c.height, c.width), g = d.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return trimRows(d); };   /* a body laid down lies on the ground, not on the empty margin it stood in */
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
   A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
@@ -643,7 +647,7 @@ function build() {
     return { grown: [pair(1)], young: [pair(0.55)] };
   };
   // art made outside the game replaces the built-in look wherever a sprite sheet exists (src/sprites.js)
-  if (root.EdenSprites && root.EdenSprites.ready) root.EdenSprites.apply(A, { mk, flip, shrink });
+  if (root.EdenSprites && root.EdenSprites.ready) root.EdenSprites.apply(A, { mk, flip, shrink, trimRows });
   for (const k of ['hut', 'house']) if (!A[k + 'Lake']) { A[k + 'Lake'] = onStilts(A[k]); A[k + 'LakeSnow'] = onStilts(A[k + 'Snow']); }
   return A;
 }

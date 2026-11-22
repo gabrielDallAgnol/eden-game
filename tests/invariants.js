@@ -483,6 +483,17 @@ UNITS.push(['after a wipe-out and resettle, every settlement field equals a fres
   for (var key in keys) if (!same(T[key], fresh[key])) diff.push(key + ': ' + show(T[key]).slice(0, 40) + ' vs fresh ' + show(fresh[key]).slice(0, 40));
   return diff.length ? diff.slice(0, 5).join('; ') : '';
 }]);
+UNITS.push(['no wolf den is dug within 12 tiles of the camp; a struck den is broken', function () {
+  var near = [], lands = ['valley', 'forest', 'highland'];
+  for (var s = 1; s <= 3; s++) for (var l = 0; l < lands.length; l++) {
+    var W = Eden.create(s, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: lands[l] }), T = W.S.tribe;
+    for (var i = 0; i < 24 * 12; i++) { W.tick(); if (W.S.tribe.x !== T.x) break; }
+    W.S.homes.forEach(function (h) { if (h.kind === 'den' && Math.max(Math.abs(h.x - W.S.tribe.x), Math.abs(h.y - W.S.tribe.y)) < 12) near.push(lands[l] + ' #' + s + ' den at ' + h.x + ',' + h.y); });
+    var den = null; W.S.homes.forEach(function (h) { if (!den && h.kind === 'den') den = h; });
+    if (den) { W.G.strike(den.x, den.y); if (W.S.homes.has(den.id)) return 'struck den still stands at ' + den.x + ',' + den.y; }
+  }
+  return near.slice(0, 3).join('; ');
+}]);
 UNITS.push(['save at year 20, load, run 20 more: identical to an unbroken 40-year run', function () {
   var O = { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland' }, out = [];
   [1, 2].forEach(function (seed) {

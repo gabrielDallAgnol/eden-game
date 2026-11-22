@@ -131,3 +131,4 @@ These are rules, not outcomes, and are meant to stay that way:
 - Unseen land is drawn like the rest (owner's choice): the view's fade is switched off; the simulation still records `known`.
 - The map is 96 tiles a side in the game (`?size=` changes it); tests also run at 40 and 128.
 - A stranger arrives when a grown person has only kin to choose from. To be replaced by step 7 (people moving between places).
+- A wolves' den is not dug within 12 tiles of the camp or 8 of a household (the fire's smell and noise, as a fixed distance). Market stalls are not drawn until there is trade.

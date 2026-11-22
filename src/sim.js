@@ -522,7 +522,9 @@ function create(seed, opt) {
     for (let k = 0; k < 200; k++) {
       const x = (R(4, N - 4)) | 0, y = (R(4, N - 4)) | 0, i = I(x, y); if (water[i]) continue; let w = 0, tr = 0;
       for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const j = I(clamp(x + dx, 0, N - 1), clamp(y + dy, 0, N - 1)); w += water[j]; tr += yieldOf(tree[j]); }
-      const sc = Math.min(w, 4) + Math.min(tr, 12) * 0.5 + fert[i] + Math.min(1, massSize[mass[i]] / 600) * 3; if (sc > best) { best = sc; bx = x; by = y; }
+      let sc = Math.min(w, 4) + Math.min(tr, 12) * 0.5 + fert[i] + Math.min(1, massSize[mass[i]] / 600) * 3;
+      for (const q of S.homes.values()) if (q.kind === 'den' && Math.max(Math.abs(q.x - x), Math.abs(q.y - y)) < 12) sc -= 6;   /* nobody pitches camp by a wolves' den */
+      if (sc > best) { best = sc; bx = x; by = y; }
     }
     return [bx, by];
   }
@@ -859,6 +861,8 @@ function create(seed, opt) {
         h = q;
       }
     }
+    /* a den is not dug where people live: the smell of the fire and the noise keep a pack off (a burrow is small enough not to care) */
+    if (!h && a.d.home === 'den' && S.popPeople && (Math.max(Math.abs(a.x - S.tribe.x), Math.abs(a.y - S.tribe.y)) < 12 || S.tribe.sites.some(q => Math.max(Math.abs(a.x - q.x), Math.abs(a.y - q.y)) < 8))) return null;
     if (!h) { if (water[I(a.x, a.y)] || field[I(a.x, a.y)]) return null; h = { id: S.nextId++, sp: a.sp, kind: a.d.home, x: a.x, y: a.y, n: 0, emptyT: 0 }; S.homes.set(h.id, h); }
     a.home = h.id; h.n++; return h;
   }
@@ -2007,6 +2011,7 @@ function create(seed, opt) {
       const aimed = id ? S.byId.get(id) : null; if (aimed && aimed.alive) { x = aimed.x; y = aimed.y; }
       const i = I(x, y), hit = S.agents.filter(a => a.alive && ((a.x === x && a.y === y) || a === aimed));
       for (const a of hit) { if (!a.d.people) dropPile(a.x, a.y, 'meat', bodyOf(a) * 0.9); die(a, 'struck'); }
+      for (const q of [...S.homes.values()]) if (q.x === x && q.y === y) { S.homes.delete(q.id); for (const a of S.agents) if (a.home === q.id) a.home = 0; }   /* a den or burrow struck is broken; its keepers must find or dig another */
       if (!water[i] && tree[i] > 0.1) { dropPile(x, y, 'wood', tree[i] * 12); tree[i] = 0; fruit[i] = 0; cut[i] = 0; }
       else if (!water[i] && rock[i] >= 0.15) { const dug = Math.min(rock[i], 0.06); rock[i] -= dug; pit[i] = Math.min(1, pit[i] + dug); dropPile(x, y, 'stone', dug * STONE_PER_TILE); }
       else if (!water[i] && snow[i] < 0.05 && soil[i] < 0.9 && grass[i] > 0.5) burn[i] = 1;

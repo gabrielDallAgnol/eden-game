@@ -14,7 +14,7 @@ S.load = async function (base) {
 };
 
 S.apply = function (A, h) {
-  const mk = h.mk, flip = h.flip, shrink = h.shrink;
+  const mk = h.mk, flip = h.flip, shrink = h.shrink, trimRows = h.trimRows || (c => c);
   // one strip -> a list of frame canvases
   const frames = key => { const m = S.meta[key], out = []; for (let f = 0; f < m.frames; f++) { const c = mk(m.w, m.h); c.getContext('2d').drawImage(S.img[key], f * m.w, 0, m.w, m.h, 0, 0, m.w, m.h); out.push(c); } return out; };
   const one = key => frames(key)[0];
@@ -104,7 +104,7 @@ S.apply = function (A, h) {
       }
       x.putImageData(d, 0, 0); return c;
     };
-    const rot = c => { const o = mk(c.height, c.width), g = o.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return o; };
+    const rot = c => { const o = mk(c.height, c.width), g = o.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return trimRows(o); };   /* a body laid down lies on the ground, not on the empty margin it stood in */
     const BODY = {}; for (const n of ['man', 'woman', 'child']) BODY[n] = { walk: frames(n + '_walk'), up: frames(n + '_up'), sit: frames(n + '_sit'), head: Math.round(S.meta[n + '_walk'].h * (n === 'woman' ? 0.5 : 0.36)) };
     const made = new Map(), built = A.look.human;
     built.make = (a, stage) => {

@@ -118,7 +118,7 @@ const BN = N * 8, CB = 16 * 8,
 const knownF = new Float32Array(N * N);
 /* the ground a building takes: its whole lot is a trodden yard, the floor under the roof bare earth (1 = yard, 2 = floor) */
 const lotMask = new Uint8Array(N * N);
-function syncLots() { lotMask.fill(0); for (const q of S.tribe.sites) { const well = q.kind === 'well'; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = q.x + dx, y = q.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = y * N + x; if (W.water[i]) continue; if (!dx && !dy) lotMask[i] = 2; else if (!well && !W.field[i]) lotMask[i] = Math.max(lotMask[i], 1); } } }
+function syncLots() { lotMask.fill(0); for (const q of S.tribe.sites) { if (q.kind === 'tent') continue; /* a tent is pitched on the grass: only a built house marks the ground under and round it */ const well = q.kind === 'well'; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = q.x + dx, y = q.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = y * N + x; if (W.water[i]) continue; if (!dx && !dy) lotMask[i] = 2; else if (!well && !W.field[i]) lotMask[i] = Math.max(lotMask[i], 1); } } }
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
 let cbx = 0, cby = 0, cbFor = null;
@@ -402,20 +402,23 @@ function wantProps() {
     for (const q of T0.sites) {
       if (q.kind === 'well' || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
       const f = folkBy.get(q.id); if (!f) continue; const L = q.larder || 0, n = Math.max(1, f.n), want2 = [];
+      /* furniture is made, not found: nothing is kept round a tent but a fire's wood; joinery (table, crates, coop, racks) wants a timber roof to keep it under,
+         and what is cut true or turned (barrels, a rocking chair, a loom, a workbench, hives, a barrow) wants the tools to cut it */
+      if (q.kind === 'tent') continue; const tools = !!(T0.skills && T0.skills.tools), house = q.kind === 'house';
       if (L > n * 1.5 && S.air > 10 && P.table_bench) want2.push('table_bench');
       if (f.small && P.toy_horse) want2.push('toy_horse');
       if (f.baby && P.laundry_tub) want2.push('laundry_tub'); else if (f.small + f.baby >= 2 && P.washing_line) want2.push('washing_line');
-      if (f.elder && P.rocking_chair) want2.push('rocking_chair');
-      if (L > n * 2.5 && P.barrels) want2.push('barrels'); else if (L > n * 1.5 && (f.jobs.has('farmer') || f.jobs.has('fisher')) && P.crates) want2.push('crates');
+      if (f.elder && tools && P.rocking_chair) want2.push('rocking_chair');
+      if (L > n * 2.5 && tools && P.barrels) want2.push('barrels'); else if (L > n * 1.5 && (f.jobs.has('farmer') || f.jobs.has('fisher')) && P.crates) want2.push('crates');
       if ((q.fields || 0) > 0 && autumn) want2.push((q.id % 2 ? 'pumpkins' : 'wheat_sheaves'));
-      if ((q.fields || 0) >= 9 && (f.jobs.has('farmer') || autumn) && P.haystack) want2.push('haystack');
+      if ((q.fields || 0) >= 9 && (f.jobs.has('farmer') || autumn) && T0.skills && T0.skills.farm && P.haystack) want2.push('haystack');
       if ((q.fields || 0) > 0 && L > n && P.coop) want2.push('coop');
-      if (f.likes.has('gardens') && (q.garden || 0) > 0.5 && P.beehives) want2.push('beehives');
+      if (f.likes.has('gardens') && (q.garden || 0) > 0.5 && tools && P.beehives) want2.push('beehives');
       if (f.likes.has('gardens') && P.potted_plants) want2.push('potted_plants');
-      if ((q.carved || 0) > 0.4 && P.woodworking_bench) want2.push('woodworking_bench');
-      if ((q.woven || 0) > 0.3 && P.loom) want2.push('loom');
+      if ((q.carved || 0) > 0.4 && tools && P.woodworking_bench) want2.push('woodworking_bench');
+      if ((q.woven || 0) > 0.3 && tools && house && P.loom) want2.push('loom');
       if (f.jobs.has('fisher') && P.fish_rack) want2.push('fish_rack');
-      if (f.jobs.has('builder') && P.wheelbarrow) want2.push('wheelbarrow');
+      if (f.jobs.has('builder') && tools && T0.skills.wheel && P.wheelbarrow) want2.push('wheelbarrow');
       if (f.jobs.has('woodcutter') && P.chopping_block) want2.push('chopping_block');
       if (f.herbs && P.herb_drying) want2.push('herb_drying');
       /* only places in the yard itself: a place on a street or in a field is passed over */
@@ -424,9 +427,9 @@ function wantProps() {
       if ((q.fuel || 0) >= 1.2 && P.firewood_stack) want.set('wp' + q.id, { kind: 'woodpile', x: q.x + 1.4, y: q.y - 0.2, base: 'wpb', img: P.firewood_stack, dy: 4 });
       if ((q.garden || 0) > 0.3 && P.planter) want.set('pl' + q.id, { kind: 'prop', x: q.x + 0.1, y: q.y + 1.2, base: 'pl', img: (q.garden || 0) > 0.7 && P.bench_flowers ? P.bench_flowers : P.planter, dy: 4 });
     }
-    /* by the fire and the store: stalls when the common store holds plenty, a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
-    if (T0.store > 8 && P.stall_red) want.set('stall1', { kind: 'prop', x: store.x + 1.3, y: store.y - 1.1, base: 'stall', img: P.stall_red, dy: 4 });
-    if (T0.store > 25 && P.stall_green) want.set('stall2', { kind: 'prop', x: store.x - 1.1, y: store.y - 1.4, base: 'stall', img: P.stall_green, dy: 4 });
+    /* by the fire and the store: stalls once there is trade to stand at them (phase G/H; none yet), a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
+    if (T0.trade && T0.store > 8 && P.stall_red) want.set('stall1', { kind: 'prop', x: store.x + 1.3, y: store.y - 1.1, base: 'stall', img: P.stall_red, dy: 4 });
+    if (T0.trade && T0.store > 25 && P.stall_green) want.set('stall2', { kind: 'prop', x: store.x - 1.1, y: store.y - 1.4, base: 'stall', img: P.stall_green, dy: 4 });
     if ((T0.hunts || 0) > 0 && P.cooking_spit) want.set('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
     if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) want.set('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
     { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) want.set('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
@@ -436,7 +439,7 @@ function wantProps() {
     /* scarecrows in the middle of field lots */
     if (P.scarecrow) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH + 2, y = T0.y + m * W.PITCH + 2; if (x < 0 || y < 0 || x >= N || y >= N || !W.field[y * N + x] || (k * 7 + m * 3) % 3) continue; want.set('sc' + x + ',' + y, { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'sc', img: P.scarecrow, dy: 3 }); }
     /* stumps left by felling, with mushrooms, where nothing else has been put since */
-    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || W.water[j]) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
+    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || (W.owner && W.owner[j]) || W.water[j]) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
   }
   /* once there has been music by the fire, there are logs to sit on round it */
   if (campOn && S.musicT) for (let k = 0; k < 3; k++) { const ang = k * 2.1 + 0.5; want.set('ls' + k, { kind: 'seat', x: fire.x + Math.cos(ang) * 1.1, y: fire.y + Math.sin(ang) * 0.9, base: 'ls', img: A.logSeat, dy: 2 }); }
