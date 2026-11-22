@@ -8,7 +8,7 @@ var SEEDS = (q.get('seeds') || '1,2').split(',').map(Number), ONLY = q.get('only
 var OPT = { resettle: true, startT: 0.3, dayCycle: 4, family: true };
 var TPY = 24;
 var hunger = function (S) { return (S.deaths['human:hunger'] || 0) + (S.deaths['human:cold and hunger'] || 0); };
-var dwellings = function (W) { return W.S.tribe.sites.filter(function (s) { return s.kind !== 'well' && (s.was || s.stage >= W.DWELL[s.kind].stages); }).length; };
+var dwellings = function (W) { return W.S.tribe.sites.filter(function (s) { return !(W.BUILDINGS && W.BUILDINGS[s.kind] && !W.BUILDINGS[s.kind].room) && (s.was || s.stage >= W.DWELL[s.kind].stages); }).length; };
 var mean = function (a) { return a.length ? a.reduce(function (p, v) { return p + v; }, 0) / a.length : 0; };
 var r1 = function (v) { return Math.round(v * 100) / 100; };
 // a scenario: { name, land, years, setup(W), year(W, rec, y), expect: [[text, kind, fn(rec, W) -> [ok, detail]]] }
@@ -27,7 +27,7 @@ var SCENARIOS = window.EdenScenarios = [
     tick: function (W, r) {
       /* B2: how often a hearth is lit while the air at its door is cold, year by year */
       var T = W.S.tribe, y = Math.floor(r.ticks / 24); if (!T.skills.fire) return; r.lit = r.lit || []; r.lit[y] = r.lit[y] || [0, 0];
-      T.sites.forEach(function (h) { if (!h.members || h.kind === 'well' || W.tempAt(h.y * W.N + h.x) >= W.SPECIES.human.comfort - 3) return; r.lit[y][0]++; if (h.lit === W.S.tickNo) r.lit[y][1]++; });
+      T.sites.forEach(function (h) { if (!h.members || (W.BUILDINGS && W.BUILDINGS[h.kind] && !W.BUILDINGS[h.kind].room) || W.tempAt(h.y * W.N + h.x) >= W.SPECIES.human.comfort - 3) return; r.lit[y][0]++; if (h.lit === W.S.tickNo) r.lit[y][1]++; });
     },
     year: function (W, r, y) {
       var T = W.S.tribe; r.cold = r.cold || []; r.cold[y] = T.need.cold;

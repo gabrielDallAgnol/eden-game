@@ -612,3 +612,30 @@ Size 96, seeds 1 and 2:
 | mean |  | 16.5 | 85.6 | 141.4 | 178.5 | 51.6 | 164.4 | 0.1 | 12.7 |  | 2.6 | 4.2 | 16.3 | 5.6 | 109.1 | 1 | 1087.2 | 67.6 | 22.9 | 4 |  |  | 47.1 | 6.2 | 18.2 | 0.4 | 0 | 15062.2 |
 
 Year 100 mean 141.4 (142.8 before), year 25 16.5 (17.3), dwellings 51.6 (53.1), hunger deaths 164.4 (147.9), 1 resettle (plains 1) against 3.
+
+
+## F3: storehouse and granary
+
+Pottery and the granary are no longer global switches. `BUILDINGS` has a storehouse (needs pottery; 2 stages, 5 timber and 1 stone) and a granary (needs the granary idea; 2 stages, 6 timber and 2 stone). They go up, on common ground where the households can all reach them, only when food has actually been rotting (what was lost over about the last year, `T.rotYear`, is more than half a ration a head) and the idea is known. While one stands, the common store rots more slowly: in a storehouse every kind at 0.7 of its rate; in a granary grain at 0.35, fruit at 0.6, meat and fish at 0.7. A flood or a fire on its tile ruins it and the store rots at the full rate again. Household larders keep only what their own roof gives (a tent 1, anything better 0.75); the old global pottery and granary factors on them are gone (pots in each house come with F4's kiln).
+
+Also: the code that meant "a home" by "not a well" now asks the row whether people sleep there (`isHome`), so a store is not counted as a household's roof; the first-roof message is only for homes; no rock or bush is drawn on any building's 3x3 plot. Code-drawn sprites: a granary on posts with staddle stones and thatch, a storehouse with pots by the door.
+
+Checks. Unit: with nobody to eat from it, a store of 60 grain loses more in a step once the granary is ruined than while it stands (a direct test of "destroy the granary; spoilage rises the same year"). In 60-year runs of valley 1, lakeland 1 and plains 2 a storehouse and a granary are built in each. Tests 440 passed, 0 failed; scenarios 24 passed. Stills of valley 1 at year 60 show both.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 17 | 84 | 183 | 204 | 67 | 185 | 0 | 14 | 15/77/5 | 2.6 | 17.2 | 15 | 5.1 | 121 | 1.1 | 1653 | 112 | 45.2 | 5.8 | 0 (1) | 86/0/3/0/11 | 57 | 6.2 | 21 | 3 | 0 | 18785 |
+| valley | 2 | 8 | 6 | 26 | 26 | 5 | 6 | 1 | 8 | 28/235/6 | 2.7 | 0 | 5.2 | 2.9 | 1 | 1.3 | 39 | 28 | 11 | 2.4 |  | 63/2/2/0/34 | 11 | 3 | 8 | 0 | 0 | 6202 |
+| plains | 1 | 8 | 63 | 330 | 330 | 77 | 261 | 0 | 13 | 6/116/5 | 2.5 | 24.4 | 24.2 | 7.5 | 76 | 1 | 2788 | 66 | 35.3 | 3.9 |  | 83/0/1/0/10 | 57 | 10 | 29 | 0 | 0 | 20625 |
+| plains | 2 | 25 | 162 | 206 | 289 | 75 | 310 | 0 | 12 | 9/247/5 | 2.4 | 3.5 | 23.7 | 6.2 | 123 | 0.9 | 2753 | 47 | 25.4 | 5.4 |  | 84/1/1/0/11 | 58 | 6.2 | 29 | 0 | 0 | 20377 |
+| forest | 1 | 8 | 72 | 107 | 171 | 50 | 167 | 0 | 14 | 41/71/5 | 2.5 | 27.7 | 14.3 | 4.1 | 26 | 1 | 595 | 55 | 24.8 | 4.3 | 0 (1) | 85/0/3/0/11 | 45 | 5.6 | 17 | 0 | 0 | 15848 |
+| forest | 2 | 33 | 131 | 88 | 132 | 38 | 167 | 0 | 14 | 1/95/0 | 2.4 | 0 | 18.6 | 3.9 | 44 | 1.1 | 264 | 29 | 21.9 | 3.6 | 0 (3) | 87/0/2/0/11 | 30 | 4.7 | 13 | 0 | 0 | 13879 |
+| lakeland | 1 | 9 | 75 | 225 | 270 | 89 | 225 | 0 | 14 | 25/93/5 | 2.7 | 0 | 26.1 | 4.8 | 97 | 0.9 | 2739 | 82 | 34.2 | 6.2 |  | 82/0/2/0/15 | 62 | 4.8 | 25 | 1 | 0 | 20083 |
+| lakeland | 2 | 27 | 88 | 159 | 159 | 51 | 145 | 0 | 13 | 8/163/5 | 2.5 | 4 | 21 | 5 | 129 | 1.1 | 800 | 84 | 23.5 | 5.1 |  | 77/0/2/8/11 | 45 | 4.6 | 25 | 0 | 0 | 13866 |
+| highland | 1 | 11 | 56 | 38 | 60 | 16 | 91 | 0 | 13 | 10/59/0 | 2.8 | 0 | 12.5 | 6.5 | 35 | 1.1 | 44 | 50 | 20 | 2.4 | 0 (2) | 76/1/5/0/17 | 47 | 8.6 | 9 | 0 | 0 | 7834 |
+| highland | 2 | 13 | 33 | 101 | 101 | 26 | 100 | 0 | 13 | 12/44/5 | 3.1 | 11.2 | 7.7 | 6.7 | 45 | 1 | 255 | 58 | 21.8 | 47.6 | 0 (1) | 73/0/4/0/22 | 31 | 5.5 | 13 | 0 | 0 | 9885 |
+| mean |  | 15.9 | 77 | 146.3 | 174.2 | 49.4 | 165.7 | 0.1 | 12.8 |  | 2.6 | 8.8 | 16.8 | 5.3 | 69.7 | 1.1 | 1193 | 61.1 | 26.3 | 8.7 |  |  | 44.3 | 5.9 | 18.9 | 0.4 | 0 | 14738.4 |
+
+Year 100 mean 146.3 (141.4 before), year 25 15.9 (16.5), dwellings 49.4 (51.6), hunger deaths 165.7 (164.4), 1 resettle (valley 2).

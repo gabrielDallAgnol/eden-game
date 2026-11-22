@@ -11,7 +11,7 @@ var COLS = [
   ['land', function (W, r) { return r.land; }], ['seed', function (W, r) { return r.seed; }],
   ['y25', function (W, r) { return r.at[25]; }], ['y50', function (W, r) { return r.at[50]; }], ['y100', function (W, r) { return r.at[100]; }],
   ['peak', function (W, r) { return r.peak; }],
-  ['dwellings', function (W) { return W.S.tribe.sites.filter(function (s) { return s.kind !== 'well' && (s.was || s.stage >= W.DWELL[s.kind].stages); }).length; }],
+  ['dwellings', function (W) { return W.S.tribe.sites.filter(function (s) { return !(W.BUILDINGS && W.BUILDINGS[s.kind] && !W.BUILDINGS[s.kind].room) && (s.was || s.stage >= W.DWELL[s.kind].stages); }).length; }],
   ['hunger deaths', function (W) { return hungerDeaths(W.S); }],
   ['resettled', function (W, r) { return r.resettled; }],
   ['ideas', function (W) { return W.ideas().filter(function (i) { return i.known; }).length; }],
@@ -43,13 +43,13 @@ var COLS = [
   ['reach', function (W) { var g = W.S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 13; }); return g.length ? g.reduce(function (p, a) { return p + (a.reach || 0); }, 0) / g.length : ''; }],
   ['lot reach', function (W) { return W.S.tribe.lotReach; }],
   ['bridges', function (W) { return Object.keys(W.S.tribe.bridged || {}).length; }],
-  ['homes across water', function (W) { if (!W.mass) return ''; var T = W.S.tribe, m = W.mass[T.y * W.N + T.x]; return T.sites.filter(function (q) { return q.kind !== 'well' && W.mass[q.y * W.N + q.x] !== m; }).length; }]
+  ['homes across water', function (W) { if (!W.mass) return ''; var T = W.S.tribe, m = W.mass[T.y * W.N + T.x]; return T.sites.filter(function (q) { return !(W.BUILDINGS && W.BUILDINGS[q.kind] && !W.BUILDINGS[q.kind].room) && W.mass[q.y * W.N + q.x] !== m; }).length; }]
 ];
 if (window.EdenTableExtra) COLS = COLS.concat(window.EdenTableExtra);
 // optional per-step columns that need data gathered during the run: name -> { year(W, r), col: [heading, fn] }
 var EXTRA = window.EdenTableTrack || [];
 EXTRA.push({ year: function (W, r) {
-  var homes = W.S.tribe.sites.filter(function (q) { return q.kind !== 'well' && q.members > 0; });
+  var homes = W.S.tribe.sites.filter(function (q) { return !(W.BUILDINGS && W.BUILDINGS[q.kind] && !W.BUILDINGS[q.kind].room) && q.members > 0; });
   homes.forEach(function (h) { if ((h.larder || 0) >= h.members * 0.25) return;
     if (homes.some(function (k) { return k !== h && Math.max(Math.abs(k.x - h.x), Math.abs(k.y - h.y)) <= W.PITCH && (k.larder || 0) > k.members * 1.5; })) r.contrast = (r.contrast || 0) + 1; });
 } });

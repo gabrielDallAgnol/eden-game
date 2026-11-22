@@ -381,7 +381,7 @@ function create(seed, opt) {
   function newSettlement(x, y) {
     const T = { x, y, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
       need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0, cross: 0 },
-      fordUse: {}, bridged: {}, bridge: null,
+      fordUse: {}, bridged: {}, bridge: null, rotYear: 0,
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
@@ -733,7 +733,7 @@ function create(seed, opt) {
   // how many roofs are wanted: one for every roof lived in, and one for every couple or grown person who has none
   const households = () => {
     const T = S.tribe;
-    let n = T.sites.filter(q => q.kind !== 'well' && q.members > 0).length;
+    let n = T.sites.filter(q => isHome(q) && q.members > 0).length;
     for (const a of folk()) if (a.age >= WED && !a.house && (!a.partner || a.fem)) n++;
     return Math.max(1, n);
   };
@@ -1378,7 +1378,10 @@ function create(seed, opt) {
     hut:   { lots: 1, stages: [{ wood: 2, stone: 0 }, { wood: 2, stone: 0 }], roof: 0.4, room: true, needsIdea: 'hut', next: 'house' },
     house: { lots: 1, stages: [{ wood: 2, stone: 1 }, { wood: 2, stone: 1 }, { wood: 2, stone: 1 }], roof: 0.3, room: true, needsIdea: 'house', next: null },
     well:  { lots: 1, stages: [{ wood: 1, stone: 2 }, { wood: 1, stone: 2 }], roof: 0.7, room: false, needsIdea: 'well', next: null, work: 'water' },
-    fence: { lots: 0, stages: [{ wood: 1, stone: 0 }], roof: 0.7, room: false, needsIdea: 'palisade', next: null }   /* per stake, driven where the lattice's edge runs */
+    fence: { lots: 0, stages: [{ wood: 1, stone: 0 }], roof: 0.7, room: false, needsIdea: 'palisade', next: null },   /* per stake, driven where the lattice's edge runs */
+    /* F3: the common store is kept in the best of these that stands; keeps is the share of each kind's rotting that still happens there */
+    storehouse: { lots: 1, stages: [{ wood: 3, stone: 0 }, { wood: 2, stone: 1 }], roof: 0.7, room: false, needsIdea: 'pottery', next: null, keeps: { grain: 0.7, meat: 0.7, fish: 0.7, fruit: 0.7 } },
+    granary:    { lots: 1, stages: [{ wood: 3, stone: 1 }, { wood: 3, stone: 1 }], roof: 0.7, room: false, needsIdea: 'granary', next: null, keeps: { grain: 0.35, meat: 0.7, fish: 0.7, fruit: 0.6 } }
   };
   /* what must lie on the plot before stage n (counted from 0) can be finished: everything up to and including it */
   const stageNeed = (K, n, m) => { let t = 0; for (let k = 0; k <= Math.min(n, K.stages.length - 1); k++) t += K.stages[k][m] || 0; return t; };
@@ -1394,6 +1397,8 @@ function create(seed, opt) {
     return false;
   };
   const live = q => { const K = BUILDINGS[q.kind]; if (!K) return raised(q); return !!K.room && (!!q.was || raised(q)); };     // someone can sleep in it (an unknown kind is reported by raised())
+  /* a home is anything people sleep under; a well or a store is common ground and work, not a roof (an unknown kind counts as a home) */
+  const isHome = q => { const K = BUILDINGS[q.kind]; return !K || !!K.room; };
   const best = () => ROOMS.find(k => !BUILDINGS[k].needsIdea || S.tribe.skills[BUILDINGS[k].needsIdea]);
   const NEXT = {}; for (const k in BUILDINGS) if (BUILDINGS[k].next) NEXT[k] = BUILDINGS[k].next;
   // The plot. Close to the middle of the camp but not in it (the fire and the stores keep that), with room between it and the
@@ -1405,12 +1410,12 @@ function create(seed, opt) {
   // dry, open and not somebody's crop, with a little elbow room. Low wet ground by the water is only feared once a flood
   // has been seen to take a roof; and only then does anyone think of raising a house on posts.
   function choosePlot(kind, who) {
-    const T = S.tribe, well = kind === 'well', P = folk(), craft = who ? (who.job || craftOf(who)) : '';
+    const T = S.tribe, well = !!(BUILDINGS[kind] && !BUILDINGS[kind].room), P = folk(), craft = who ? (who.job || craftOf(who)) : '';
     const kinHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && kin(b, who))) : [];
     /* ground a household may take: common ground, or what is already its own or its kin's */
     const mayUse = new Set(kinHomes.map(q => q.id)); if (who && who.house) mayUse.add(who.house); { const pt = who && S.byId.get(who.partner); if (pt && pt.house) mayUse.add(pt.house); }
     /* how far out a lot is looked for: as far as the place has had to look before (it grows when no lot was found) */
-    const homes = T.sites.filter(q => q.kind !== 'well'), r = Math.min(Math.ceil(N / PITCH), Math.ceil(T.lotReach / PITCH));
+    const homes = T.sites.filter(isHome), r = Math.min(Math.ceil(N / PITCH), Math.ceil(T.lotReach / PITCH));
     let bestI = -1, bs = -1e9, across = null;
     for (let m = -r; m < r; m++) for (let k = -r; k < r; k++) {
       const x = T.x + k * PITCH + 2, y = T.y + m * PITCH + 2; if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) continue;   // the middle of each lot
@@ -1465,7 +1470,7 @@ function create(seed, opt) {
   }
   function plotFor() {
     const T = S.tribe; let s = T.sites.find(q => BUILDINGS[q.kind] && !raised(q)); if (s) return s;          // finish what is begun
-    const homes = T.sites.filter(q => q.kind !== 'well');
+    const homes = T.sites.filter(isHome);
     if (homes.length < households()) {                                                  // a household without a roof
       const who = folk().find(a => a.age >= WED && !a.house && (!a.partner || a.fem));
       const lot = choosePlot(best(), who); if (lot) return lot;
@@ -1477,6 +1482,9 @@ function create(seed, opt) {
     if (allFood() < S.popPeople * 1.0) return null;                                     // the rest is for when there is food enough to spare the hands
     if (T.bridge && !T.bridge.done) return T.bridge;
     if (T.skills.well && !T.sites.some(q => q.kind === 'well')) return choosePlot('well', null);
+    /* food going bad that everyone has seen rot, and the know-how to keep it: a granary if they know one, else a storehouse of pots */
+    { const want = T.skills.granary ? 'granary' : T.skills.pottery ? 'storehouse' : null;
+      if (want && !T.sites.some(q => q.kind === want) && (T.rotYear || 0) > S.popPeople * 0.5) return choosePlot(want, null); }
     s = homes.filter(q => NEXT[q.kind] && T.skills[NEXT[q.kind]] && raised(q) && q.cold > 0.12 && (q.larder
         || 0) >= q.members * 0.6).sort((p, q) => q.cold - p.cold)[0];   // something better is known: the household that has felt the cold most, and can feed itself meanwhile, rebuilds first
     if (s) { s.was = s.kind; s.kind = NEXT[s.kind]; s.stage = 0; s.wood *= RUBBLE_WOOD; s.stone *= RUBBLE_STONE; s.qtrips = 0; s.lake = T.floodSeen && bank[I(s.x, s.y)] > 0.5; return s; }
@@ -1549,7 +1557,7 @@ function create(seed, opt) {
       /* the quarry: of all the stone showing on common ground, the one that gives most for a day's walk; a deep pit is harder
          to work (deeper and farther both make stone dearer) */
       let bq = -1, vq = 0;
-      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || Math.hypot(j % N - s.x, ((j / N) | 0) - s.y) > reachOf(a) * 2 || field[j] || (owner[j] && T.sites.some(q => q.id === owner[j] && q.kind !== 'well'))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
+      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || Math.hypot(j % N - s.x, ((j / N) | 0) - s.y) > reachOf(a) * 2 || field[j] || (owner[j] && T.sites.some(q => q.id === owner[j] && isHome(q)))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
       const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0, reachOf(a) * 2), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
       if (bq < 0 && bc < 0) { stretch(a); return false; }
       const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
@@ -1562,8 +1570,9 @@ function create(seed, opt) {
       /* quarry trips per stone dwelling: first raisings against raisings again after a flood */
       if (stageNeed(BUILDINGS[s.kind], 0, 'stone')) { if (s.flooded) { S.stat.reTrips += s.qtrips || 0; S.stat.reN++; } else if (!rebuilt) { S.stat.newTrips += s.qtrips || 0; S.stat.newN++; } }
       s.flooded = false; s.qtrips = 0;
+      if (s.kind === 'granary') tell('The granary stands on its posts. Grain put up there will keep through the winter.'); else if (s.kind === 'storehouse') tell('A storehouse, its pots sealed with clay. What is put by in common keeps longer now.');
       if (s.kind === 'well') { T.well = true; tell('The people have dug a well. The fields need not wait for rain.'); }
-      else if (first) tell({ tent: 'A tent of hides is up: the first roof in the valley.',
+      else if (first && isHome(s)) tell({ tent: 'A tent of hides is up: the first roof in the valley.',
         hut: 'The first hut stands, timber and thatch.',
         house: 'The first true house stands, timber on a footing of stone.' }[s.kind] + (s.lake ? ' It stands on posts at the water\'s edge.' : ''));
       S.fx.push({ kind: 'hut', by: a.id, n: T.huts + (rebuilt ? 0 : 1) });
@@ -1601,7 +1610,7 @@ function create(seed, opt) {
     const able = P.filter(a => a.age >= GROWN && a.age <= 46), n = able.length; for (const a of P) if (a.age > 46 || a.age < GROWN) a.job = '';
     const spare = Math.floor(n * clamp((T.plenty - 0.7) / 4, 0, 0.45));           // hands the food supply can free from getting food
     if (n < 3 || (spare < 1 && !able.some(a => a.job))) { for (const a of able) a.job = ''; return; }
-    const N_ = T.need, unroofed = Math.max(0, households() - T.sites.filter(q => q.kind !== 'well').length), work = T.sites.some(q => !raised(q)) || (T.wall && !T.wall.done) || unroofed > 0;
+    const N_ = T.need, unroofed = Math.max(0, households() - T.sites.filter(isHome).length), work = T.sites.some(q => !raised(q)) || (T.wall && !T.wall.done) || unroofed > 0;
     // wants, strongest first, each asking for hands
     const asks = [['guard', T.threat >= 1.5 ? Math.max(1, Math.round(T.threat / 4)) : 0, T.threat], ['builder', work ? 1 + Math.round(unroofed / 2) : 0, 1 + N_.crowd + N_.cold],
       ['woodcutter', work && n >= 5 ? 1 : 0, N_.toil], ['mason', work && T.skills.house ? 1 : 0, N_.toil * 0.8], ['herder', S.agents.some(b => b.alive
@@ -1690,7 +1699,7 @@ function create(seed, opt) {
   function reckonYear() {
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
     // wants that are only seen over a year
-    N_.crowd += Math.max(0, households() - T.sites.filter(q => q.kind !== 'well').length);
+    N_.crowd += Math.max(0, households() - T.sites.filter(isHome).length);
     if (T.waterDist == null) {
       let bd = 99;
       for (let i = 0; i < N * N; i++) if (water[i]) {
@@ -1825,14 +1834,19 @@ function create(seed, opt) {
     for (const q of S.homes.values()) { if (q.n) q.emptyT = 0; else if ((q.emptyT += dt) > 2 || flood[I(q.x, q.y)]) S.homes.delete(q.id); }
     const T = S.tribe, born = [], campI = I(T.x, T.y), lengthening = daysLengthen(), sunH = sunHeight();
     {
-      const keep = (T.skills.pottery ? 0.7 : 1) * (T.skills.granary ? 0.55 : 1);
-      /* what rots is seen rotting, in every larder: each kind of food at its own pace (F2) */
-      const rot = (o, f, k) => { if (!(o[f] > 0)) return 0; const m = mixOf(o, f); let l = 0; for (const g of FOODS) { const x = m[g] * GOODS[g].spoil * k * dt; m[g] -= x; l += x; } o[f] = Math.max(0, o[f] - l); return l; };
-      let lost = rot(T, 'store', keep);
-      for (const q of T.sites) lost += rot(q, 'larder', ((q.was || q.kind) === 'tent' ? 1 : 0.75) * keep);
+      /* what rots is seen rotting, in every larder: each kind of food at its own pace (F2). The common store keeps as well as
+         the best storehouse or granary standing lets it (F3); no pot or granary helps from a distance */
+      const keeps = { grain: 1, meat: 1, fish: 1, fruit: 1 };
+      for (const q of T.sites) { const K = BUILDINGS[q.kind]; if (K && K.keeps && raised(q)) for (const g of FOODS) keeps[g] = Math.min(keeps[g], K.keeps[g]); }
+      const rot = (o, f, k, by) => { if (!(o[f] > 0)) return 0; const m = mixOf(o, f); let l = 0; for (const g of FOODS) { const x = m[g] * GOODS[g].spoil * k * (by ? by[g] : 1) * dt; m[g] -= x; l += x; } o[f] = Math.max(0, o[f] - l); return l; };
+      let lost = rot(T, 'store', 1, keeps);
+      for (const q of T.sites) lost += rot(q, 'larder', (q.was || q.kind) === 'tent' ? 1 : 0.75);
+      T.rotYear = (T.rotYear || 0) * (1 - dt) + lost;   /* what has rotted over about the last year, seen by everyone */
       if (S.popPeople) T.need.spoil += lost / S.popPeople;
     }
     if (flood[campI]) { T.store *= 1 - Math.min(1, 2.5 * dt); T.need.flood += dt * 2; }
+    /* a store under the flood or the fire is lost, and the food kept there rots as it did before (F3) */
+    for (const w of T.sites) { const K = BUILDINGS[w.kind]; if (K && K.keeps && w.stage > 0 && (flood[I(w.x, w.y)] || burn[I(w.x, w.y)] > 0.5)) { w.stage = 0; w.wood = 0; w.stone = 0; tell('The ' + w.kind + ' is lost to the ' + (flood[I(w.x, w.y)] ? 'flood' : 'fire') + '. What it kept will rot again.'); } }
     for (const w of T.sites) if (live(w) && flood[I(w.x, w.y)] && !w.lake && !(T.skills.concrete && w.kind === 'house' && !w.was) && rnd() < 3 * dt) {
       T.need.flood += 3;
       tell('The flood has taken a ' + (w.was || w.kind) + '.' + (T.floodSeen ? '' : ' Nobody will build so low again without thinking.'));
@@ -2058,6 +2072,7 @@ function create(seed, opt) {
       const f = free(tx, ty); dropPile(f[0], f[1], kind, p.amt); return 'ground';
     },
     // test levers
+    ruin(kind) { for (const q of S.tribe.sites) if (q.kind === kind) { q.stage = 0; q.wood = 0; q.stone = 0; } },   /* scenario lever: the store burns down */
     cull(sp, frac) { for (const a of S.agents) if (a.alive && a.sp === sp && rnd() < frac) die(a, 'struck'); },
     feed(sp, amt) { for (const a of S.agents) if (a.alive && a.sp === sp) a.e = Math.min(1.2, a.e + amt); },
     give(amt) { addFood(S.tribe, 'store', 'grain', amt); },

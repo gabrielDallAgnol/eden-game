@@ -272,7 +272,7 @@ WorldRun.prototype.yearly = function () {
     if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else c.ok();
   });
   if (sites && this.firstDwellingYear < 0) {
-    try { for (var i = 0; i < sites.length; i++) { var s = sites[i]; if (s.kind !== 'well' && (s.stage >= 1 || s.was)) { this.firstDwellingYear = y; break; } } } catch (e) { /* soft */ }
+    try { for (var i = 0; i < sites.length; i++) { var s = sites[i]; if (!(W.BUILDINGS && W.BUILDINGS[s.kind] && !W.BUILDINGS[s.kind].room) && (s.stage >= 1 || s.was)) { this.firstDwellingYear = y; break; } } } catch (e) { /* soft */ }
   }
 
   this.guard('bank', function (c) {
@@ -318,7 +318,7 @@ WorldRun.prototype.yearly = function () {
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');
     var bad = 0, ex = '';
-    sites.forEach(function (q) { if (q.kind === 'well') return; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var j = (q.y + dy) * N + q.x + dx; if (W.water[j]) continue; if (W.owner[j] !== q.id || W.field[j]) { bad++; if (!ex) ex = 'tile ' + (q.x + dx) + ',' + (q.y + dy) + ' of the ' + q.kind + ' at ' + q.x + ',' + q.y + ' is owned by ' + W.owner[j] + (W.field[j] ? ' and sown' : ''); } } });
+    sites.forEach(function (q) { if (W.BUILDINGS && W.BUILDINGS[q.kind] && !W.BUILDINGS[q.kind].room) return; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var j = (q.y + dy) * N + q.x + dx; if (W.water[j]) continue; if (W.owner[j] !== q.id || W.field[j]) { bad++; if (!ex) ex = 'tile ' + (q.x + dx) + ',' + (q.y + dy) + ' of the ' + q.kind + ' at ' + q.x + ',' + q.y + ' is owned by ' + W.owner[j] + (W.field[j] ? ' and sown' : ''); } } });
     if (bad) c.fail(at + bad + ' lot tiles not the household\'s own, e.g. ' + ex); else c.ok();
   });
   this.guard('problems', function (c) {
@@ -499,6 +499,15 @@ UNITS.push(['meat and fish spoil faster than grain; households eat differently (
   if (shares.length < 2) return 'fewer than two households with food at year 30';
   var lo = Math.min.apply(null, shares), hi = Math.max.apply(null, shares);
   return hi - lo > 0.1 ? '' : 'every household eats much the same: grain share ' + lo.toFixed(2) + ' to ' + hi.toFixed(2);
+}]);
+UNITS.push(['food in common keeps only while a store stands: burn the granary and the store rots faster that same year (F3)', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), T = W.S.tribe;
+  T.skills.pottery = T.skills.farm = T.skills.granary = true; W.G.cull('human', 1);   /* nobody to eat from the store: what goes is what rots */
+  T.sites.push({ id: 888888, x: T.x + 3, y: T.y + 3, kind: 'granary', stage: 2, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, fuel: 0, lit: -1, was: '', lake: false });
+  var lose = function () { T.mix = { grain: 60, meat: 0, fish: 0, fruit: 0 }; T.store = 60; W.tick(); var m = W.mixOf(T, 'store'); return 60 - m.grain; };
+  var kept = lose(); W.G.ruin('granary'); var open = lose();
+  if (!(open > kept * 1.5)) return 'grain lost in a step: ' + kept.toFixed(3) + ' with the granary standing, ' + open.toFixed(3) + ' once it is gone';
+  return '';
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });

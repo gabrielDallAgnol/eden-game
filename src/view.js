@@ -355,6 +355,7 @@ function leafState(i, T, falling) {
 }
 const props = new Map();
 function wantProps() {
+  const built = new Set(); for (const q of T0.sites) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) built.add((q.y + dy) * N + q.x + dx);   /* the ground a building stands on */
   const want = new Map(), falling = !W.daysLengthen(), cR = campR(), ripe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const i = y * N + x; if (W.water[i]) continue;
@@ -370,7 +371,7 @@ function wantProps() {
       const r = clamp(ripe + (hash(i, 11) - 0.5) * 0.12, 0, 1), k = r < 0.2 ? 0 : r < 0.45 ? 1 : r < 0.8 ? 2 : 3, img = k === 2 && W.soil[i] < 0.26 && A.cropDry ? A.cropDry : A.crop[k];
       want.set('c' + i, { kind: 'crop', i, x: x + 0.5 + jx * 0.3, y: y + 0.5 + jy * 0.3, base: 'c' + k + (img === A.cropDry), img, dy: 3 });
     }
-    if (inCamp || W.field[i] || T0.road[i]) continue;   /* no bush or rock drawn on a field or a made road */
+    if (inCamp || W.field[i] || T0.road[i] || built.has(i)) continue;   /* no bush or rock drawn on a field, a made road or under a building */
     if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) {
       const B = A.bush[(hash(i, 4) * A.bush.length) | 0], ls = snowy ? 'snow' : leafState(i, T, falling), berry = !snowy && ls !== 'frost' && (W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4));
       /* berries sit on whatever colour the leaves have turned */
@@ -411,7 +412,7 @@ function wantProps() {
   }
   /* what households make of their own place: a garden as tended as it is, a carved bench, the firewood they have put by */
   if (campOn) for (const q of T0.sites) {
-    if (q.kind === 'well' || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
+    if (!(W.BUILDINGS[q.kind] || {}).room || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
     if ((q.garden || 0) > 0.15) want.set('gd' + q.id, { kind: 'garden', x: q.x + 1.45, y: q.y + 0.55, base: 'gd' + q.id, img: A.garden[Math.min(2, Math.floor(q.garden * 3))], dy: 6 });
     if ((q.carved || 0) > 0.2) want.set('bn' + q.id, { kind: 'bench', x: q.x + 0.4, y: q.y + 1.45, base: 'bn' + q.id, img: q.carved > 0.6 ? A.benchCarved : A.bench, dy: 4 });
     if ((q.fuel || 0) > 0.2) want.set('wp' + q.id, { kind: 'woodpile', x: q.x + 1.4, y: q.y - 0.2, base: 'wp', img: A.woodpile[Math.min(2, Math.floor(q.fuel))], dy: 3 });
@@ -422,7 +423,7 @@ function wantProps() {
     for (const b of S.agents) if (b.alive && b.d.people && b.house) { let f = folkBy.get(b.house); if (!f) folkBy.set(b.house, f = { n: 0, small: 0, baby: 0, elder: 0, jobs: new Set(), likes: new Set(), herbs: 0 }); f.n++; if (b.age < 2) f.baby++; else if (b.age < b.d.mature) f.small++; if (b.age > 46) f.elder++; if (b.job) f.jobs.add(b.job); for (const k of b.likes || []) f.likes.add(k); if (b.skill && b.skill.gather > 1.3) f.herbs++; }
     const SLOTS = [[-0.55, 0.5], [0.5, -0.55], [-0.5, -0.5], [-0.5, 1.5], [1.5, 1.5]];
     for (const q of T0.sites) {
-      if (q.kind === 'well' || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
+      if (!(W.BUILDINGS[q.kind] || {}).room || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
       const f = folkBy.get(q.id); if (!f) continue; const L = q.larder || 0, n = Math.max(1, f.n), want2 = [];
       /* furniture is made, not found: nothing is kept round a tent but a fire's wood; joinery (table, crates, coop, racks) wants a timber roof to keep it under,
          and what is cut true or turned (barrels, a rocking chair, a loom, a workbench, hives, a barrow) wants the tools to cut it */
@@ -510,7 +511,7 @@ function syncHuts() {
       h.p = Math.min(h.p, tp);
       if (h.kind !== st.kind) h.p = 0.05;
     }   // washed out, or being rebuilt as something better
-    h.kind = st.kind; h.was = st.was; h.lake = st.lake; h.target = tp; h.live = st.kind !== 'well' && (!!st.was || st.stage >= n);
+    h.kind = st.kind; h.was = st.was; h.lake = st.lake; h.target = tp; h.live = !!(W.BUILDINGS[st.kind] || { room: 1 }).room && (!!st.was || st.stage >= n);
     const K = W.DWELL[st.kind]; h.wood = st.wood - st.stage * K.wood; h.stone = st.stone - st.stage * K.stone;   // lying on the plot, not yet built in
   }
   for (let k = sites.length; k < huts.length; k++) if (huts[k] && !huts[k].die) { huts[k].die = now; burst(huts[k].x, huts[k].y, 'debris', 16); }
