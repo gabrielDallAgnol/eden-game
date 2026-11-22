@@ -39,8 +39,28 @@ const seat = k => { const a = k * 2.1 + 0.4, r = 0.62 + (k % 3) * 0.16; return {
 const campR = () => T0.sites.length > 6 ? 4.6 : 3.3;
 
 // ================================================================== ground: painted from the engine's fields, crossfaded, touched up locally while a power is held
-const gcv = [mkC(WW, WH), mkC(WW, WH)], gctx = gcv.map(c => c.getContext('2d')); let gFront = 0, gFade = null;
-const img = gctx[0].createImageData(WW, WH), px32 = new Uint32Array(img.data.buffer);
+// The ground lives in chunks of CT x CT tiles, one canvas each, so the map can be large. Every screen pixel belongs to
+// exactly one tile and so to exactly one chunk; a chunk's canvas holds only its own pixels (the rest transparent), and the
+// chunks are laid side by side with no seam. A chunk is repainted into one shared scratch image and crossfades from a copy
+// of its old picture taken into a small pool of canvases.
+const CT = 16, NC = Math.ceil(N / CT), CMX = 48, CW = CT * TW + 2 * CMX, CHT = CT * TH + CLIFF + 34;
+const chunks = [];
+for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
+  const ox = Math.floor(isoX(i * CT, (j + 1) * CT)) - CMX, oy = Math.floor(isoY(i * CT, j * CT)) - 2;
+  chunks.push({ i, j, ox, oy, cv: null, ctx: null, stale: true, fade: null, painted: false });
+}
+const scratch = document.createElement('canvas').getContext('2d').createImageData(CW, CHT), px32 = new Uint32Array(scratch.data.buffer);
+const fadePool = [];
+const chunkOfPixel = (pxx, py) => {
+  const v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
+  if (fx < 0 || fy < 0) return -1;
+  const tx = Math.min(N - 1, fx | 0), ty = Math.min(N - 1, fy | 0); return (ty >> 4) * NC + (tx >> 4);
+};
+/* paint a rectangle (chunk-local pixels) of one chunk into the scratch image; pixels of other chunks stay transparent */
+function paintChunkRect(ch, x0, y0, x1, y1) {
+  const k = ch.j * NC + ch.i;
+  for (let y = y0; y < y1; y++) { const py = ch.oy + y; for (let x = x0; x < x1; x++) { const pxx = ch.ox + x; px32[y * CW + x] = pxx >= 0 && py >= 0 && pxx < WW && py < WH && chunkOfPixel(pxx, py) === k ? colorAt(pxx, py) : 0; } }
+}
 const noise = new Uint8Array(WW * WH), noise2 = new Uint8Array(WW * WH);
 { let s = seed * 9301 + 7; const r = () => { s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff; return s >>> 8 & 255; }; for (let i = 0; i < WW * WH; i++) { noise[i] = r(); noise2[i] = r(); } }
 const rgb = h => { const n = parseInt(h.slice(1), 16); return 0xff000000 | ((n & 255) << 16) | (n & 0xff00) | (n >> 16); };
@@ -169,6 +189,7 @@ function colorAt(pxx, py) {
 let paint = null, groundWanted = true;
 let waterSeen = 0;
 function startPaint() {
+  for (const ch of chunks) ch.stale = true;
   /* a pit that filled into a pond changes the water itself */
   if ((S.stat && S.stat.ponds || 0) !== waterSeen) { waterSeen = S.stat.ponds; for (let i = 0; i < N * N; i++) waterF[i] = W.water[i]; blur(waterF, bWt); }
   for (let i = 0; i < N * N; i++) roadF[i] = T0.road[i];
@@ -182,14 +203,32 @@ function startPaint() {
   blur(scar, bSc);
   for (let i = 0; i < N * N; i++) cellT[i] = W.tempAt(i);
   groundState();
-  paint = { row: 0 };
+  paint = { ch: null, row: 0 };
   groundWanted = false;
 }
-function paintSome(rows) {
-  const end = Math.min(WH, paint.row + rows);
-  for (let py = paint.row; py < end; py++) for (let pxx = 0; pxx < WW; pxx++) px32[py * WW + pxx] = colorAt(pxx, py);
-  paint.row = end;
-  if (end >= WH) { const back = 1 - gFront; gctx[back].putImageData(img, 0, 0); gFade = { t: now, from: gFront, to: back }; paint = null; }
+const chunkVisible = ch => { const z = cam.z, vw = cv.width / z, vh = cv.height / z; return ch.ox < cam.x + vw && ch.ox + CW > cam.x && ch.oy < cam.y + vh && ch.oy + CHT > cam.y; };
+/* paint some rows of the next stale chunk, those in view first; a finished chunk crossfades from its old picture */
+function paintSome(rows, all) {
+  while (rows > 0 && paint) {
+    if (!paint.ch) { paint.ch = chunks.find(c => c.stale && chunkVisible(c)) || (all ? chunks.find(c => c.stale) : null); paint.row = 0; if (!paint.ch) { if (!chunks.some(c => c.stale)) paint = null; return; } }
+    const ch = paint.ch, end = Math.min(CHT, paint.row + rows);
+    paintChunkRect(ch, 0, paint.row, CW, end); rows -= end - paint.row; paint.row = end;
+    if (end >= CHT) {
+      if (!ch.cv) { ch.cv = mkC(CW, CHT); ch.ctx = ch.cv.getContext('2d'); }
+      if (ch.painted && !all) { const from = fadePool.pop() || (chunks.filter(c => c.fade).length < 4 ? mkC(CW, CHT) : null); if (from) { const fc = from.getContext('2d'); fc.clearRect(0, 0, CW, CHT); fc.drawImage(ch.cv, 0, 0); if (ch.fade) fadePool.push(ch.fade.from); ch.fade = { t: now, from }; } }
+      ch.ctx.putImageData(scratch, 0, 0); ch.painted = true; ch.stale = false; paint.ch = null;
+    }
+  }
+}
+function drawGround(cx) {
+  for (const ch of chunks) {
+    if (!ch.cv || !chunkVisible(ch)) continue;
+    if (ch.fade) {
+      const k = clamp((now - ch.fade.t) / 2600, 0, 1);
+      cx.drawImage(ch.fade.from, ch.ox, ch.oy); cx.globalAlpha = ease(k); cx.drawImage(ch.cv, ch.ox, ch.oy); cx.globalAlpha = 1;
+      if (k >= 1) { fadePool.push(ch.fade.from); ch.fade = null; }
+    } else cx.drawImage(ch.cv, ch.ox, ch.oy);
+  }
 }
 // touch up only the ground a power is working on, right away
 function repaintCells(x0, y0, x1, y1) {
@@ -202,8 +241,14 @@ function repaintCells(x0, y0, x1, y1) {
     pxb = clamp(Math.ceil(isoX(x1 + 1, y0)), 0, WW - 1),
     pya = clamp(Math.floor(isoY(x0, y0)), 0, WH - 1),
     pyb = clamp(Math.ceil(isoY(x1 + 1, y1 + 1)), 0, WH - 1);
-  for (let py = pya; py <= pyb; py++) for (let pxx = pxa; pxx <= pxb; pxx++) px32[py * WW + pxx] = colorAt(pxx, py);
-  for (const k of [0, 1]) if (k === gFront || gFade) gctx[k].putImageData(img, 0, 0, pxa, pya, pxb - pxa + 1, pyb - pya + 1);
+  for (const ch of chunks) {
+    if (!ch.cv) continue;
+    const x0c = Math.max(0, pxa - ch.ox), y0c = Math.max(0, pya - ch.oy), x1c = Math.min(CW, pxb + 1 - ch.ox), y1c = Math.min(CHT, pyb + 1 - ch.oy);
+    if (x1c <= x0c || y1c <= y0c) continue;
+    paintChunkRect(ch, x0c, y0c, x1c, y1c);
+    ch.ctx.putImageData(scratch, 0, 0, x0c, y0c, x1c - x0c, y1c - y0c);
+    if (ch.fade) ch.fade.from.getContext('2d').putImageData(scratch, 0, 0, x0c, y0c, x1c - x0c, y1c - y0c);
+  }
 }
 
 // ================================================================== things standing on the ground: they grow, fade and crossfade
@@ -982,18 +1027,7 @@ function frame(t) {
   const sky = cx.createLinearGradient(0, 0, 0, cv.height); sky.addColorStop(0, '#31504f'); sky.addColorStop(1, '#1d3136'); cx.fillStyle = sky; cx.fillRect(0, 0, cv.width, cv.height);
   cx.imageSmoothingEnabled = false; cx.setTransform(z, 0, 0, z, -Math.round(cam.x * z), -Math.round(cam.y * z));
   // ground, crossfading into its newest picture
-  if (gFade) {
-    const k = clamp((now - gFade.t) / 2600, 0, 1);
-    cx.drawImage(gcv[gFade.from], 0, 0);
-    cx.globalAlpha = ease(k);
-    cx.drawImage(gcv[gFade.to], 0, 0);
-    cx.globalAlpha = 1;
-    if (k >= 1) {
-      gFront = gFade.to;
-      gFade = null;
-    }
-  }
-  else cx.drawImage(gcv[gFront], 0, 0);
+  drawGround(cx);
   const vw = cv.width / z, vh = cv.height / z, vx0 = cam.x - 80, vx1 = cam.x + vw + 80, vy0 = cam.y - 20, vy1 = cam.y + vh + 150;
   const vis = (wx, wy) => wx > vx0 && wx < vx1 && wy > vy0 && wy < vy1;
   // cloud shadows drifting over the land
@@ -1600,7 +1634,7 @@ addEventListener('resize', resize); resize();
 cam.z = clamp(dpr * 1.1, minZ(), maxZ()); { const wx = isoX(camp.x, camp.y), wy = isoY(camp.x, camp.y); cam.x = wx - cv.width / cam.z / 2; cam.y = wy - 30 - cv.height / cam.z / 2; clampCam(); }
 for (const a of S.agents) if (a.alive) { const e = endOf(a); newRec(a, e.x, e.y); }
 huts.length = 0; onTick();
-syncCrossings(); startPaint(); paintSome(WH); gFront = gFade ? gFade.to : gFront; gFade = null; for (const p of props.values()) p.born = -1e9;
+syncCrossings(); startPaint(); paintSome(1e9, true); for (const p of props.values()) p.born = -1e9;
 window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => {
     tool = t;
   }, start: () => {
@@ -1612,6 +1646,8 @@ window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => {
     return tickFrac;
   }, set tickFrac(v) {
     tickFrac = v;
-  }, parts, flies, scar, bSc, colorAt, repaintCells };
+  }, parts, flies, scar, bSc, colorAt, repaintCells, chunks,
+  /* the ground as the chunks hold it, laid into one world-sized picture, and how many pixels differ from colorAt (a test) */
+  groundCheck() { const c = mkC(WW, WH), x = c.getContext('2d'); for (const ch of chunks) if (ch.cv) x.drawImage(ch.cv, ch.ox, ch.oy); const d = new Uint32Array(x.getImageData(0, 0, WW, WH).data.buffer); let bad = 0, ex = ''; for (let py = 0; py < WH; py += 3) for (let pxx = 0; pxx < WW; pxx += 3) { const want = colorAt(pxx, py) >>> 0, got = d[py * WW + pxx] >>> 0; if (want !== got && !(want === 0 && (got >>> 24) === 0)) { bad++; if (!ex) ex = pxx + ',' + py + ' want ' + want.toString(16) + ' got ' + got.toString(16); } } return { bad, ex }; } };
 requestAnimationFrame(t => { now = t; frame(t); });
 })();

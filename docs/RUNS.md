@@ -275,3 +275,7 @@ Year 100 mean 56.4 (B6 56.3). A pit whose stone is worked out (rock below 0.15) 
 | mean |  | 10.4 | 35 | 56.4 | 66.3 | 13.6 | 46 | 0.3 | 13.6 |  | 6.1 | 6.7 | 7.1 | 19.5 | 24.2 | 0.9 | 16190.9 | 28.7 | 14 | 2.3 |  |  | 4.1 | 1.4 | 1664.7 |
 
 Identical populations to B7 (counting adds no random calls). Each household counts, per year, every working step of its grown members by destination kind (forage, hunt, wood, timber, stone, build, store, guard, home) and the distance walked; last year's counts are kept on the site (tripsLast, tripDLast, workDaysLast) for phase I. Plausibility: a two-adult household logs 36 working steps a year (18 daytime steps each), food trips average 4 to 7 tiles. At year 100 the working days went 69 to 96% to food, 0 to 8% to hunting, 0 to 8% to firewood, 0 to 3% to building, 3 to 26% at home (new column). Tests: 310 passed, 0 failed (new: every household's trips add up to its working days), 4 warnings, 13 skipped.
+
+## C1: chunked ground (view only)
+
+No simulation change: the table is identical to B8's. Checked instead: the ground laid together from the chunk canvases equals colorAt() at every sampled pixel (every third pixel each way, about 440,000) right after load and after 3 years of repaints (forest #7 and lakeland #4); stills before and after at the same seed, tick and camera differ in 0.6% of pixels, all of them animals and people in other poses (view randomness), none on the ground. 9 chunks at 40x40.
