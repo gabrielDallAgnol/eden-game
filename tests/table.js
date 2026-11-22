@@ -39,6 +39,9 @@ var COLS = [
   ['days: food/hunt/wood/build/home %', function (W) { var t = {}, n = 0; W.S.tribe.sites.forEach(function (q) { if (!q.tripsLast) return; for (var k in q.tripsLast) { t[k] = (t[k] || 0) + q.tripsLast[k]; n += q.tripsLast[k]; } }); if (!n) return ''; var p = function (k) { return Math.round(100 * (t[k] || 0) / n); }; return p('forage') + '/' + p('hunt') + '/' + p('wood') + '/' + (p('timber') + p('stone') + p('build')) + '/' + p('home'); }],
   /* D2: share of the map the settlement has seen by year 100 */
   ['known %', function (W) { var k = 0; for (var i = 0; i < W.N * W.N; i++) k += W.known[i]; return Math.round(100 * k / (W.N * W.N)); }],
+  /* D3: mean reach of the grown at year 100, and the furthest lot search */
+  ['reach', function (W) { var g = W.S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 13; }); return g.length ? g.reduce(function (p, a) { return p + (a.reach || 0); }, 0) / g.length : ''; }],
+  ['lot reach', function (W) { return W.S.tribe.lotReach; }],
   ['bridges', function (W) { return Object.keys(W.S.tribe.bridged || {}).length; }],
   ['homes across water', function (W) { if (!W.mass) return ''; var T = W.S.tribe, m = W.mass[T.y * W.N + T.x]; return T.sites.filter(function (q) { return q.kind !== 'well' && W.mass[q.y * W.N + q.x] !== m; }).length; }]
 ];

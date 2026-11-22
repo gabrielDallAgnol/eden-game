@@ -223,11 +223,19 @@ function create(seed, opt) {
   // something better was seen across the water, out of reach: it is remembered at the narrow place it would be crossed,
   // and felt as the want of a way over (the want a bridge answers)
   function wishCross(f, k) { const T = S.tribe; T.fordUse[f.key] = (T.fordUse[f.key] || 0) + (k || 1); T.need.cross += 0.01 * (k || 1); S.stat.wishes++; }
+  // Reach: how far a person is minded to go. It grows when a search comes back empty while the want is still felt, and
+  // shrinks again once they are supplied. Its limit is physical: out and back before night, further on made roads or
+  // with a cart.
+  const REACH0 = 3;
+  const reachOf = a => { if (a.reach === undefined) a.reach = WALK; return a.reach; };   /* a newcomer starts out looking as far as a day of walking makes worthwhile */
+  const reachCap = () => { const T = S.tribe; return 12 * (T.pave > 1 ? 1.3 : 1) * (T.carts ? 1.5 : 1); };
+  const stretch = a => { a.reach = Math.min(reachCap(), reachOf(a) * 1.25 + 0.5); };
+  const settleBack = a => { a.reach = Math.max(REACH0, reachOf(a) * 0.96); };
   // where a person's working day starts and ends: the door of their own roof, or the fire for those without one
   const doorOf = a => { const h = homeSite(a); return h ? h : S.tribe; };
   // the nearest tile, along the ways, that answers a want; jitter adds a little chance so not everyone goes to the same one
-  function nearestWay(x0, y0, ok, jitter) {
-    let bj = -1, bd = 1e9;
+  function nearestWay(x0, y0, ok, jitter, maxR) {
+    let bj = -1, bd = maxR === undefined ? 1e9 : maxR + 0.01;
     const m0 = mass[I(x0, y0)];
     /* outward in rings from the start; a ring further out than the best found so far cannot hold anything nearer */
     for (let r = 0; r < N && r < bd; r++) for (let dy = -r; dy <= r; dy++) {
@@ -251,7 +259,7 @@ function create(seed, opt) {
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
-      sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null, pondTold: false, lotAcross: null };
+      sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null, pondTold: false, lotAcross: null, lotReach: 8 };
     for (const k in SKILLS) T.skills[k] = SKILLS[k].known;
     for (const k in TECHS) T.skills[k] = false;
     return T;
@@ -984,7 +992,8 @@ function create(seed, opt) {
     // wood gets less for a day's walking and burns low.
     { const hearth = doorOf(a);
       if (T.skills.fire && tempAt(I(hearth.x, hearth.y)) < d.comfort - 3 && (hearth.fuel || 0) < FUEL_KEEP && rnd() < dt * 8) {
-        const j = nearestWay(hearth.x, hearth.y, q => tree[q] > 0.1, 1.5);
+        const j = nearestWay(hearth.x, hearth.y, q => tree[q] > 0.1, 1.5, reachOf(a) * 2);
+        if (j < 0) stretch(a);
         if (j >= 0) {
           tree[j] -= Math.min(tree[j], 0.03);
           const w = wayDist(hearth.x, hearth.y, j % N, (j / N) | 0);
@@ -1002,7 +1011,7 @@ function create(seed, opt) {
     // bounds, but a far place has to be worth the walk. What is found is carried home.
     const door = doorOf(a); let wishV = 0, wishF = null, bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
     for (let k = 0; k < 10; k++) {
-      const far = -WALK * Math.log(1 - rnd() * 0.999), ang = rnd() * 6.2832;
+      const far = -reachOf(a) * Math.log(1 - rnd() * 0.999), ang = rnd() * 6.2832;
       const x = clamp(Math.round(door.x + Math.cos(ang) * far), 0, N - 1),
         y = clamp(Math.round(door.y + Math.sin(ang) * far), 0, N - 1),
         j = I(x, y),
@@ -1014,6 +1023,8 @@ function create(seed, opt) {
       v *= dd; if (v > bestV) { bestV = v; bx = x; by = y; kind = kd; bestE = dd; }
     }
     if (wishF && wishV > bestV * 1.3) wishCross(wishF);
+    /* nothing worth the walk near enough, and still hungry: next time they look further. Fed, they keep closer to home */
+    if (a.e < 0.6 && bestV < 0.06) stretch(a); else if (a.e > 0.8) settleBack(a);
     // the hunt: when the stores run low, the able go out together in the morning after the nearest big game.
     // One walks straight at it; the others swing wide and get beyond it, so that what runs from the first runs onto them.
     if (able && T.skills.hunt) {
@@ -1133,7 +1144,8 @@ function create(seed, opt) {
     const kinHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && kin(b, who))) : [];
     /* ground a household may take: common ground, or what is already its own or its kin's */
     const mayUse = new Set(kinHomes.map(q => q.id)); if (who && who.house) mayUse.add(who.house); { const pt = who && S.byId.get(who.partner); if (pt && pt.house) mayUse.add(pt.house); }
-    const homes = T.sites.filter(q => q.kind !== 'well'), r = Math.min(5, 1 + Math.ceil(Math.sqrt(T.sites.length + 1) * 0.6));
+    /* how far out a lot is looked for: as far as the place has had to look before (it grows when no lot was found) */
+    const homes = T.sites.filter(q => q.kind !== 'well'), r = Math.min(Math.ceil(N / PITCH), Math.ceil(T.lotReach / PITCH));
     let bestI = -1, bs = -1e9, across = null;
     for (let m = -r; m < r; m++) for (let k = -r; k < r; k++) {
       const x = T.x + k * PITCH + 2, y = T.y + m * PITCH + 2; if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) continue;   // the middle of each lot
@@ -1192,6 +1204,7 @@ function create(seed, opt) {
     if (homes.length < households()) {                                                  // a household without a roof
       const who = folk().find(a => a.age >= WED && !a.house && (!a.partner || a.fem));
       const lot = choosePlot(best(), who); if (lot) return lot;
+      T.lotReach = Math.min(N, T.lotReach + PITCH / 4);   /* no lot in reach: look further next time */
       /* no lot to be had on this side: if there is free ground over the water, the want of a way across is felt where it would be crossed */
       if (T.lotAcross && S.tickNo % 4 === 0) wishCross(T.lotAcross, 2);
     }
@@ -1215,7 +1228,7 @@ function create(seed, opt) {
     if (s === T.bridge) {                                             // timber carried to the ford and laid across it, a few planks at a time
       if (T.wood >= 1) { const c = Math.min(T.wood, s.need - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'bridgework', x: s.ax, y: s.ay }; walk(T.x, T.y, s.ax, s.ay, 0.12); sound(s.ax, s.ay, 3, 'work'); }
       else {
-        const bj = nearestWay(s.ax, s.ay, j => tree[j] >= 0.3, 1.5); if (bj < 0) return false;
+        const bj = nearestWay(s.ax, s.ay, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2); if (bj < 0) { stretch(a); return false; }
         tree[bj] -= Math.min(tree[bj], 0.16); const w = wayDist(s.ax, s.ay, bj % N, (bj / N) | 0);
         T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) / (1 + w.d / WALK); a.act = { k: 'chop', j: bj, site: 0 }; return true;
       }
@@ -1224,8 +1237,8 @@ function create(seed, opt) {
     }
     if (s === T.wall) {                                               // stakes cut, carried and driven, a few paces of fence at a time
       if (T.wood < 1) {
-        const bj = nearestWay(T.x, T.y, j => tree[j] >= 0.3, 1.5);
-        if (bj < 0) return false;
+        const bj = nearestWay(T.x, T.y, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2);
+        if (bj < 0) { stretch(a); return false; }
         tree[bj] -= Math.min(tree[bj], 0.16);
         const ld = cartload(bj), ef = walkEff(T.x, T.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
         T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
@@ -1253,8 +1266,8 @@ function create(seed, opt) {
       if (T.wood >= 1) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; walk(T.x, T.y, s.x, s.y, 0.12); return true; }
       /* fell the nearest standing timber along the ways; saplings are left to grow. The further it stands, the less is
          brought back in a day */
-      const bj = nearestWay(s.x, s.y, j => tree[j] >= 0.3, 1.5);
-      if (bj < 0) return false;
+      const bj = nearestWay(s.x, s.y, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2);
+      if (bj < 0) { stretch(a); return false; }
       tree[bj] -= Math.min(tree[bj], 0.16);
       const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
       { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.timberD += w.d; S.stat.timberN++; crossed(w); a.tripD = w.d; }
@@ -1271,9 +1284,9 @@ function create(seed, opt) {
       /* the quarry: of all the stone showing on common ground, the one that gives most for a day's walk; a deep pit is harder
          to work (deeper and farther both make stone dearer) */
       let bq = -1, vq = 0;
-      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || (owner[j] && !field[j] && T.sites.some(q => q.id === owner[j] && q.kind !== 'well'))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
-      const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
-      if (bq < 0 && bc < 0) return false;
+      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || Math.hypot(j % N - s.x, ((j / N) | 0) - s.y) > reachOf(a) * 2 || (owner[j] && !field[j] && T.sites.some(q => q.id === owner[j] && q.kind !== 'well'))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
+      const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0, reachOf(a) * 2), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
+      if (bq < 0 && bc < 0) { stretch(a); return false; }
       const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
       const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
       { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.stoneD += w.d; S.stat.stoneN++; crossed(w); a.tripD = w.d; }

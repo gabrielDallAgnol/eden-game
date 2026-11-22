@@ -19,7 +19,8 @@ var SCENARIOS = window.EdenScenarios = [
     expect: [
       ['the lever holds: never more than 30 people', 'hard', function (r) { return [r.peak <= 30, 'peak ' + r.peak]; }],
       ['no lot has more than one dwelling', 'hard', function (r, W) { var seen = {}, bad = 0; W.S.tribe.sites.forEach(function (s) { var k = s.x + ',' + s.y; if (seen[k]) bad++; seen[k] = 1; }); return [!bad, bad + ' doubled lots']; }],
-      ['people are still there at the end', 'soft', function (r, W) { return [W.S.popPeople > 0, W.S.popPeople + ' people']; }]
+      ['people are still there at the end', 'soft', function (r, W) { return [W.S.popPeople > 0, W.S.popPeople + ' people']; }],
+      ['reach stays small: a village held at 30 has no reason to range far (D3)', 'soft', function (r, W) { var g = W.S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 13; }), m = g.reduce(function (p, a) { return p + (a.reach || 0); }, 0) / Math.max(1, g.length); return [m <= 6, 'mean reach of the grown ' + r1(m) + ' tiles']; }]
     ] },
   { name: 'deforest', title: 'every tree within 10 tiles felled in year 10', land: 'forest', years: 30,
     setup: function () {},
