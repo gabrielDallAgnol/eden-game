@@ -128,7 +128,7 @@ function create(seed, opt) {
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, gaveTold: false,
-      sown: false, resting: false, cropWarm: 0, lastCampT: undefined, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: undefined, waterDist: undefined };
+      sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null };
     for (const k in SKILLS) T.skills[k] = SKILLS[k].known;
     for (const k in TECHS) T.skills[k] = false;
     return T;
@@ -833,7 +833,7 @@ function create(seed, opt) {
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
     // wants that are only seen over a year
     N_.crowd += Math.max(0, households() - T.sites.filter(q => q.kind !== 'well').length);
-    if (T.waterDist === undefined) { let bd = 99; for (let i = 0; i < N * N; i++) if (water[i]) { const dd = Math.hypot((i % N) - T.x, ((i / N) | 0) - T.y); if (dd < bd) { bd = dd; T.waterAt = i; } } T.waterDist = bd; }
+    if (T.waterDist == null) { let bd = 99; for (let i = 0; i < N * N; i++) if (water[i]) { const dd = Math.hypot((i % N) - T.x, ((i / N) | 0) - T.y); if (dd < bd) { bd = dd; T.waterAt = i; } } T.waterDist = bd; }
     // a way is a way once it is worn deep; it stays one until it has all but grown over. Whatever grew on it is cut back.
     for (let i = 0; i < N * N; i++) { const on = onWay(i % N, (i / N) | 0) && tread[i] > (T.road[i] ? 0.25 : 0.7) && !water[i]; if (on && !T.road[i] && tree[i] > 0) { T.wood += tree[i] * 3; tree[i] = 0; } T.road[i] = on ? 1 : 0; if (on) field[i] = 0; }
     N_.water += Math.max(0, T.waterDist - 2) * 0.12 * Math.min(4, S.popPeople / 5) * (T.well ? 0.2 : 1);   // every bucket, carried that far, for every mouth
@@ -856,7 +856,7 @@ function create(seed, opt) {
   function farm(dt) {
     const T = S.tribe, pop = S.popPeople; if (!T.skills.farm || !pop) return;
     const ct = tempAt(I(T.x, T.y));
-    if (!T.sown && ct > 4 && (T.lastCampT === undefined || ct > T.lastCampT)) {
+    if (!T.sown && ct > 4 && ct > T.lastCampT) {
       const P = folk(), homes = T.sites.filter(q => live(q) && q.members > 0), ids = new Set(homes.map(q => q.id)); let total = 0;
       for (let i = 0; i < N * N; i++) if (field[i] && !ids.has(owner[i])) { field[i] = 0; owner[i] = 0; }      // nobody's any more: it goes back to grass
       for (const h of homes) {
@@ -1001,8 +1001,42 @@ function create(seed, opt) {
     noStone() { rock.fill(0); }
   };
   const stats = () => { let g = 0, t = 0, n = 0, sn = 0, so = 0, fl = 0; for (let i = 0; i < N * N; i++) if (!water[i]) { g += grass[i]; t += tree[i]; sn += snow[i]; so += soil[i]; fl += flood[i]; n++; } return { grass: g / n, tree: t / n, snow: sn / n, soil: so / n, flood: fl / n, store: S.tribe.store, huts: S.tribe.huts, air: S.air, river: S.river }; };
+  // ---------------------------------------------------------------- save and load
+  // The world is plain data: the land arrays, S, the random stream and the noises still in the air. Typed arrays travel as
+  // base64, Maps as their entries, and a creature names its species row instead of holding it.
+  const FIELDS = { water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
+  const b64 = ta => { const u = new Uint8Array(ta.buffer, ta.byteOffset, ta.byteLength); let str = ''; for (let i = 0; i < u.length; i += 0x8000) str += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(str); };
+  const unb64 = (str, Type) => { const bin = atob(str), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Type(u.buffer); };
+  const TYPES = { Float32Array, Uint8Array, Int32Array };
+  function pack(key, v) {
+    if (key === 'd' && v && this.sp && v === SP[this.sp]) return undefined;
+    if (ArrayBuffer.isView(v)) return { __ta: v.constructor.name, b: b64(v) };
+    if (v instanceof Map) return { __map: [...v.entries()] };
+    return v;
+  }
+  function unpack(key, v) {
+    if (v && typeof v === 'object' && v.__ta) return unb64(v.b, TYPES[v.__ta]);
+    if (v && typeof v === 'object' && v.__map) return new Map(v.__map);
+    return v;
+  }
+  function save() {
+    const o = {}; for (const k in opt) if (k !== 'species' && typeof opt[k] !== 'function') o[k] = opt[k];
+    return JSON.stringify({ v: 1, seed, opt: o, N, rs, din, heardNow, fields: FIELDS, S }, pack);
+  }
+  function restore(json) {
+    const o = typeof json === 'string' ? JSON.parse(json, unpack) : json;
+    if (o.N !== N) throw new Error('save is for a ' + o.N + ' map, this world is ' + N);
+    for (const k in FIELDS) FIELDS[k].set(o.fields[k]);
+    rs = o.rs; din = o.din; heardNow = o.heardNow;
+    for (const k of Object.keys(S)) delete S[k];
+    Object.assign(S, o.S); S.din = heardNow;
+    S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }
+    folkList = null;
+  }
   tick();
-  return { S, N, TPY, tick, G, newSettlement, stats, tread, PITCH, onWay, hear, owner, allFood, TECHS, IDEAS, ideas: () => Object.keys(IDEAS).map(k => ({ k, need: IDEAS[k].need, at: IDEAS[k].at, known: !!S.tribe.skills[k], can: !S.tribe.skills[k] && !!IDEAS[k].can(S.tribe) })), describe, craftOf, households, rock, land: landKind, LANDS, DWELL, SPECIES: SP, SKILLS, tempAt, sunHeight, daysLengthen, warmSum, fert, cells, moveTo(a, x, y) { const p = free(x, y); a.x = p[0]; a.y = p[1]; }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
+  return { S, N, TPY, tick, G, newSettlement, save, restore, stats, tread, PITCH, onWay, hear, owner, allFood, TECHS, IDEAS, ideas: () => Object.keys(IDEAS).map(k => ({ k, need: IDEAS[k].need, at: IDEAS[k].at, known: !!S.tribe.skills[k], can: !S.tribe.skills[k] && !!IDEAS[k].can(S.tribe) })), describe, craftOf, households, rock, land: landKind, LANDS, DWELL, SPECIES: SP, SKILLS, tempAt, sunHeight, daysLengthen, warmSum, fert, cells, moveTo(a, x, y) { const p = free(x, y); a.x = p[0]; a.y = p[1]; }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
 }
-root.Eden = { create, SPECIES, SKILLS, TECHS, JOBS };
+// a saved world: made afresh from its seed and options, then every piece of its state is put back
+function load(json) { const o = typeof json === 'string' ? JSON.parse(json) : json; const W = create(o.seed, o.opt); W.restore(typeof json === 'string' ? json : JSON.stringify(o)); return W; }
+root.Eden = { create, load, SPECIES, SKILLS, TECHS, JOBS };
 })(typeof window !== 'undefined' ? window : globalThis);

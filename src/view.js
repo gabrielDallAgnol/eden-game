@@ -9,7 +9,10 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b
 const qs = new URLSearchParams(location.search), seed = +(qs.get('seed') || 1 + Math.floor(Math.random() * 9999));
 let landKept = ''; try { landKept = localStorage.getItem('eden.land') || ''; } catch (e) { /* no storage: the address decides */ }
 const landQ = qs.get('land') || landKept || 'valley';
-const W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ }), N = W.N, S = W.S, A = EdenArt.build();
+/* a saved valley is taken up again when the opening card's Continue was pressed (or ?continue=1); otherwise a new one is made */
+let saved = null; try { if (qs.get('continue') === '1' || sessionStorage.getItem('eden.continue')) { saved = localStorage.getItem('eden.save'); sessionStorage.removeItem('eden.continue'); } } catch (e) { /* no storage */ }
+let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { console.warn('the saved valley could not be loaded; starting a new one', e); } }
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -446,6 +449,7 @@ function takeEvents(instant) {
   }
 }
 function onTick() {
+  if (S.tickNo % W.TPY === 0 && !window.EDEN_NOSAVE) { try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }   /* autosave once a game year */
   takeEvents(false); syncHuts();
   for (const a of S.agents) { if (!a.alive) continue; let r = recOf(a.id); if (!r) { const e = endOf(a); r = newRec(a, e.x, e.y, { alpha: 0 }); } r.a = a; }
   const phase = S.tickNo % DAY; let pi = 0;
@@ -834,6 +838,9 @@ const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 3, 8, 0]; bS2.onclic
   };
   if (el && btn) { btn.onclick = () => { const open = el.style.display !== 'block'; el.style.display = open ? 'block' : 'none'; if (open) fill(); }; setInterval(() => { if (el.style.display === 'block') fill(); }, 1500); } }
 document.getElementById('begin').onclick = () => { document.getElementById('intro').style.display = 'none'; paused = false; };
+{ const c = document.getElementById('cont'); let has = false; try { has = !!localStorage.getItem('eden.save'); } catch (e) { /* no storage */ }
+  if (c && has && !loaded) { c.style.display = 'block'; c.onclick = () => { try { sessionStorage.setItem('eden.continue', '1'); } catch (e) { /* ignore */ } location.reload(); }; } }
+if (loaded) { const b = document.getElementById('begin'); if (b) b.textContent = 'Carry on'; }
 document.getElementById('bHelp').onclick = () => { document.getElementById('intro').style.display = 'flex'; paused = true; };
 addEventListener('resize', resize); resize();
 cam.z = clamp(dpr * 1.1, minZ(), maxZ()); { const wx = isoX(camp.x, camp.y), wy = isoY(camp.x, camp.y); cam.x = wx - cv.width / cam.z / 2; cam.y = wy - 30 - cv.height / cam.z / 2; clampCam(); }

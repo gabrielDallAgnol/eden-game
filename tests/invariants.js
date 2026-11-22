@@ -413,6 +413,16 @@ UNITS.push(['after a wipe-out and resettle, every settlement field equals a fres
   for (var key in keys) if (!same(T[key], fresh[key])) diff.push(key + ': ' + show(T[key]).slice(0, 40) + ' vs fresh ' + show(fresh[key]).slice(0, 40));
   return diff.length ? diff.slice(0, 5).join('; ') : '';
 }]);
+UNITS.push(['save at year 20, load, run 20 more: identical to an unbroken 40-year run', function () {
+  var O = { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland' }, out = [];
+  [1, 2].forEach(function (seed) {
+    var A = Eden.create(seed, O), i; for (i = 0; i < 480; i++) A.tick();
+    var B = Eden.load(A.save()); for (i = 0; i < 480; i++) B.tick();
+    var C = Eden.create(seed, O); for (i = 0; i < 960; i++) C.tick();
+    var b = B.save(), c = C.save(); if (b !== c) { var k = 0; while (b[k] === c[k]) k++; out.push('seed ' + seed + ' differs at ...' + c.slice(Math.max(0, k - 60), k + 20)); }
+  });
+  return out.join('; ');
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }
