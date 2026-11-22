@@ -11,7 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "out")
 LOG = os.path.join(OUT, "cost_log.json")
 URL = "https://api.retrodiffusion.ai/v1/inferences"
-CAP_USD = 5.00
+CAP_USD = 7.12   # $5.00 first approval + $3.00 for people, minus nothing spent beyond $4.12
 KEY = open(os.path.join(ROOT, ".rd_key")).read().strip()
 
 

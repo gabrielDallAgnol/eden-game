@@ -57,3 +57,7 @@ Approved budget was $5.00 (hard cap $8.00). Per-call detail is in `out/cost_log.
 ## How the outline step behaves
 
 Edge pixels that are already dark are recoloured to the single outline colour; where the edge is light, one outline pixel is added outside it. This keeps the outline at 1 px on sprites RD already outlined, at the cost of single sprites growing by up to 1 px per side (the clean stills are 2 px larger than the raw ones).
+
+## Later: people for the game
+
+Man, woman and child were generated after the first test, drawn in key colours (red top, blue legs, brown hair, tan skin) so the game can recolour them per person: 3 base sprites ($0.54) and a walk, arms-up and sitting sheet for each ($1.92). Spend on people: $2.46. Running total: $6.58 of the $8.00 hard cap.

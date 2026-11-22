@@ -260,5 +260,197 @@
    "rd_deer_walk2_raw.png"
   ],
   "time": 1795356577
+ },
+ {
+  "test": "P",
+  "name": "rd_man_base",
+  "cost": 0.18,
+  "style": "rd_pro__default",
+  "size": [
+   40,
+   40
+  ],
+  "n": 1,
+  "prompt": "adult villager man with short dark brown hair, tan skin, plain bright red long-sleeved tunic with a belt, plain bright blue trousers, dark boots, full body, exact side view facing right, standing straight, arms at sides, tiny game character sprite, flat simple clothes with no patterns, on a plain white background",
+  "files": [
+   "rd_man_base_raw.png"
+  ],
+  "time": 1795359216
+ },
+ {
+  "test": "P",
+  "name": "rd_woman_base",
+  "cost": 0.18,
+  "style": "rd_pro__default",
+  "size": [
+   40,
+   40
+  ],
+  "n": 1,
+  "prompt": "adult villager woman with long dark brown hair tied back, tan skin, plain bright red knee-length dress tunic with a belt, plain bright blue leggings, dark boots, full body, exact side view facing right, standing straight, arms at sides, tiny game character sprite, flat simple clothes with no patterns, on a plain white background",
+  "files": [
+   "rd_woman_base_raw.png"
+  ],
+  "time": 1795359311
+ },
+ {
+  "test": "P",
+  "name": "rd_child_base",
+  "cost": 0.18,
+  "style": "rd_pro__default",
+  "size": [
+   32,
+   32
+  ],
+  "n": 1,
+  "prompt": "small young child villager with short dark brown hair, tan skin, plain bright red tunic, plain bright blue short trousers, bare feet, big head, full body, exact side view facing right, standing straight, arms at sides, tiny game character sprite, flat simple clothes with no patterns, on a plain white background",
+  "files": [
+   "rd_child_base_raw.png"
+  ],
+  "time": 1795359362
+ },
+ {
+  "test": "P",
+  "name": "rd_man_walk",
+  "cost": 0.14,
+  "style": "rd_advanced_animation__walking",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "walking forward with clear steps, side view",
+  "files": [
+   "rd_man_walk_raw.png"
+  ],
+  "time": 1795359440
+ },
+ {
+  "test": "P",
+  "name": "rd_man_up",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "raises both arms straight up high above the head and holds them up, feet stay planted",
+  "files": [
+   "rd_man_up_raw.png"
+  ],
+  "time": 1795359485
+ },
+ {
+  "test": "P",
+  "name": "rd_man_sit",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "sits down on the ground with legs stretched forward and stays seated",
+  "files": [
+   "rd_man_sit_raw.png"
+  ],
+  "time": 1795359509
+ },
+ {
+  "test": "P",
+  "name": "rd_woman_walk",
+  "cost": 0.14,
+  "style": "rd_advanced_animation__walking",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "walking forward with clear steps, side view",
+  "files": [
+   "rd_woman_walk_raw.png"
+  ],
+  "time": 1795359564
+ },
+ {
+  "test": "P",
+  "name": "rd_woman_up",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "raises both arms straight up high above the head and holds them up, feet stay planted",
+  "files": [
+   "rd_woman_up_raw.png"
+  ],
+  "time": 1795359588
+ },
+ {
+  "test": "P",
+  "name": "rd_woman_sit",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "sits down on the ground with legs stretched forward and stays seated",
+  "files": [
+   "rd_woman_sit_raw.png"
+  ],
+  "time": 1795359615
+ },
+ {
+  "test": "P",
+  "name": "rd_child_walk",
+  "cost": 0.14,
+  "style": "rd_advanced_animation__walking",
+  "size": [
+   40,
+   40
+  ],
+  "n": 1,
+  "prompt": "walking forward with clear steps, side view",
+  "files": [
+   "rd_child_walk_raw.png"
+  ],
+  "time": 1795359700
+ },
+ {
+  "test": "P",
+  "name": "rd_child_up",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   40,
+   40
+  ],
+  "n": 1,
+  "prompt": "raises both arms straight up high above the head and holds them up, feet stay planted",
+  "files": [
+   "rd_child_up_raw.png"
+  ],
+  "time": 1795359722
+ },
+ {
+  "test": "P",
+  "name": "rd_child_sit",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   40,
+   40
+  ],
+  "n": 1,
+  "prompt": "sits down on the ground with legs stretched forward and stays seated",
+  "files": [
+   "rd_child_sit_raw.png"
+  ],
+  "time": 1795359765
  }
 ]

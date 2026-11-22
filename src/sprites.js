@@ -72,6 +72,51 @@ S.apply = function (A, h) {
     return { big, small };
   });
 
+  // ---------------------------------------------------------------- people: three drawings, mixed into as many people as the valley holds
+  // The sheets are drawn in key colours: red top, blue legs, brown hair, tan skin. Each person is made by swapping those four
+  // for their own (skin and hair inherited from their parents, clothes their own), keeping the drawing's light and shade.
+  // 2 bodies x 5 skins x 6 hairs x 10 tops x 6 legs = 3,600 different grown people from one man and one woman.
+  if (S.meta.man_walk && S.meta.woman_walk && S.meta.child_walk) {
+    const SKIN = [[238, 200, 164], [218, 172, 132], [190, 140, 102], [154, 108, 78], [116, 80, 60]];
+    const HAIR = [[58, 42, 36], [96, 64, 42], [146, 96, 50], [200, 166, 90], [156, 66, 42], [34, 32, 38]], GREY = [184, 184, 178];
+    const TOP = [[172, 62, 52], [198, 152, 72], [72, 104, 152], [98, 130, 76], [204, 192, 164], [124, 88, 62], [122, 72, 112], [72, 132, 126], [178, 98, 58], [132, 132, 130]];
+    const LEGS = [[88, 74, 62], [62, 78, 112], [112, 102, 86], [72, 92, 72], [142, 122, 92], [54, 54, 62]];
+    const hsv = (r, g, b) => { const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0; if (d) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [h * 60, mx ? d / mx : 0, mx / 255]; };
+    // which part of the drawing a pixel belongs to, from its key colour (and, for hair against boots, how high up it sits)
+    const part = (r, g, b, y, top, headRows) => {
+      const [h, sat, v] = hsv(r, g, b); if (v < 0.16) return 0;                       // outline, belt, pupils
+      if ((h < 14 || h > 338) && sat > 0.5) return 'top';
+      if (h > 185 && h < 255 && sat > 0.35) return 'legs';
+      if (h >= 8 && h < 45 && sat > 0.18 && sat < 0.7 && v > 0.52) return 'skin';
+      if (h < 50 && v <= 0.52 && sat > 0.15 && y - top < headRows) return 'hair';
+      return 0;
+    };
+    const REF = { top: 0.72, legs: 0.74, skin: 0.8, hair: 0.3 };                          // the brightness each key colour was drawn at
+    const dress = (src, cols, headRows) => {
+      const c = mk(src.width, src.height), x = c.getContext('2d'); x.drawImage(src, 0, 0);
+      const d = x.getImageData(0, 0, c.width, c.height), p = d.data; let top = 0;
+      search: for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) if (p[(yy * c.width + xx) * 4 + 3]) { top = yy; break search; }
+      for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) {
+        const i = (yy * c.width + xx) * 4; if (!p[i + 3]) continue; const k = part(p[i], p[i + 1], p[i + 2], yy, top, headRows); if (!k) continue;
+        const f = Math.max(0.5, Math.min(1.35, Math.max(p[i], p[i + 1], p[i + 2]) / 255 / REF[k])), t = cols[k];
+        p[i] = Math.min(255, t[0] * f); p[i + 1] = Math.min(255, t[1] * f * (f < 1 ? 0.97 : 1)); p[i + 2] = Math.min(255, t[2] * f * (f < 1 ? 1.06 : 0.98));   // shadows lean cool, lights warm
+      }
+      x.putImageData(d, 0, 0); return c;
+    };
+    const rot = c => { const o = mk(c.height, c.width), g = o.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return o; };
+    const BODY = {}; for (const n of ['man', 'woman', 'child']) BODY[n] = { walk: frames(n + '_walk'), up: frames(n + '_up'), sit: frames(n + '_sit'), head: Math.round(S.meta[n + '_walk'].h * (n === 'woman' ? 0.5 : 0.36)) };
+    const made = new Map(), built = A.look.human;
+    built.make = (a, stage) => {
+      const L = a.looks || { skin: a.id % 5, hair: a.id % 6, top: a.id % 10, legs: a.id % 6 }, body = stage === 'young' || stage === 'tot' ? 'child' : a.fem ? 'woman' : 'man';
+      const key = body + stage + L.skin + '.' + L.hair + '.' + L.top + '.' + L.legs; let v = made.get(key); if (v) return v;
+      const B = BODY[body], cols = { skin: SKIN[L.skin % SKIN.length], hair: stage === 'old' ? GREY : HAIR[L.hair % HAIR.length], top: TOP[L.top % TOP.length], legs: LEGS[L.legs % LEGS.length] };
+      const size = stage === 'tot' ? 0.78 : 1, mkf = c => sized(dress(c, cols, B.head), size), both = c => ({ r: c, l: flip(c) });
+      const walk = B.walk.map(mkf), up = mkf(B.up[B.up.length - 1]), upB = mkf(B.up[B.up.length - 2]), sit = mkf(B.sit[B.sit.length - 1]);
+      v = { r: walk, l: walk.map(flip), w: walk[0].width, h: walk[0].height, up: both(up), upB: both(upB), sit: both(sit), lie: both(rot(walk[0])) };
+      made.set(key, v); return v;
+    };
+  }
+
   // ---------------------------------------------------------------- the home: a timber cottage, with a snowed-over roof for winter
   const cottage = sized(one('cottage'), SCALE.cottage);
   A.hut = cottage;

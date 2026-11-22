@@ -585,7 +585,9 @@ function frame(t) {
     if (dd.people) { if (a.age < 2 && L.baby) set = null; else if (a.age < 6 && L.tot) set = L.tot; else if (a.age < dd.mature) set = L.young; else if (L.old && a.age > 46) set = L.old; }
     else if (a.age < dd.mature * 0.75) set = L.young;
     if (!set) { const b = L.baby[a.id % L.baby.length]; put(b, wx, wy, { shadow: { x: wx, y: wy, w: b.width }, alpha: r.alpha < 1 ? r.alpha : undefined }); continue; }
-    const sp = set[(dd.people && a.fem !== undefined && (set === L.grown || set === L.old) ? ((a.id % 6) * 2 + (a.fem ? 1 : 0)) : a.id) % set.length]; let face = r.face;
+    // people drawn from sheets are put together one by one from their own looks; otherwise one of the built-in variants is picked
+    const sp = dd.people && L.make ? L.make(a, set === L.tot ? 'tot' : set === L.young ? 'young' : set === L.old ? 'old' : 'grown')
+      : set[(dd.people && a.fem !== undefined && (set === L.grown || set === L.old) ? ((a.id % 6) * 2 + (a.fem ? 1 : 0)) : a.id) % set.length]; let face = r.face;
     const s = r.step; let look = null;
     if (s && s.at) { const o = recOf(s.at); if (o) look = o; } else if (s && s.lx !== undefined) look = { x: s.lx, y: s.ly };
     if (Math.abs(r.vx - r.vy) > 0.0005 && (pose === 'walk' || pose === 'run' || pose === 'hop' || pose === 'carry' || pose === 'creep' || pose === 'crawl')) face = (r.vx - r.vy) > 0 ? 'r' : 'l';

@@ -35,6 +35,60 @@
   "w": 34,
   "h": 35
  },
+ "man_walk": {
+  "file": "man_walk.png",
+  "frames": 8,
+  "w": 28,
+  "h": 42
+ },
+ "man_up": {
+  "file": "man_up.png",
+  "frames": 6,
+  "w": 28,
+  "h": 42
+ },
+ "man_sit": {
+  "file": "man_sit.png",
+  "frames": 6,
+  "w": 28,
+  "h": 42
+ },
+ "woman_walk": {
+  "file": "woman_walk.png",
+  "frames": 8,
+  "w": 28,
+  "h": 42
+ },
+ "woman_up": {
+  "file": "woman_up.png",
+  "frames": 6,
+  "w": 28,
+  "h": 42
+ },
+ "woman_sit": {
+  "file": "woman_sit.png",
+  "frames": 6,
+  "w": 28,
+  "h": 42
+ },
+ "child_walk": {
+  "file": "child_walk.png",
+  "frames": 8,
+  "w": 24,
+  "h": 34
+ },
+ "child_up": {
+  "file": "child_up.png",
+  "frames": 6,
+  "w": 24,
+  "h": 34
+ },
+ "child_sit": {
+  "file": "child_sit.png",
+  "frames": 6,
+  "w": 24,
+  "h": 34
+ },
  "tree_green": {
   "file": "tree_green.png",
   "frames": 1,

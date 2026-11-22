@@ -88,6 +88,9 @@ animal("deer", {"walk": ("rd_deer_walk2_raw.png", 4, 2), "graze": ("rd_deer_graz
                 "lie": ("rd_deer_lie_raw.png", 3, 2)}, despeckle_white)
 animal("fawn", {"walk": ("rd_fawn_walk_raw.png", 4, 2), "graze": ("rd_fawn_graze_raw.png", 3, 2),
                 "lie": ("rd_fawn_lie_raw.png", 3, 2)})
+# people are drawn in key colours (red top, blue legs, brown hair, tan skin); the game recolours them per person
+for who in ("man", "woman", "child"):
+    animal(who, {"walk": (f"rd_{who}_walk_raw.png", 4, 2), "up": (f"rd_{who}_up_raw.png", 3, 2), "sit": (f"rd_{who}_sit_raw.png", 3, 2)})
 tree("tree_green", "rd_tree_base_raw.png")
 tree("tree_gold", "rd_tree_autumn_raw.png")
 tree("tree_bare_snow", "rd_tree_winter_raw.png")
