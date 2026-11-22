@@ -648,14 +648,12 @@ function planPerson(r, phase, pi) {
     }
     case 'gather': {
       const st = standBy(act.x, act.y, r);
-      P.go(st.x, st.y, sp); P.wait(R(0.18, 0.3), 'work', { fx: act.fruit ? 'fruit' : 'grass', lx: st.lx, ly: st.ly });
-      P.go(store.x + 0.3, store.y + 0.15, sp * 0.85, 'carry', { item: act.fruit ? 'basket' : 'grain' }); P.wait(0.04, 'work', { drop: 1, lx: store.x, ly: store.y });
+      P.go(st.x, st.y, sp); P.wait(R(0.5, 0.7), 'work', { fx: act.fruit ? 'fruit' : 'grass', lx: st.lx, ly: st.ly });   /* the load goes home on the next step (E2) */
       break;
     }
     case 'fish': {
       const st = standBy(act.x, act.y, r);
-      P.go(st.x, st.y, sp); P.wait(R(0.25, 0.4), 'fish', { lx: st.lx, ly: st.ly, catch: act.got > 0.02 });
-      P.go(store.x + 0.3, store.y + 0.15, sp * 0.85, 'carry', { item: 'fish' }); P.wait(0.04, 'work', { drop: 1, lx: store.x, ly: store.y });
+      P.go(st.x, st.y, sp); P.wait(R(0.5, 0.7), 'fish', { lx: st.lx, ly: st.ly, catch: act.got > 0.02 });   /* home with the catch on the next step (E2) */
       break;
     }
     case 'hunt': {
@@ -681,6 +679,9 @@ function planPerson(r, phase, pi) {
       P.go(st.x, st.y, sp); P.wait(0.22, 'work', { fx: 'dust', lx: st.lx, ly: st.ly });
       P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
     }
+    case 'walkto': P.go(act.x + 0.5, act.y + 0.5, sp); break;                               // on the way out: as far as the simulation has them
+    case 'carryhome': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item === 'fish' ? 'fish' : 'basket' }); break;   // on the way home with a load
+    case 'home': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house); const to = mine ? door(mine) : store; P.go(to.x, to.y, sp); P.wait(0.04, 'work', { drop: 1 }); break; }
     case 'fetch': {                                                   // out to what lies on the ground, and back with it
       const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), to = act.item === 'meat' || act.item === 'sticks' ? (mine ? door(mine) : store) : store;
       P.go(act.x + 0.5, act.y + 0.5, sp); P.wait(0.08, 'work', { lx: act.x + 0.5, ly: act.y + 0.5 });

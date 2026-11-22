@@ -600,7 +600,7 @@ function create(seed, opt) {
     if (evening) for (const a of P) {
       if (a.partner || a.age < WED || a.grief > 0.3 || !a.fem) continue;
       for (const b of P) {
-        if (b.fem || b.partner || b.age < WED || b.grief > 0.3 || kin(a, b) || Math.abs(a.age - b.age) > 14 || cheb(a, b) > 4) continue;
+        if (b.fem || b.partner || b.age < WED || b.grief > 0.3 || kin(a, b) || Math.abs(a.age - b.age) > 14 || cheb(doorOf(a), doorOf(b)) > 12) continue;   /* neighbours, not only those who happen to stand side by side */
         a.bond[b.id] = (a.bond[b.id] || 0) + R(0.05, 0.3); a.court = b.id; b.court = a.id;
         if (a.bond[b.id] >= 1) { a.partner = b.id; b.partner = a.id; a.court = b.court = 0; tell(a.name + ' and ' + b.name + ' have become a couple.');
           {
@@ -1020,6 +1020,38 @@ function create(seed, opt) {
     if (!h.trips) { h.trips = {}; h.tripD = {}; h.workDays = 0; }
     h.trips[k] = (h.trips[k] || 0) + 1; h.tripD[k] = (h.tripD[k] || 0) + (a.tripD || 0); h.workDays++;
   }
+  // ---- trips (E2). Gathering and fishing are real journeys: out along the route, the work where the food is, and home
+  // again with the load, which goes into the larder on arrival. A grown person walks PACE tiles in a step; what is left of
+  // a step after walking is worked, and a step that ends at the door can start the next trip. So distance costs time
+  // because it takes time, not by a factor.
+  const PACE = 12;
+  function workAt(a, d, j, kind, budget) {
+    const T = S.tribe, eff = TPY * (1 / TPY) * S.dayK * budget / (1 + tree[j] * tree[j] * 1.2);
+    if (kind === 'fish') {
+      let wj = j; if (!water[wj]) { const x = j % N, y = (j / N) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N && water[I(nx, ny)]) { wj = I(nx, ny); break; } } }
+      const take = Math.min(fish[wj] * 0.5, 0.31 * eff * a.skill.fish * (a.job === 'fisher' ? 1.3 : 1)) * (tempAt(wj) < -3 ? 0.65 : 1);
+      practise(a, 'fish'); fish[wj] -= take; T.got.fish += take * 1.5; T.eff.fish++; a.act = { k: 'fish', x: wj % N, y: (wj / N) | 0, got: take }; return take * 1.5;
+    }
+    practise(a, 'gather');
+    const tf = Math.min(fruit[j], 0.24 * eff * a.skill.gather * (a.job === 'gatherer' ? 1.3 : 1)); fruit[j] -= tf;
+    const tg = Math.min(grass[j] * 0.3, 0.08 * eff) * (1 - snowBlock(j, d.mass)); grass[j] -= tg;
+    T.got.gather += tf * 1.6 + tg * 0.5; T.eff.gather++; a.act = { k: 'gather', x: j % N, y: (j / N) | 0, fruit: tf > 0.01 ? 1 : 0, got: tf * 1.6 + tg * 0.5 };
+    return tf * 1.6 + tg * 0.5;
+  }
+  /* carry a trip on for one step with the time given; returns the time left once it is over (at the door), or -1 */
+  function runTrip(a, d, pace, budget) {
+    const tr = a.trip, speed = PACE * pace;
+    if (tr.phase !== 'work') {
+      let steps = Math.floor(speed * budget + 1e-9), walked = 0;
+      while (steps-- > 0 && tr.path.length) { const t = tr.path.shift(); a.x = t % N; a.y = (t / N) | 0; walked++; }
+      budget -= walked / speed; tr.walked += walked;
+      if (tr.path.length) { a.act = { k: tr.phase === 'out' ? 'walkto' : 'carryhome', x: a.x, y: a.y, item: tr.kind === 'fish' ? 'fish' : 'basket' }; return -1; }
+      if (tr.phase === 'back') { bring(a, tr.load); S.stat.forageD += tr.walked / 2; S.stat.forageN++; a.trip = null; a.act = { k: 'home', x: a.x, y: a.y }; return Math.max(0, budget); }
+      tr.phase = 'work';
+    }
+    if (budget > 0.02) { tr.load += workAt(a, d, tr.j, tr.kind, budget); const door = doorOf(a); tr.phase = 'back'; tr.path = route(a.x, a.y, door.x, door.y, a).tiles; }
+    return -1;
+  }
   function person(a, d, dt) {
     a.wood = -1; a.tripD = 0; const T = S.tribe, dist = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)), pop = S.pop[a.sp];
     // eating: from their own larder, at home. What is held in common by the fire is eaten only at the fire: someone whose
@@ -1037,9 +1069,10 @@ function create(seed, opt) {
       if (a.age < 2 && (a.e < 0.5 || a.mood === 'cold')) sound(a.x, a.y, 3, 'cry');
       else if (!S.night && a.age >= 2) sound(a.x, a.y, 1.6, 'play');   /* a hungry or cold baby cries, day or night; children at play are not quiet */
       return; }
+    if (a.trip) { if (S.night || a.age < SMALL) { bring(a, a.trip.load); a.trip = null; } }   /* night overtakes a trip: they come home with what they have */
     if (S.night) {                                                       // nights are spent at the camp; one of the able sits up by the fire
       const hm = a.house && T.sites.find(q => q.id === a.house);      /* home is their own roof once they have one; the fire until then */
-      stepTo(a, hm ? hm.x : T.x, hm ? hm.y : T.y, 4);
+      { const h = hm || T; if (Math.max(Math.abs(a.x - h.x), Math.abs(a.y - h.y)) > 1 && (mass[I(a.x, a.y)] === mass[I(h.x, h.y)] || route(a.x, a.y, h.x, h.y, a).reached)) { a.x = h.x; a.y = h.y; } }   /* home by dusk, wherever the day ended */
       const day = Math.floor(S.tickNo / (DAY || 1)); if (a.age >= WED && a.age <= 46 && a.e > 0.5 && T.watchDay !== day) { T.watchDay = day; T.watcher = a.id; }
       const onWatch = T.watcher === a.id && T.watchDay === day; a.act = { k: onWatch ? 'watch' : 'sleep' };
       if (onWatch) { const hw = hear(a, k => k === 'howl'); if (hw) T.threat += hw.l * 0.15; }   /* the one awake hears the pack, and says so in the morning */
@@ -1068,6 +1101,9 @@ function create(seed, opt) {
     }
     a.act = { k: 'idle' };
     const grown = a.age >= d.mature, old = a.age > 46, able = grown && !old, pace = able ? 1 : 0.6;   // children help close to home; the old keep the camp
+    /* someone out on a trip carries on with it; time left at the door goes to whatever comes next */
+    let budget = 1;
+    if (a.trip) { budget = runTrip(a, d, pace, 1); if (budget < 0.1) return; }
     if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { stepTo(a, T.x, T.y, 2); a.act = { k: 'mourn' }; return; }   // the newly bereaved sit by the fire and do little
     // foul weather: with a roof, food in the store and nothing pressing, people stay in
     if (T.huts > 0 && a.e > 0.6 && (hm ? (hm.larder || 0) > mouths * 0.9 : T.store > pop * 1.1)) {
@@ -1078,7 +1114,9 @@ function create(seed, opt) {
     // houses: a plot is chosen, timber is felled and carried to it, and the house goes up a stage at a time
     const trade = a.job && (a.job === 'builder' || a.job === 'woodcutter' || a.job === 'mason');
     /* the hungry look for food first; building, felling and hauling are for the fed */
-    if (able && a.e > 0.6 && rnd() < dt * 12 * a.skill.build * (!a.job ? 1 : trade ? 2.4 : 0.3) * (T.skills.tools ? 1.3 : 1) && construct(a)) { practise(a, 'build'); return; }   /* building, felling and hauling take the day */
+    /* the chance to turn to building is weighed each step; someone away on trips weighs it on coming home, for all the steps away */
+    const pBuild = Math.min(1, dt * 12 * a.skill.build * (!a.job ? 1 : trade ? 2.4 : 0.3) * (T.skills.tools ? 1.3 : 1)), away = Math.max(1, S.tickNo - (a.freeT || S.tickNo - 1)); a.freeT = S.tickNo;
+    if (able && a.e > 0.6 && rnd() < 1 - Math.pow(1 - pBuild, away) && construct(a)) { practise(a, 'build'); return; }   /* building, felling and hauling take the day */
     // a guard keeps to the camp and its edges, fed from the store, and goes for whatever comes hunting
     if (a.job === 'guard' && a.e > 0.4) {
       const w = nearest(a, 4, b => !b.hidden && !b.d.people && b.d.eats.meat && b.d.mass > 3);
@@ -1120,7 +1158,7 @@ function create(seed, opt) {
       if (pl) { const ef = 1 / (1 + pl.d / (WALK * pace)), got = takePile(pl, 1.5 * ef + 0.2); bring(a, got); walk(door0.x, door0.y, pl.p.x, pl.p.y, 0.03); a.tripD = pl.d; a.act = { k: 'fetch', x: pl.p.x, y: pl.p.y, item: 'meat' }; T.got.hunt += got; return; } }
     // look for food: plants, fish, game, from their own door. Places near the door are looked at most; nothing is out of
     // bounds, but a far place has to be worth the walk. What is found is carried home.
-    const door = doorOf(a); let wishV = 0, wishF = null, bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
+    const door = doorOf(a), cands = []; let wishV = 0, wishF = null, bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
     for (let k = 0; k < 10; k++) {
       const far = -reachOf(a) * Math.log(1 - rnd() * 0.999), ang = rnd() * 6.2832;
       const x = clamp(Math.round(door.x + Math.cos(ang) * far), 0, N - 1),
@@ -1131,7 +1169,7 @@ function create(seed, opt) {
       if (water[j]) { if (T.skills.fish) { v = fish[j] * 1.1 * (tempAt(j) < -3 ? 0.65 : 1) * a.skill.fish * (a.job === 'fisher' ? 1.5 : 1); kd = 'fish'; } }
       else { v = (fruit[j] * 1.6 + grass[j] * 0.12 * (1 - snowBlock(j, d.mass))) * a.skill.gather * (a.job === 'gatherer' || a.job === 'farmer' ? 1.3 : 1); kd = 'plant'; }
       if (!dd && v > 0 && mass[I(door.x, door.y)] !== mass[j]) { const wh = wayDist(door.x, door.y, x, y, true); if (wh.ford) { const vh = v / (1 + wh.d / (WALK * pace)); if (vh > wishV) { wishV = vh; wishF = wh.ford; } } }
-      v *= dd; if (v > bestV) { bestV = v; bx = x; by = y; kind = kd; bestE = dd; }
+      v *= dd; if (v > 0) cands.push([v, x, y, kd]); if (v > bestV) { bestV = v; bx = x; by = y; kind = kd; bestE = dd; }
     }
     if (wishF && wishV > bestV * 1.3) wishCross(wishF);
     /* nothing worth the walk near enough, and still hungry: next time they look further. Fed, they keep closer to home */
@@ -1191,32 +1229,17 @@ function create(seed, opt) {
       }
       return;
     }
-    if (kind) {
-      const j = I(bx, by), eff = TPY * dt * S.dayK * bestE / (1 + tree[j] * tree[j] * 1.2);
-      walk(door.x, door.y, bx, by, 0.03);
-      { const w = wayDist(door.x, door.y, bx, by); S.stat.forageD += w.d; S.stat.forageN++; crossed(w); a.tripD = w.d; }
-      if (kind === 'fish') {
-        const take = Math.min(fish[j] * 0.5, 0.31 * eff * a.skill.fish * (a.job === 'fisher' ? 1.3 : 1)) * (tempAt(j) < -3 ? 0.65 : 1);
-        practise(a, 'fish');
-        fish[j] -= take;
-        bring(a, take * 1.5);
-        T.got.fish += take * 1.5;
-        T.eff.fish++;
-        if (a.act.k === 'idle') a.act = { k: 'fish', x: bx, y: by, got: take };
-      }
-      else {
-        practise(a, 'gather');
-        const tf = Math.min(fruit[j], 0.24 * eff * a.skill.gather * (a.job === 'gatherer' ? 1.3 : 1));
-        fruit[j] -= tf;
-        const tg = Math.min(grass[j] * 0.3, 0.08 * eff) * (1 - snowBlock(j, d.mass));
-        grass[j] -= tg;
-        bring(a, tf * 1.6 + tg * 0.5);
-        T.got.gather += tf * 1.6 + tg * 0.5;
-        T.eff.gather++;
-        if (a.act.k === 'idle') a.act = { k: 'gather', x: bx, y: by, fruit: tf > 0.01 ? 1 : 0, got: tf * 1.6 + tg * 0.5 };
-      }
-      if (rnd() < 0.5) { a.x = bx; a.y = by; } else { a.x = clamp(door.x + ((rnd() * 5) | 0) - 2, 0, N - 1); a.y = clamp(door.y + ((rnd() * 5) | 0) - 2, 0, N - 1); }
-      if (water[I(a.x, a.y)] || mass[I(a.x, a.y)] !== mass[I(door.x, door.y)] && !wayDist(door.x, door.y, a.x, a.y).bridged) { a.x = door.x; a.y = door.y; }   /* never set down over water from the door */
+    /* the best few places, in order: the first whose real way is not far longer than it looked is gone to */
+    cands.sort((p, q) => q[0] - p[0]);
+    for (const [, cx, cy, ck] of cands.slice(0, 3)) {
+      const j = I(cx, cy);
+      /* where to stand: the place itself, or for fish the bank beside the water on this side */
+      let sj = j; if (water[j]) { sj = -1; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N && !water[I(nx, ny)] && mass[I(nx, ny)] === mass[I(door.x, door.y)]) { sj = I(nx, ny); break; } } }
+      if (sj < 0) continue;
+      const rt = route(a.x, a.y, sj % N, (sj / N) | 0, a);
+      if (!rt.reached || rt.tiles.length > 1.6 * Math.max(4, Math.hypot(a.x - sj % N, a.y - ((sj / N) | 0))) + 2) continue;
+      walk(door.x, door.y, cx, cy, 0.03); { const w = wayDist(door.x, door.y, cx, cy); crossed(w); a.tripD = w.d; }
+      a.trip = { kind: ck, j: sj, phase: 'out', path: rt.tiles, load: 0, walked: 0 }; runTrip(a, d, pace, budget); break;
     }
     // a strong camp drives off whatever would hunt it
     const w = a.e < 0.9 ? null : nearest(a, 2, b => !b.hidden && canTake(b, a));
@@ -1771,7 +1794,7 @@ function create(seed, opt) {
             if (!a.fem || a.age < WED || a.age > 42 || !(hm ? (hm.larder || 0) >= 0.9 * (hm.members || 2) + 0.5 || T.store >= 1.1 * S.pop[a.sp] + 1 : T.store >= 1.1 * S.pop[a.sp] + 1)) continue;
           }
           const q = S.byId.get(a.partner);
-          if (!q || !q.alive || cheb(q, a) > 3) continue;
+          if (!q || !q.alive || (a.house ? q.house !== a.house : cheb(q, a) > 3)) continue;   /* a couple under one roof (they are not side by side all day) */
           if (childrenOf(a).filter(c => c.age < GROWN).length >= 3) continue;
         }   // a household can carry only so many small children at once
         else {
