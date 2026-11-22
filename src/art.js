@@ -405,6 +405,16 @@ function onStilts(img) {
   x.fillStyle = '#a8855c'; x.fillRect(0, base - 9, Math.round(w * 0.3), 2); x.fillStyle = '#5a3f2a'; x.fillRect(1, base - 7, 2, 7); x.fillRect(Math.round(w * 0.3) - 3, base - 7, 2, 7);   // a landing for the boat
   x.drawImage(img, 4, 0); return c;
 }
+// a run of sharpened stakes across one tile, along one of the two ground directions; and the two posts of a gate
+function fenceSprite(alongX, gate) {
+  const W = 38, H = 36, c = mk(W, H), x = c.getContext('2d'), n = gate ? 2 : 7;
+  for (let k = 0; k < n; k++) {
+    const t = gate ? (k ? 0.92 : 0.08) : (k + 0.5) / n, px = Math.round(alongX ? 3 + t * 30 : 33 - t * 30), py = Math.round(14 + t * 15), tall = gate ? 20 : 13 + (k % 2);
+    for (let yy = 0; yy < tall; yy++) { const w = yy === 0 ? 1 : yy === 1 ? 2 : 3; x.fillStyle = yy < 3 ? '#c9a779' : (yy % 5 === 4 ? '#6e5137' : alongX ? '#8a6a48' : '#a07c54'); x.fillRect(px - (w >> 1), py - tall + yy, w, 1); }
+  }
+  if (!gate) { x.fillStyle = '#5a3f2a'; for (let k = 0; k < 30; k++) x.fillRect(alongX ? 3 + k : 33 - k, Math.round(14 + (k / 30) * 15) - 6, 1, 1); }   // the tie rail
+  return outlineCanvas(c, OUT);
+}
 function outlineCanvas(c, col) {
   const w = c.width, h = c.height, x = c.getContext('2d'), d = x.getImageData(0, 0, w, h), a = d.data, on = (xx, yy) => xx >= 0 && yy >= 0 && xx < w && yy < h && a[(yy * w + xx) * 4 + 3] > 0, add = [];
   for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) if (!on(xx, yy) && (on(xx - 1, yy) || on(xx + 1, yy) || on(xx, yy - 1) || on(xx, yy + 1))) add.push(xx, yy);
@@ -553,7 +563,7 @@ function build() {
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
   A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
-  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
+  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
   A.fire = fire.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.flame = flame.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.basket = sprite(basket, BASK, { x2: true }); A.bones = sprite(bones, BONE, { x2: true });
   A.bubble = {}; for (const k in ICON) A.bubble[k] = bubble(ICON[k]);
   A.item = {}; for (const k in ITEMS) A.item[k] = sprite(ITEMS[k][0], ITEMS[k][1]); A.item.basket = sprite(basket, BASK);

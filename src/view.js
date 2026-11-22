@@ -164,6 +164,8 @@ function wantProps() {
   }
   for (const h of S.homes.values()) { const snowy = W.snow[h.y * N + h.x] > 0.08; want.set('h' + h.id, { kind: h.kind, home: h, x: h.x + 0.5, y: h.y + 0.5, base: h.kind + snowy, img: h.kind === 'den' ? (snowy ? A.denSnow : A.den) : (snowy ? A.burrowSnow : A.burrow), dy: h.kind === 'den' ? 10 : 6 }); }
   const piles = campOn ? Math.min(6, Math.ceil(T0.store / 7)) : 0; for (let k = 0; k < piles; k++) want.set('k' + k, { kind: 'basket', x: store.x + (k % 3) * 0.22 - 0.2, y: store.y + ((k / 3) | 0) * 0.25, base: 'k', img: A.basket, dy: 6 });
+  // the fence, as far as it has been driven; a gate wherever a street goes through
+  if (campOn && T0.wall) { const w = T0.wall; for (let k = 0; k < Math.min(w.n, w.cells.length); k++) { const c = w.cells[k], fx = c % N, fy = (c / N) | 0, alongX = fy === w.y0 || fy === w.y1, gate = T0.road[c]; want.set('f' + c, { kind: 'fence', i: c, x: fx + 0.5, y: fy + 0.5, base: 'f' + alongX + gate, img: gate ? (alongX ? A.gateX : A.gateY) : (alongX ? A.fenceX : A.fenceY), dy: 14 }); } }
   const logs = campOn ? Math.min(6, Math.ceil(T0.wood / 2)) : 0; for (let k = 0; k < logs; k++) want.set('w' + k, { kind: 'logs', x: store.x - 0.3 + (k % 3) * 0.14, y: store.y + 0.45 + ((k / 3) | 0) * 0.12, base: 'w', img: A.item.log, dy: 2 });
   if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) want.set('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
   if (campOn && T0.skills.fire) want.set('ring', { kind: 'ring', x: fire.x, y: fire.y, base: 'ring', img: A.ring, dy: 4 });
@@ -339,6 +341,8 @@ function planPerson(r, phase, pi) {
       break;
     }
     case 'flee': { r.bub = 'afraid'; r.bubT = now; P.go(end.x, end.y, SPEED.person.run, 'run'); P.done('look', { at: act.id }); return; }
+    case 'patrol': { const p1 = near(camp.x, camp.y, campR() + 1.5), p2 = near(camp.x, camp.y, campR() + 1.5); P.go(p1.x, p1.y, sp); P.wait(0.12, 'look'); P.go(p2.x, p2.y, sp); P.wait(0.1, 'look'); break; }
+    case 'fence': { const fx0 = act.j % N + 0.5, fy0 = ((act.j / N) | 0) + 0.5; P.go(store.x - 0.3, store.y + 0.45, sp); P.go(fx0, fy0 + 0.3, sp * 0.8, 'carry', { item: 'log' }); P.done('work', { fx: 'hammer', lx: fx0, ly: fy0 }); return; }
     case 'shelter': home(); return;
     case 'watch': { const s = seat(pi); P.go(s.x, s.y, sp); P.done('sit'); return; }   // the night watch, awake by the fire
     case 'mourn': { const s = seat(pi); r.bub = 'grief'; r.bubT = now + 800; P.go(s.x, s.y, sp * 0.7); P.done('sit'); return; }                                    // foul weather: indoors
@@ -805,6 +809,19 @@ for (const [id, label] of [['hand', 'Hand'], ['rain', 'Rain'], ['sun', 'Sun'], [
 }
 const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 3, 8, 0]; bS2.onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; bS2.textContent = speed === 0 ? 'II' : speed + 'x'; };
 { const el = document.getElementById('lands'); if (el) for (const k in W.LANDS) { const b = document.createElement('button'); b.className = 'btn land' + (k === W.land ? ' sel' : ''); b.textContent = k; b.onclick = () => { const q = new URLSearchParams(location.search); q.set('land', k); location.search = q.toString(); }; el.appendChild(b); } }
+// what the place has become and what its people know: a panel that opens from the corner
+{ const el = document.getElementById('know'), btn = document.getElementById('bKnow');
+  const fill = () => {
+    const names = ['A camp', 'A hamlet', 'A village', 'A town'], jobs = {}; let grown = 0; for (const a of S.agents) if (a.alive && a.d.people) { if (a.age >= 13) grown++; if (a.job) jobs[a.job] = (jobs[a.job] || 0) + 1; }
+    const known = Object.keys(W.TECHS).filter(k => T0.skills[k]), basics = ['fire', 'farm', 'hut', 'house', 'well', 'herd', 'wheel'].filter(k => T0.skills[k]);
+    const next = Object.keys(W.TECHS).filter(k => !T0.skills[k] && W.TECHS[k].needs.every(q => T0.skills[q]));
+    el.innerHTML = '<b>' + names[T0.level] + ' of ' + S.popPeople + '</b>, year ' + Math.floor(S.t) + '<br>' + T0.huts + ' roofs' + (T0.wall ? (T0.wall.done ? ', fenced' : ', fence going up') : '') + (T0.carts ? ', ' + T0.carts + ' cart' + (T0.carts > 1 ? 's' : '') : '')
+      + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none yet: everyone does everything') + '</p>'
+      + '<p><b>Known</b><br>' + (basics.concat(known).join(', ') || 'only what they came with') + '</p>'
+      + '<p><b>Working out</b><br>' + (T0.study ? T0.study + ' (' + Math.min(99, Math.round(100 * T0.know / W.TECHS[T0.study].cost)) + '%)' : 'nothing they have a use for yet') + '</p>'
+      + (next.length ? '<p><b>Within reach</b><br>' + next.join(', ') + '</p>' : '');
+  };
+  if (el && btn) { btn.onclick = () => { const open = el.style.display !== 'block'; el.style.display = open ? 'block' : 'none'; if (open) fill(); }; setInterval(() => { if (el.style.display === 'block') fill(); }, 1500); } }
 document.getElementById('begin').onclick = () => { document.getElementById('intro').style.display = 'none'; paused = false; };
 document.getElementById('bHelp').onclick = () => { document.getElementById('intro').style.display = 'flex'; paused = true; };
 addEventListener('resize', resize); resize();

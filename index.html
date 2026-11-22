@@ -16,11 +16,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:#27412a;font-family:ui
 #card{background:var(--paper);border:3px solid var(--line);border-radius:9px;max-width:400px;width:100%;padding:18px 18px 16px;box-shadow:0 5px 0 rgba(59,43,31,.5)}
 #card h1{margin:0 0 4px;font-size:28px;letter-spacing:.04em}#card p{margin:8px 0;font-size:14px;line-height:1.35}
 #card ul{margin:8px 0;padding-left:18px;font-size:13.5px;line-height:1.4}#card li{margin:3px 0}
+#know{display:none;position:fixed;right:8px;top:calc(48px + env(safe-area-inset-top));width:230px;max-height:70vh;overflow:auto;background:var(--paper);border:2px solid var(--line);border-radius:7px;padding:10px 12px;font-size:12.5px;line-height:1.35;box-shadow:0 3px 0 rgba(59,43,31,.5);z-index:4}#know p{margin:8px 0 0}
 #lands{display:flex;flex-wrap:wrap;gap:6px}.land{text-transform:capitalize}.land.sel{background:var(--gold)}
 #begin{font:inherit;font-weight:600;font-size:15px;margin-top:8px;padding:9px 18px;background:var(--gold);border:2px solid var(--line);border-radius:7px;color:var(--ink);width:100%}
 </style></head><body>
 <canvas id="cv"></canvas>
-<div id="side"><button class="btn" id="bSpeed">1x</button><button class="btn" id="bHelp">?</button></div>
+<div id="side"><button class="btn" id="bSpeed">1x</button><button class="btn" id="bKnow">Town</button><button class="btn" id="bHelp">?</button></div>
+<div id="know"></div>
 <div id="news"></div><div id="tools"></div>
 <div id="intro"><div id="card"><h1>Eden</h1>
 <p>A family in a valley. Nothing here is scripted: warmth, water and hunger decide everything. Watch for a while: people fish, pick, carry and build, children play, animals graze, rest together, raise their young and hunt.</p>
