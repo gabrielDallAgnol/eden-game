@@ -23,6 +23,10 @@ Then open http://localhost:8765 (add `?seed=7` for a fixed valley). It has to be
 - **People:** named individuals with parents, partners, children, households and crafts they improve at (see `src/sim.js`, "people are someone").
 - **Village:** a tent of hides first, then huts once a winter has been spent under hides, then timber-and-stone houses when the camp is large. Each goes up in stages that wait for timber and stone carried to the plot. Dwellings near water stand on posts; a well is dug once there are several roofs; paths wear between the fire, the doors and the water.
 
+## Checking it still works
+
+Open http://localhost:8765/tests.html while the folder is being served. It runs fixed-seed worlds for 40 years each and checks invariants (nobody in water, no two buildings on one tile, stocks never negative, the same seed gives the same history, and so on). Options go in the address, e.g. `?years=10&seeds=1,2&lands=valley,highland`.
+
 ## Where it is going
 
 `docs/ARCHITECTURE.md` has the two design rules (causes decide what, where and when; fixed forms decide how it sits on the ground), the target data model and the roadmap from camp to city.

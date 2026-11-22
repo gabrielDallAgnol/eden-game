@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eden tests</title>
+<style>
+body{margin:16px;font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;color:#222;background:#fff}
+h1{font-size:20px;margin:0 0 8px}
+#summary{font-size:16px;font-weight:600;margin:8px 0;padding:6px 10px;border-left:5px solid #999;background:#f3f3f3}
+#summary.pass{border-color:#2a7d3b;background:#e9f5ec}#summary.warn{border-color:#b07a00;background:#fbf3dc}#summary.fail{border-color:#b3261e;background:#fbe9e7}
+#progress,#config,.hint{color:#555;margin:4px 0}
+button{font:inherit;padding:5px 14px}
+table{border-collapse:collapse;width:100%;margin-top:12px}
+td,th{border:1px solid #ddd;padding:3px 8px;text-align:left;vertical-align:top}
+thead th{background:#eee}
+tr.world th{background:#f6f6f6;font-weight:600;padding-top:8px}
+td.status{font-weight:600;white-space:nowrap}td:first-child{white-space:nowrap}
+tr.pass td.status{color:#2a7d3b}tr.fail td.status{color:#b3261e}tr.warn td.status{color:#8a5f00}tr.skip td.status{color:#777}
+tr.fail{background:#fdf1ef}tr.warn{background:#fdf8e8}
+td.detail{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-word}
+label{margin-left:12px;color:#555}
+body.problems tr.pass{display:none}
+</style></head><body>
+<h1>Eden invariants</h1>
+<div id="summary">Not run yet</div>
+<div><button id="run">Run</button><label><input type="checkbox" id="only"> show only failures, warnings and skips</label></div>
+<div id="progress"></div>
+<div id="config"></div>
+<div class="hint">FAIL is a broken invariant. WARN is a soft expectation that did not hold. SKIP means the field a check needs is not there. Options in the address: ?years=10&amp;seeds=1,2&amp;lands=valley,highland&amp;det=0</div>
+<table><thead><tr><th>World</th><th>Result</th><th>Check</th><th>Detail</th></tr></thead><tbody id="results"></tbody></table>
+<script src="src/sim.js"></script>
+<script src="tests/invariants.js"></script>
+<script>
+document.getElementById('only').addEventListener('change', function () { document.body.classList.toggle('problems', this.checked); });
+</script>
+</body></html>
