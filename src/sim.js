@@ -761,6 +761,8 @@ function create(seed, opt) {
           if (shut(a, nx, ny)) return;
         }
       }
+      /* no squeezing through the corner between two shut tiles: a diagonal step needs both sides open */
+      if (nx !== a.x && ny !== a.y && (shut(a, nx, a.y) || shut(a, a.x, ny))) { if (!shut(a, nx, a.y)) ny = a.y; else if (!shut(a, a.x, ny)) nx = a.x; else return; }
       a.x = nx; a.y = ny;
     }
   }
@@ -1089,7 +1091,7 @@ function create(seed, opt) {
       if (hm && hm.larder > 0.05) { const t = Math.min(hm.larder, want); hm.larder -= t; a.e += t; want -= t; }
       if (want > 0.05 && T.store > 0.05 && dist <= 2) { const t = Math.min(T.store, want); T.store -= t; a.e += t; }
       else if (want > 0.05 && a.e < 0.4 && T.store > want && a.age >= SMALL && !S.night) {
-        stepTo(a, T.x, T.y, 40); if (Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= 2) { const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return; }   /* the way may be barred by water */
+        if (route(a.x, a.y, T.x, T.y, a, 80).reached) { a.x = T.x; a.y = T.y; const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return; }   /* only if there is a way to the fire */
       }
     }
     if (a.age < SMALL) { stepTo(a, T.x, T.y, 1); a.act = { k: S.night ? 'sleep' : a.age < 2 ? 'baby' : 'play' };
