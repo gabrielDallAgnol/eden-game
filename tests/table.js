@@ -35,6 +35,8 @@ var COLS = [
   /* B6: quarry trips per stone dwelling raised for the first time, and raised again after a flood */
   ['quarry/new', function (W) { var s = W.S.stat; return s.newN ? s.newTrips / s.newN : ''; }],
   ['quarry/flooded', function (W) { var s = W.S.stat; return s.reN ? s.reTrips / s.reN + ' (' + s.reN + ')' : ''; }],
+  /* B8: what households' working days went to last year, summed over households (forage/hunt/wood/timber/stone/home), in % */
+  ['days: food/hunt/wood/build/home %', function (W) { var t = {}, n = 0; W.S.tribe.sites.forEach(function (q) { if (!q.tripsLast) return; for (var k in q.tripsLast) { t[k] = (t[k] || 0) + q.tripsLast[k]; n += q.tripsLast[k]; } }); if (!n) return ''; var p = function (k) { return Math.round(100 * (t[k] || 0) / n); }; return p('forage') + '/' + p('hunt') + '/' + p('wood') + '/' + (p('timber') + p('stone') + p('build')) + '/' + p('home'); }],
   ['bridges', function (W) { return Object.keys(W.S.tribe.bridged || {}).length; }],
   ['homes across water', function (W) { if (!W.mass) return ''; var T = W.S.tribe, m = W.mass[T.y * W.N + T.x]; return T.sites.filter(function (q) { return q.kind !== 'well' && W.mass[q.y * W.N + q.x] !== m; }).length; }]
 ];

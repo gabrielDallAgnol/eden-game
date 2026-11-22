@@ -870,8 +870,17 @@ function create(seed, opt) {
   }
 
   // ---------------------------------------------------------------- people
+  // Trips. Each working step of a grown member of a household is one trip, counted by where it went and how far, for the
+  // year; last year's counts are what a household knows about its own days (phase I weighs where to live with them).
+  const TRIP_OF = { gather: 'forage', fish: 'forage', hunt: 'hunt', chop: 'timber', quarry: 'stone', build: 'build', fence: 'build', wood: 'wood', eat: 'store', guard: 'guard', patrol: 'guard' };
+  function tally(a) {
+    if (S.night || a.age < 13 || a.age > 46 || !a.alive) return; const h = homeSite(a); if (!h) return;
+    const k = a.act ? (a.act.k === 'haul' ? (a.act.item === 'stone' ? 'stone' : 'timber') : TRIP_OF[a.act.k] || 'home') : 'home';
+    if (!h.trips) { h.trips = {}; h.tripD = {}; h.workDays = 0; }
+    h.trips[k] = (h.trips[k] || 0) + 1; h.tripD[k] = (h.tripD[k] || 0) + (a.tripD || 0); h.workDays++;
+  }
   function person(a, d, dt) {
-    a.wood = -1; const T = S.tribe, dist = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)), pop = S.pop[a.sp];
+    a.wood = -1; a.tripD = 0; const T = S.tribe, dist = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)), pop = S.pop[a.sp];
     // eating: from their own larder, at home. What is held in common by the fire is eaten only at the fire: someone whose
     // own larder is empty walks over to it, and that is their day. When there is little, the grown go short so the children eat.
     const hm = homeSite(a), mouths = hm ? hm.members || 1 : pop, short = a.age >= 13 && T.kidsHungry && (hm ? (hm.larder || 0) < mouths * 0.5 : T.store < pop * 0.5);
@@ -953,7 +962,7 @@ function create(seed, opt) {
           const w = wayDist(hearth.x, hearth.y, j % N, (j / N) | 0);
           const ef = 1 / (1 + w.d / (WALK * pace * (1 + 0.5 * w.road)));
           hearth.fuel = (hearth.fuel || 0) + ef;
-          S.stat.fuelD += w.d; S.stat.fuelN++; crossed(w);
+          S.stat.fuelD += w.d; S.stat.fuelN++; crossed(w); a.tripD = w.d;
           walk(hearth.x, hearth.y, j % N, (j / N) | 0, 0.02);
           a.wood = j;
           /* a short trip leaves the rest of the day for finding food; a long one takes the day */
@@ -1033,7 +1042,7 @@ function create(seed, opt) {
     if (kind) {
       const j = I(bx, by), eff = TPY * dt * S.dayK * bestE / (1 + tree[j] * tree[j] * 1.2);
       walk(door.x, door.y, bx, by, 0.03);
-      { const w = wayDist(door.x, door.y, bx, by); S.stat.forageD += w.d; S.stat.forageN++; crossed(w); }
+      { const w = wayDist(door.x, door.y, bx, by); S.stat.forageD += w.d; S.stat.forageN++; crossed(w); a.tripD = w.d; }
       if (kind === 'fish') {
         const take = Math.min(fish[j] * 0.5, 0.31 * eff * a.skill.fish * (a.job === 'fisher' ? 1.3 : 1)) * (tempAt(j) < -3 ? 0.65 : 1);
         practise(a, 'fish');
@@ -1211,7 +1220,7 @@ function create(seed, opt) {
       if (bj < 0) return false;
       tree[bj] -= Math.min(tree[bj], 0.16);
       const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
-      { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.timberD += w.d; S.stat.timberN++; crossed(w); }
+      { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.timberD += w.d; S.stat.timberN++; crossed(w); a.tripD = w.d; }
       T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
       a.act = { k: 'chop', j: bj, site: s.id };
       sound(bj % N, (bj / N) | 0, 3.5, 'work');
@@ -1230,7 +1239,7 @@ function create(seed, opt) {
       if (bq < 0 && bc < 0) return false;
       const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
       const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
-      { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.stoneD += w.d; S.stat.stoneN++; crossed(w); }
+      { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.stoneD += w.d; S.stat.stoneN++; crossed(w); a.tripD = w.d; }
       const brought = (got + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef * (got === 2 ? 1 - 0.5 * pit[bj] : 1);
       T.stone += brought;
       if (got === 2) { const dug = Math.min(rock[bj], brought / STONE_PER_TILE); rock[bj] -= dug; pit[bj] = Math.min(1, pit[bj] + dug); S.stat.pitD += wayDist(T.x, T.y, bj % N, (bj / N) | 0, true).d; S.stat.pitN++; }
@@ -1397,6 +1406,7 @@ function create(seed, opt) {
       if (bf) { T.bridge = { key: bf.key, ax: bf.ax, ay: bf.ay, bx: bf.bx, by: bf.by, horiz: bf.horiz, tiles: bf.tiles.slice(), need: 3 * bf.w, wood: 0, done: false }; N_.cross *= 0.5; }
     }
     T.fordUse = {};
+    for (const q of T.sites) { q.tripsLast = q.trips || {}; q.tripDLast = q.tripD || {}; q.workDaysLast = q.workDays || 0; q.trips = {}; q.tripD = {}; q.workDays = 0; }
     /* worked-out pits: on wet ground the water comes up and a pond forms, with a few fish in time; elsewhere the hole is
        used for spoil and settles, over twenty years or so, into poor ground that can be built on */
     let pond = false;
@@ -1577,7 +1587,7 @@ function create(seed, opt) {
       if (flood[i]) { a.e -= 1.2 * dt; if (rnd() < 0.6 * dt) { die(a, 'drowned'); continue; } roam(a, 3, 2); }
       if (burn[i] > 0) { if (rnd() < 0.5) { die(a, 'burned'); continue; } a.e -= 0.1; roam(a, 3, 3); }
       const e0 = a.e;
-      if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) person(a, d, dt); else animal(a, d, dt);
+      if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) { person(a, d, dt); tally(a); } else animal(a, d, dt);
       if (!a.mood) a.mood = a.e < 0.3 ? 'hungry' : a.e > e0 + 0.02 ? 'fed' : '';
       if (a.alive && a.e <= 0) { die(a, Tc < d.comfort ? 'cold and hunger' : 'hunger'); continue; }
       // --- young are born to a well-fed mother when the air is warm enough for them

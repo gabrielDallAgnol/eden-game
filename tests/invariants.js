@@ -78,6 +78,7 @@ function WorldRun(land, seed, years) {
   add('dryAlways', 'no living creature is on a water tile after any tick');
   add('problems', 'the sim reports no defects in S.problems');
   add('pitFree', 'no lot or field on a quarry pit (B5)');
+  add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
   add('fieldBank', 'every field lies on the same bank as the household that sows it');
   add('agentNums', 'each creature\'s energy and age are finite, age is not negative');
@@ -263,6 +264,11 @@ WorldRun.prototype.yearly = function () {
     for (var i = 0; i < N * N; i++) if (W.pit[i] > 0.1 && W.field[i]) { bad++; if (!ex) ex = 'field on a pit at ' + (i % N) + ',' + ((i / N) | 0); }
     sites.forEach(function (q) { if (q.kind !== 'well' && W.pit[q.y * N + q.x] > 0.1) { bad++; if (!ex) ex = q.kind + ' on a pit at ' + q.x + ',' + q.y; } });
     if (bad) c.fail(at + bad + ', e.g. ' + ex); else c.ok();
+  });
+  this.guard('tripSum', function (c) {
+    if (!sites) return c.skip('no sites'); var bad = [], seen = 0;
+    sites.forEach(function (q) { if (!q.tripsLast) return; seen++; var sum = 0; for (var k in q.tripsLast) sum += q.tripsLast[k]; if (sum !== q.workDaysLast) bad.push(q.kind + ' at ' + q.x + ',' + q.y + ': trips ' + sum + ', work days ' + q.workDaysLast); });
+    if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else if (seen) c.ok(); else c.skip('no household has a year of trips yet');
   });
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');
