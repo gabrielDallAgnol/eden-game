@@ -13,9 +13,9 @@ A cozy isometric pixel-art valley sim.
 
 No build step and no dependencies: it is plain JavaScript served as static files.
 
-    python3 -m http.server 8765
+    python3 serve.py
 
-Then open http://localhost:8765 (add `?seed=7` for a fixed valley). It has to be served, not opened as a file, because the sprites are fetched.
+Then open http://localhost:8765 (add `?seed=7` for a fixed valley). It has to be served, not opened as a file, because the sprites are fetched. `serve.py` also stops the browser caching the scripts, so edits always load.
 
 ## What is in it
 
@@ -26,6 +26,10 @@ Then open http://localhost:8765 (add `?seed=7` for a fixed valley). It has to be
 ## Checking it still works
 
 Open http://localhost:8765/tests.html while the folder is being served. It runs fixed-seed worlds for 40 years each and checks invariants (nobody in water, no two buildings on one tile, stocks never negative, the same seed gives the same history, and so on). Options go in the address, e.g. `?years=10&seeds=1,2&lands=valley,highland`.
+
+## Building it further
+
+`docs/PLAN.md` is the ordered implementation plan, with how to work on the code and how each step is checked. `CLAUDE.md` holds the working rules.
 
 ## Where it is going
 
