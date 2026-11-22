@@ -1024,7 +1024,7 @@ function create(seed, opt) {
   // again with the load, which goes into the larder on arrival. A grown person walks PACE tiles in a step; what is left of
   // a step after walking is worked, and a step that ends at the door can start the next trip. So distance costs time
   // because it takes time, not by a factor.
-  const PACE = 12;
+  const PACE = 20;   /* tiles a grown person walks in a step: set so populations match the walking factor it replaces (E2) */
   function workAt(a, d, j, kind, budget) {
     const T = S.tribe, eff = TPY * (1 / TPY) * S.dayK * budget / (1 + tree[j] * tree[j] * 1.2);
     if (kind === 'fish') {

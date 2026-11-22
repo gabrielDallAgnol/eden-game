@@ -585,6 +585,16 @@ UNITS.push(['strike hits the creature aimed at wherever it is; a pile set down b
   if (!p) out.push('no meat left'); else { var s0 = T.store, amt = p.amt; W.G.movePile(p.x, p.y, 'meat', T.x, T.y); if (!(T.store > s0 + amt - 0.01)) out.push('store went ' + s0.toFixed(2) + ' to ' + T.store.toFixed(2)); }
   return out.join('; ');
 }]);
+UNITS.push(['people are where their work is: at the place they gather, beside the water they fish, at the door when they bring food home (E2)', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley', size: 96 }), N = W.N, i, bad = [], seen = 0;
+  for (i = 0; i < 24 * 6; i++) W.tick();
+  for (i = 0; i < 24 * 4; i++) { W.tick(); W.S.agents.forEach(function (a) { if (!a.alive || !a.d.people || !a.act) return; var k = a.act.k;
+    if (k === 'gather' && (a.x !== a.act.x || a.y !== a.act.y)) bad.push(a.name + ' gathers at ' + a.act.x + ',' + a.act.y + ' but stands at ' + a.x + ',' + a.y);
+    if (k === 'fish' && Math.max(Math.abs(a.x - a.act.x), Math.abs(a.y - a.act.y)) > 1) bad.push(a.name + ' fishes ' + a.act.x + ',' + a.act.y + ' from ' + a.x + ',' + a.y);
+    if (k === 'home') { var h = W.S.tribe.sites.filter(function (q) { return q.id === a.house; })[0], d = h || W.S.tribe; if (a.x !== d.x || a.y !== d.y) bad.push(a.name + ' brought food home but stands at ' + a.x + ',' + a.y); }
+    if (k === 'gather' || k === 'fish' || k === 'home') seen++; }); }
+  return bad.length ? bad.length + ' of ' + seen + ': ' + bad.slice(0, 2).join('; ') : (seen ? '' : 'no gathering or fishing seen');
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }
