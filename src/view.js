@@ -92,6 +92,7 @@ const C = {
   shadeA: rgb('#4f7f3a'), shadeB: rgb('#447035'), flowerW: rgb('#fbf4e2'), flowerY: rgb('#f3d24f'), flowerP: rgb('#e08fb8'), flowerR: rgb('#d9523f'),
   snow: rgb('#f6f9fc'), snow2: rgb('#e3ebf5'), snow3: rgb('#cddaea'), frost: rgb('#dfeadf'),
   furrow: rgb('#5f4630'), tilled: rgb('#8c6c47'), crop1: rgb('#8fbf52'), crop2: rgb('#c2c957'), crop3: rgb('#e6c453'), stubble: rgb('#cdb06c'),
+  yard1: rgb('#a3906a'), yard2: rgb('#968460'), floor: rgb('#7b6a4e'),
   pitRim: rgb('#8c7a62'), pit1: rgb('#6b5c4b'), pit2: rgb('#55493d'), pit3: rgb('#41372f'), pitFloor: rgb('#4f5a56'),
   ash: rgb('#3a3432'), ash2: rgb('#5a5350'), ember: rgb('#c9552c'), floodA: rgb('#6aa3b0'), floodB: rgb('#7bb2bb'),
   path1: rgb('#b49a6c'), path2: rgb('#a3875a'), pathEdge: rgb('#9a9a55'),
@@ -115,6 +116,9 @@ const BN = N * 8, CB = 16 * 8,
   bHt = mkB(),
   roadF = new Float32Array(N * N);
 const knownF = new Float32Array(N * N);
+/* the ground a building takes: its whole lot is a trodden yard, the floor under the roof bare earth (1 = yard, 2 = floor) */
+const lotMask = new Uint8Array(N * N);
+function syncLots() { lotMask.fill(0); for (const q of S.tribe.sites) { const well = q.kind === 'well'; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = q.x + dx, y = q.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = y * N + x; if (W.water[i]) continue; if (!dx && !dy) lotMask[i] = 2; else if (!well && !W.field[i]) lotMask[i] = Math.max(lotMask[i], 1); } } }
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
 let cbx = 0, cby = 0, cbFor = null;
@@ -202,6 +206,8 @@ function colorAt0(pxx, py) {
   /* a quarry pit: stepped terraces down to its floor, deeper the more stone has been taken */
   { const pd = W.pit ? W.pit[ci] : 0;
     if (pd > 0.04) { const e = Math.max(Math.abs(fx % 1 - 0.5), Math.abs(fy % 1 - 0.5)) * 2, inner = 1 - e; if (inner < 0.12 + 0.5 * pd) { const lv = Math.floor(inner / 0.12); col = e > 0.92 ? C.pitRim : lv <= 0 ? C.pitRim : lv === 1 ? C.pit1 : lv === 2 ? C.pit2 : pd > 0.7 && lv >= 4 ? C.pitFloor : C.pit3; } } }
+  /* the yard of a building and the floor under it */
+  { const lm = lotMask[ci]; if (lm === 2) col = n2 > 200 ? C.yard2 : C.floor; else if (lm === 1) col = n2 > 215 ? C.yard2 : C.yard1; }
   // footpaths worn by people, and the trodden ground of the camp
   if (!W.field[ci]) {
     let worn = bTr[b] + jn * 0.16;
@@ -234,7 +240,7 @@ function chunkSig(ch) {
   let h = (gRipe * 8 | 0) * 7 + (gWarm ? 3 : 0) + (campOn ? 5 : 0) + T0.pave * 11;
   /* what grows and lies on the ground: the chunk's average of each, in steps of 1/24; things that are or are not there
      (ways, fields, pits, water): tile by tile */
-  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field, W.known], sum = new Float64Array(soft.length + 1);
+  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field, W.known, lotMask], sum = new Float64Array(soft.length + 1);
   let n = 0;
   for (let y = ch.j * CT; y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = ch.i * CT; x < Math.min(N, (ch.i + 1) * CT + 1); x++) {
     const i = y * N + x; n++;
@@ -251,6 +257,7 @@ function startPaint() {
   /* a pit that filled into a pond changes the water itself */
   if ((S.stat && S.stat.ponds || 0) !== waterSeen) { waterSeen = S.stat.ponds; for (let i = 0; i < N * N; i++) waterF[i] = W.water[i]; }
   for (let i = 0; i < N * N; i++) roadF[i] = T0.road[i];
+  syncLots();
   cbFor = null;   /* the smoothed fields are taken afresh, chunk by chunk, as each is painted */
   for (let i = 0; i < N * N; i++) cellT[i] = W.tempAt(i);
   groundState();
@@ -344,11 +351,11 @@ function wantProps() {
     const tr = W.tree[i], h0 = hash(i, 1), jx = (hash(i, 2) - 0.5) * 0.5, jy = (hash(i, 3) - 0.5) * 0.5, T = W.tempAt(i), snowy = W.snow[i] > 0.08;
     const inCamp = campOn && Math.hypot(x + 0.5 - camp.x, y + 0.5 - camp.y) < cR, px = x + 0.5 + jx, py = y + 0.5 + jy;
     const lag = hash(i, 9) * 0.1;                                          // each spot sprouts and fills out at its own pace
-    if (tr >= 0.06 + lag && !inCamp && !W.field[i] && h0 < (tr < 0.42 ? 0.5 : 0.42 + tr * 0.4)) {
+    if (tr >= 0.06 + lag && !inCamp && !W.field[i] && !T0.road[i] && h0 < (tr < 0.42 ? 0.5 : 0.42 + tr * 0.4)) {
       const lk = treeLook(i, T, W.warmSum[i] > 0, snowy, falling), stage = Math.round(clamp((tr - 0.06 - lag) / (0.45 + lag * 2), 0, 1) * (STAGES - 1));
       want.set('t' + i, { kind: 'tree', i, x: px, y: py, base: lk.base + lk.state, stage, img: stageImg(lk.img, stage), dy: 0 }); continue;
     }
-    if (inCamp || W.field[i]) continue;
+    if (inCamp || W.field[i] || T0.road[i]) continue;   /* no bush or rock drawn on a field or a made road */
     if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) {
       const B = A.bush[(hash(i, 4) * 3) | 0], st = snowy ? 'snow' : W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4) ? 'berry' : 'plain';
       want.set('b' + i, { kind: 'bush', i, x: px, y: py, base: 'b' + st, img: B[st], dy: 4 });
@@ -372,10 +379,11 @@ function wantProps() {
   const piles = campOn ? Math.min(6, Math.ceil(T0.store / 7)) : 0;
   for (let k = 0; k < piles; k++) want.set('k' + k, { kind: 'basket', x: store.x + (k % 3) * 0.22 - 0.2, y: store.y + ((k / 3) | 0) * 0.25, base: 'k', img: A.basket, dy: 6 });
   // the fence, as far as it has been driven; a gate wherever a street goes through
-  if (campOn && T0.wall) {
-    const w = T0.wall;
-    for (let k = 0; k < Math.min(w.n, w.cells.length); k++) {
-      const c = w.cells[k], fx = c % N, fy = (c / N) | 0, alongX = fy === w.y0 || fy === w.y1, gate = T0.road[c];
+  /* every stake that stands, old line and new: a stretch runs along x where its neighbours do; a gate wherever a street goes through */
+  if (campOn && T0.fence) {
+    const F = T0.fence;
+    for (let c = 0; c < N * N; c++) {
+      if (!F[c]) continue; const fx = c % N, fy = (c / N) | 0, alongX = (fx > 0 && F[c - 1]) || (fx < N - 1 && F[c + 1]), gate = T0.road[c];
       want.set('f' + c, { kind: 'fence', i: c, x: fx + 0.5, y: fy + 0.5, base: 'f' + alongX + gate, img: gate ? (alongX ? A.gateX : A.gateY) : (alongX ? A.fenceX : A.fenceY), dy: 14 });
     }
   }
@@ -429,6 +437,8 @@ function syncHuts() {
   }
   for (let k = sites.length; k < huts.length; k++) if (huts[k] && !huts[k].die) { huts[k].die = now; burst(huts[k].x, huts[k].y, 'debris', 16); }
 }
+const mirrors = new WeakMap();
+function mirrorOf(im) { let m = mirrors.get(im); if (!m) { m = mkC(im.width, im.height); const x = m.getContext('2d'); x.translate(im.width, 0); x.scale(-1, 1); x.drawImage(im, 0, 0); mirrors.set(im, m); } return m; }
 const dwellImg = (kind, lake, snowy) => A[kind + (lake && (kind === 'hut' || kind === 'house') ? 'Lake' : '') + (snowy ? 'Snow' : '')] || A.hut;
 // well-trodden ways: from the fire to every door, to the well, and down to the nearest water
 let waterSpot = null;
@@ -1160,8 +1170,11 @@ function frame(t) {
     const working = [...actors.values()].some(r => r.step && r.step.site === h.k && r.step.pose === 'work');
     if (h.p < h.target && dts > 0) h.p = Math.min(h.target, h.p + dts * (working ? 1 / 10 : 1 / 45));
     const snowy = W.snow[(h.y | 0) * N + (h.x | 0)] > 0.08;
-    if (h.was && h.p < 1) put(dwellImg(h.was, h.lake, snowy), wx, wy, { scaf: h.p, alpha: al < 1 ? al : undefined, hut: h });   // lived in while it is rebuilt around them
-    else put(dwellImg(h.kind, h.lake, snowy), wx, wy, { build: h.p < 1 ? h.p : undefined, alpha: al < 1 ? al : undefined, hut: h });
+    /* a house turns its door toward the fire and the way its people walk: the drawing has the door on its left, so a house
+       with the fire off to its right on screen is drawn mirrored (straight below the fire, half each way) */
+    const toFire = (camp.x - camp.y) - (h.x - h.y), flip = toFire > 0.5 || (Math.abs(toFire) <= 0.5 && h.id % 2 === 1), face = im => flip ? mirrorOf(im) : im;
+    if (h.was && h.p < 1) put(face(dwellImg(h.was, h.lake, snowy)), wx, wy, { scaf: h.p, alpha: al < 1 ? al : undefined, hut: h });   // lived in while it is rebuilt around them
+    else put(face(dwellImg(h.kind, h.lake, snowy)), wx, wy, { build: h.p < 1 ? h.p : undefined, alpha: al < 1 ? al : undefined, hut: h });
   }
   for (let k = huts.length - 1; k >= 0 && !huts[k]; k--) huts.pop();
   for (const g of graves) { const wx = isoX(g.x, g.y), wy = isoY(g.x, g.y); if (vis(wx, wy)) put(A.grave, wx, wy + 4, { alpha: clamp((now - g.born) / 3000, 0, 1) }); }
@@ -1215,7 +1228,7 @@ function frame(t) {
         if (r.dead.why === 'drowned') ripples.push({ x: isoX(r.x, r.y), y: isoY(r.x, r.y), t: now });
       }
       if (r.dead.shown) {
-        const age = gameMs - r.dead.t, big = a.d.mass > 2, life = r.dead.why === 'eaten' ? 50000 : 30000;
+        const age = gameMs - r.dead.t, big = a.d.mass > 2, life = r.dead.why === 'eaten' ? 50000 : r.dead.why === 'struck' && !a.d.people ? 900 : 30000;
         if (age > life) {
           actors.delete(id);
           if (big) relics.push({ x: r.x, y: r.y, t: gameMs });
