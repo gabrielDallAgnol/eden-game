@@ -43,7 +43,7 @@ const TECHS = { pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, t
 const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt' };
 function create(seed, opt) {
   opt = opt || {};
-  const SP = opt.species || SPECIES;
+  const SP = opt.species || SPECIES, HUMAN = Object.values(SP).find(d => d.people) || SPECIES.human;
   const N = opt.size || 40, TPY = 24;
   let rs = (seed || 1) | 0;
   const rnd = () => { rs = (Math.imul(rs, 1103515245) + 12345) & 0x7fffffff; return rs / 0x7fffffff; };
@@ -143,6 +143,8 @@ function create(seed, opt) {
   //   work done = day's work / (1 + d / (WALK * v)),  v = 1 on open ground, 1.5 on a made road, 2 with a cart.
   // WALK is the one tuning number (docs/LAND-AND-DENSITY.md, "Walking cost").
   const WALK = 6;
+  // a hearth wants a little wood put by while the air is cold, and burns some each step it is lit
+  const FUEL_KEEP = 1.5, FUEL_BURN = 0.3;
   function wayDist(x0, y0, x1, y1) {
     const T = S.tribe, vx = snapWay(x0, T.x), hy = snapWay(y1, T.y);
     /* along the ways, or straight across open ground where that is shorter: rough ground costs half again as much per tile */
@@ -168,7 +170,7 @@ function create(seed, opt) {
       need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0 },
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
-      well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, gaveTold: false,
+      well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
       sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null };
     for (const k in SKILLS) T.skills[k] = SKILLS[k].known;
     for (const k in TECHS) T.skills[k] = false;
@@ -189,7 +191,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
-    stat: { forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0 },
+    stat: { forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
     levers: { hold: {},
       banned: {} } };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
@@ -829,7 +831,7 @@ function create(seed, opt) {
       }
     }
     a.act = { k: 'idle' };
-    const grown = a.age >= d.mature, old = a.age > 46, able = grown && !old;   // children help close to home; the old keep the camp
+    const grown = a.age >= d.mature, old = a.age > 46, able = grown && !old, pace = able ? 1 : 0.6;   // children help close to home; the old keep the camp
     if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { stepTo(a, T.x, T.y, 2); a.act = { k: 'mourn' }; return; }   // the newly bereaved sit by the fire and do little
     // foul weather: with a roof, food in the store and nothing pressing, people stay in
     if (T.huts > 0 && a.e > 0.6 && (hm ? (hm.larder || 0) > mouths * 0.9 : T.store > pop * 1.1)) {
@@ -854,20 +856,28 @@ function create(seed, opt) {
       }
       if (dist > 4) stepTo(a, T.x, T.y, 2); else roam(a, 2, 1); a.act = { k: 'patrol' }; return;
     }
-    if (T.skills.fire && campT < d.comfort - 3 && rnd() < dt * 8) {
-      for (let k = 0; k < 20; k++) {
-        const j = I(clamp(T.x + ((rnd() * 11) | 0) - 5, 0, N - 1), clamp(T.y + ((rnd() * 11) | 0) - 5, 0, N - 1));
-        if (tree[j] > 0.1) {
-          tree[j] -= 0.03;
-          T.fireT = S.t;
+    // firewood: each hearth is fed by its own household (the common fire by those with no roof). Wood is cut from the
+    // nearest trees along the ways from the door, so the trees round the houses thin first, and a hearth far from any
+    // wood gets less for a day's walking and burns low.
+    { const hearth = doorOf(a);
+      if (T.skills.fire && tempAt(I(hearth.x, hearth.y)) < d.comfort - 3 && (hearth.fuel || 0) < FUEL_KEEP && rnd() < dt * 8) {
+        const j = nearestWay(hearth.x, hearth.y, q => tree[q] > 0.1, 1.5);
+        if (j >= 0) {
+          tree[j] -= Math.min(tree[j], 0.03);
+          const w = wayDist(hearth.x, hearth.y, j % N, (j / N) | 0);
+          const ef = 1 / (1 + w.d / (WALK * pace * (1 + 0.5 * w.road)));
+          hearth.fuel = (hearth.fuel || 0) + ef;
+          S.stat.fuelD += w.d; S.stat.fuelN++;
+          walk(hearth.x, hearth.y, j % N, (j / N) | 0, 0.02);
           a.wood = j;
-          break;
+          /* a short trip leaves the rest of the day for finding food; a long one takes the day */
+          if (rnd() > ef) { a.act = { k: 'wood', j }; return; }
         }
       }
     }
     // look for food: plants, fish, game, from their own door. Places near the door are looked at most; nothing is out of
     // bounds, but a far place has to be worth the walk. What is found is carried home.
-    const door = doorOf(a), pace = able ? 1 : 0.6; let bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
+    const door = doorOf(a); let bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
     for (let k = 0; k < 10; k++) {
       const far = -WALK * Math.log(1 - rnd() * 0.999), ang = rnd() * 6.2832;
       const x = clamp(Math.round(door.x + Math.cos(ang) * far), 0, N - 1),
@@ -1031,6 +1041,8 @@ function create(seed, opt) {
       members: 0,
       cold: 0,
       hunger: 0,
+      fuel: 0,
+      lit: -1,
       was: '',
       lake: !well && kind !== 'tent' && T.floodSeen && bank[bestI] > 0.5 };
     T.sites.push(s);
@@ -1398,6 +1410,11 @@ function create(seed, opt) {
         townLife();
       }
     }
+    /* hearths burn what their households carried home, while the air at the door is cold */
+    if (T.skills.fire) for (const h of [T].concat(T.sites.filter(q => live(q) && q.members > 0))) {
+      if (!(h.fuel > 0) || tempAt(I(h.x, h.y)) >= HUMAN.comfort - 3) continue;
+      h.fuel = Math.max(0, h.fuel - FUEL_BURN); h.lit = S.tickNo; T.fireT = S.t;
+    }
     if (T.well && S.popPeople) for (let i = 0; i < N * N; i++) if (field[i] && soil[i] < (T.skills.irrigation ? 0.7 : 0.45)) soil[i] = T.skills.irrigation
         ? 0.7 : 0.45;   // carried from the well, a bucket at a time
     for (const a of S.agents) {
@@ -1415,7 +1432,8 @@ function create(seed, opt) {
       if (d.people) {
         const hm = a.house && T.sites.find(q => q.id === a.house),
           home = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= 2 || (!!hm && Math.max(Math.abs(a.x - hm.x), Math.abs(a.y - hm.y)) <= 1);
-        shelter = home ? (T.huts * 4 >= S.pop[a.sp] ? T.roof : 0.7) * (T.skills.fire && S.t - (T.fireT || -9) < 0.1 ? 0.5 : 1) : 1;
+        const atCamp = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= 2, hearth = hm && !atCamp ? hm : T;
+        shelter = home ? (T.huts * 4 >= S.pop[a.sp] ? T.roof : 0.7) * (T.skills.fire && hearth.lit === S.tickNo ? 0.5 : 1) : 1;
       }
       const soaked = S.precip > 0 && Tc >= 0 && shelter > 0.5 ? 1.5 : 1;         // cold rain is worse than dry cold
       if (d.people && a.e < 0.35) { const hm = homeSite(a); if (hm) hm.hunger += dt / Math.max(1, hm.members); }

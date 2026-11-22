@@ -84,7 +84,7 @@ function WorldRun(land, seed, years) {
   add('siteDry', 'no building site is on water or outside the map');
   add('siteTile', 'no two building sites share a tile');
   add('siteNums', 'every site has a known kind and a finite, non-negative stage, wood and stone');
-  add('stocks', 'store, wood and stone are finite and not negative');
+  add('stocks', 'store, wood, stone, every larder and every hearth\'s fuel are finite and not negative');
   add('needs', 'every need value is finite');
   add('fields', 'land fields hold no NaN and stay within hard bounds');
   add('log', 'log lines are well formed, in time order, with no "undefined" or "NaN" in the text');
@@ -255,6 +255,8 @@ WorldRun.prototype.yearly = function () {
     if (!T) return c.skip('S.tribe is missing');
     var keys = ['store', 'wood', 'stone'], bad = [], n = 0;
     for (var j = 0; j < keys.length; j++) if (has(T, keys[j])) { n++; if (!num(T[keys[j]]) || T[keys[j]] < 0) bad.push(keys[j] + '=' + show(T[keys[j]])); }
+    if (sites) for (var q = 0; q < sites.length; q++) ['larder', 'fuel'].forEach(function (k) { var v = sites[q][k]; if (v !== undefined && (!num(v) || v < 0)) bad.push('site ' + sites[q].id + ' ' + k + '=' + show(v)); });
+    if (T.fuel !== undefined && (!num(T.fuel) || T.fuel < 0)) bad.push('fuel=' + show(T.fuel));
     if (!n) return c.skip('S.tribe has no store, wood or stone');
     if (bad.length) c.fail(at + bad.join(', ')); else c.ok();
   });

@@ -23,12 +23,18 @@ var SCENARIOS = window.EdenScenarios = [
     ] },
   { name: 'deforest', title: 'every tree within 10 tiles felled in year 10', land: 'forest', years: 30,
     setup: function () {},
+    tick: function (W, r) {
+      /* B2: how often a hearth is lit while the air at its door is cold, year by year */
+      var T = W.S.tribe, y = Math.floor(r.ticks / 24); if (!T.skills.fire) return; r.lit = r.lit || []; r.lit[y] = r.lit[y] || [0, 0];
+      T.sites.forEach(function (h) { if (!h.members || h.kind === 'well' || W.tempAt(h.y * W.N + h.x) >= W.SPECIES.human.comfort - 3) return; r.lit[y][0]++; if (h.lit === W.S.tickNo) r.lit[y][1]++; });
+    },
     year: function (W, r, y) {
       var T = W.S.tribe; r.cold = r.cold || []; r.cold[y] = T.need.cold;
       if (y === 10) { W.G.fell(T.x, T.y, 10); r.felledAt = y; }
     },
     expect: [
       ['the felled village feels colder within 2 years (need.cold rises)', 'soft', function (r) { var before = mean(r.cold.slice(8, 11)), after = mean(r.cold.slice(11, 13)); return [after > before, 'need.cold years 8-10 ' + r1(before) + ', years 11-12 ' + r1(after)]; }],
+      ['hearths are lit less often once the wood round them is gone (B2)', 'soft', function (r) { var f = function (a, b) { var w = 0, l = 0; for (var y = a; y < b; y++) if (r.lit && r.lit[y]) { w += r.lit[y][0]; l += r.lit[y][1]; } return w ? l / w : 0; }; var before = f(7, 10), after = f(10, 13); return [after < before, 'lit when cold: years 7-9 ' + Math.round(before * 100) + '%, years 10-12 ' + Math.round(after * 100) + '%']; }],
       ['no extinction (people at the end)', 'soft', function (r, W) { return [W.S.popPeople > 0, W.S.popPeople + ' people, ' + hunger(W.S) + ' hunger deaths']; }]
     ] },
   { name: 'drought', title: 'permanent drought (a third of the usual rain)', land: 'valley', years: 50,
@@ -63,7 +69,7 @@ function slice() {
     var job = jobs[at], label = job.sc.name + ' ' + job.sc.land + ' #' + job.seed;
     try {
       if (!W) { var o = {}; for (var k in OPT) o[k] = OPT[k]; o.land = job.sc.land; W = Eden.create(job.seed, o); rec = { ticks: 0 }; job.sc.setup(W, rec); }
-      W.tick(); rec.ticks++;
+      W.tick(); rec.ticks++; if (job.sc.tick) job.sc.tick(W, rec);
       if (rec.ticks % TPY === 0) job.sc.year(W, rec, rec.ticks / TPY);
       if (rec.ticks >= job.sc.years * TPY) {
         job.sc.expect.forEach(function (e) { var out; try { out = e[2](rec, W); } catch (err) { out = [false, 'threw: ' + err.message]; }

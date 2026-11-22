@@ -611,8 +611,11 @@ function planPerson(r, phase, pi) {
         const tx = a.wood % N, ty = (a.wood / N) | 0, st = standBy(tx, ty, r);
         P.go(st.x, st.y, sp);
         P.wait(0.08, 'work', { fx: 'chips', lx: st.lx, ly: st.ly });
-        P.go(fire.x - 0.3, fire.y + 0.2, sp, 'carry', { item: 'sticks' });
+        /* firewood goes to their own hearth if they have a roof, to the common fire if not */
+        const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), to = mine ? door(mine) : { x: fire.x - 0.3, y: fire.y + 0.2 };
+        P.go(to.x, to.y, sp, 'carry', { item: 'sticks' });
         P.wait(0.04, 'work', { drop: 1 });
+        if (act.k === 'wood') return;
       }
       const fields = []; if (T0.sown) for (let i = 0; i < N * N; i++) if (W.field[i]) fields.push(i);
       if (fields.length && Math.random() < 0.7) {

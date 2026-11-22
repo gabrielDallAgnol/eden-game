@@ -131,3 +131,21 @@ Identical to A5 in every row and every log. The change was made by a parser-driv
 | mean |  | 12.8 | 37.2 | 57.9 | 65.7 | 17.6 | 55.4 | 0.2 | 12.7 |  | 6.6 | 10.4 | 6.8 | 1429.2 |
 
 Large change, upward. Mean population at year 100 is 57.9 against 25.2 (peak 65.7 against 36.9); hunger deaths fall slightly (55.4 against 62.9). The cause: food was gathered within 7 tiles of the one fire; now each household searches from its own door, so a village of many roofs works much more ground. Nothing compensates by raising yields. Food trips average 6.6 tiles along the ways (plan's check: under 8); only lakeland #1, the 100-year 90-person town, averages 8.6. Distance is along the ways, or straight across open ground at 1.5 times the cost per tile when that is shorter (without this, a tile beside one's own door counted 8 tiles away). WALK = 6 kept as designed: WALK 4 gave mean year-100 population 37 and trips 8.8, WALK 3 gave 28 and 7.9 with year-25 populations of 4.5. Timber and stone are taken from the nearest tile along the ways anywhere on the map (no radius), and a trip brings back less the further it goes. Lakeland #1 has no animals left at year 100 (hunted out by 90 people); ecology is phase D5. Scenarios: 20 passed; held30 now sits at its cap of 30 with 3 hunger deaths in 100 years (60 and 70 before). Tests: 266 passed, 0 failed, 4 warnings (two resettled worlds, lakeland 100-year animals and trip 8.6), 4 skipped.
+
+## B2: firewood is a household trip
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 5 | 30 | 43 | 53 | 13 | 39 | 0 | 14 | 5/23/0 | 6.2 | 19.5 | 5.4 | 28.3 | 1520 |
+| valley | 2 | 18 | 36 | 40 | 66 | 14 | 76 | 0 | 12 | 4/3/0 | 6.6 | 3.2 | 6.6 | 13.8 | 1591 |
+| plains | 1 | 18 | 27 | 34 | 34 | 6 | 49 | 0 | 13 | 2/8/0 | 5.4 | 5.3 | 12.8 | 25.1 | 1321 |
+| plains | 2 | 10 | 31 | 50 | 51 | 11 | 50 | 1 | 12 | 0/56/0 | 5.6 | 39.6 | 6.9 | 22.4 | 1522 |
+| forest | 1 | 9 | 32 | 56 | 64 | 17 | 49 | 0 | 13 | 1/1/0 | 7 | 0 | 6.3 | 14.9 | 1515 |
+| forest | 2 | 18 | 52 | 46 | 58 | 20 | 44 | 0 | 12 | 4/13/0 | 6.5 | 4.1 | 7.8 | 13.7 | 1517 |
+| lakeland | 1 | 21 | 43 | 83 | 83 | 20 | 77 | 0 | 14 | 0/9/0 | 8 | 21.1 | 7.4 | 31.1 | 1296 |
+| lakeland | 2 | 24 | 72 | 84 | 112 | 24 | 95 | 0 | 13 | 1/8/0 | 7.9 | 0 | 6.4 | 24.7 | 1825 |
+| highland | 1 | 9 | 26 | 25 | 33 | 11 | 42 | 1 | 12 | 3/0/0 | 6.1 | 6.5 | 4.3 | 21.4 | 936 |
+| highland | 2 | 7 | 33 | 27 | 35 | 12 | 46 | 0 | 13 | 2/13/0 | 6.4 | 0 | 2.8 | 25.4 | 780 |
+| mean |  | 13.9 | 38.2 | 48.8 | 58.9 | 14.8 | 56.7 | 0.2 | 12.8 |  | 6.6 | 9.9 | 6.7 | 22.1 | 1382.3 |
+
+Population a little below B1 (year 100 mean 48.8 against 57.9, peak 58.9 against 65.7) and still about twice the baseline; hunger deaths about the same (56.7 against 55.4). Each household now fetches wood for its own hearth from the nearest trees along the ways, and the fire only warms while that hearth has wood. A wood trip brings back less the further it goes, and a long one takes the day that would have gone to food. Firewood trips average 22 tiles by year 100 (new column 'wood trip'): the trees round the houses are gone first, as intended. In 100-year runs, hearths are lit on about 43% of cold steps in valley #1, 56% in forest #1 and under 5% in plains #1 after year 60, where the few trees have been burned. Scenarios: 21 passed, 1 warning. The deforest scenario's need.cold rises in both seeds; its new check 'hearths are lit less often once the wood round them is gone' holds in seed 2 (96% to 85%) but not seed 1 (48% to 59%, fire still being taken up in years 7-9). Tests: 268 passed, 0 failed, 2 warnings, 4 skipped; a new check that every larder and hearth's fuel stays finite and non-negative.

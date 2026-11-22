@@ -19,7 +19,9 @@ var COLS = [
   /* B1: mean length, along the ways, of a food trip from the door, and of timber and stone trips from the building plot */
   ['food trip', function (W) { var s = W.S.stat; return s ? s.forageD / Math.max(1, s.forageN) : ''; }],
   ['timber trip', function (W) { var s = W.S.stat; return s ? s.timberD / Math.max(1, s.timberN) : ''; }],
-  ['stone trip', function (W) { var s = W.S.stat; return s ? s.stoneD / Math.max(1, s.stoneN) : ''; }]
+  ['stone trip', function (W) { var s = W.S.stat; return s ? s.stoneD / Math.max(1, s.stoneN) : ''; }],
+  /* B2: mean length of a firewood trip from the hearth */
+  ['wood trip', function (W) { var s = W.S.stat; return s && s.fuelN ? s.fuelD / s.fuelN : ''; }]
 ];
 if (window.EdenTableExtra) COLS = COLS.concat(window.EdenTableExtra);
 // optional per-step columns that need data gathered during the run: name -> { year(W, r), col: [heading, fn] }
