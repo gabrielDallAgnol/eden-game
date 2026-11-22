@@ -1,0 +1,68 @@
+{
+ "deer_walk": {
+  "file": "deer_walk.png",
+  "frames": 8,
+  "w": 47,
+  "h": 51
+ },
+ "deer_graze": {
+  "file": "deer_graze.png",
+  "frames": 6,
+  "w": 47,
+  "h": 51
+ },
+ "deer_lie": {
+  "file": "deer_lie.png",
+  "frames": 6,
+  "w": 47,
+  "h": 51
+ },
+ "fawn_walk": {
+  "file": "fawn_walk.png",
+  "frames": 8,
+  "w": 34,
+  "h": 35
+ },
+ "fawn_graze": {
+  "file": "fawn_graze.png",
+  "frames": 6,
+  "w": 34,
+  "h": 35
+ },
+ "fawn_lie": {
+  "file": "fawn_lie.png",
+  "frames": 6,
+  "w": 34,
+  "h": 35
+ },
+ "tree_green": {
+  "file": "tree_green.png",
+  "frames": 1,
+  "w": 92,
+  "h": 94
+ },
+ "tree_gold": {
+  "file": "tree_gold.png",
+  "frames": 1,
+  "w": 92,
+  "h": 94
+ },
+ "tree_bare_snow": {
+  "file": "tree_bare_snow.png",
+  "frames": 1,
+  "w": 92,
+  "h": 89
+ },
+ "tree_blossom": {
+  "file": "tree_blossom.png",
+  "frames": 1,
+  "w": 92,
+  "h": 94
+ },
+ "cottage": {
+  "file": "cottage.png",
+  "frames": 1,
+  "w": 75,
+  "h": 74
+ }
+}

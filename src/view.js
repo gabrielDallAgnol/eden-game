@@ -1,0 +1,731 @@
+// Eden view: an isometric valley painted from the engine's state.
+// The engine decides what happens in each step of time (about half a month). This view turns every step into a
+// stretch of visible life: people walk out, pick, fish, carry and build, children play, babies ride on hips;
+// animals graze in little hops, rest together, follow their mothers, flee and hunt. Whatever changes in the
+// world grows, fades, melts or crossfades into its new state; nothing pops in or out.
+(function () {
+const TW = 64, TH = 32, CLIFF = 46, TICK_MS = 20000, DAY = 4, TS = TICK_MS / 1000;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b - a) * t, ease = k => k * k * (3 - 2 * k);
+const qs = new URLSearchParams(location.search), seed = +(qs.get('seed') || 1 + Math.floor(Math.random() * 9999));
+const W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true }), N = W.N, S = W.S, A = EdenArt.build();
+const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
+const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
+const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
+const cv = document.getElementById('cv'), cx = cv.getContext('2d');
+let dpr = 1, cam = { x: 0, y: 0, z: 2 }, speed = 1, paused = true, tool = 'hand', tickFrac = 0, now = 0, gameMs = 0;
+const hash = (a, b) => { let n = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
+let rs = seed * 31 + 7; const rnd = () => { rs = (Math.imul(rs, 1103515245) + 12345) & 0x7fffffff; return rs / 0x7fffffff; }, R = (a, b) => a + rnd() * (b - a);
+const isWater = (x, y) => { const xi = x | 0, yi = y | 0; return xi < 0 || yi < 0 || xi >= N || yi >= N || W.water[yi * N + xi] === 1; };
+const mkC = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+
+// ================================================================== the camp's fixed places
+const T0 = S.tribe, camp = { x: T0.x + 0.5, y: T0.y + 0.5 };
+const hutSpots = []; for (let k = 0; k < 40 && hutSpots.length < 18; k++) { const ring = 1 + Math.floor(k / 6), ang = k * 2.399 + 0.9, x = camp.x + Math.cos(ang) * (0.9 + ring * 1.2), y = camp.y + Math.sin(ang) * (0.9 + ring * 1.2); if (x < 0.6 || y < 0.6 || x > N - 0.6 || y > N - 0.6 || isWater(x, y) || isWater(x + 0.4, y + 0.4)) continue; hutSpots.push({ x, y }); }
+const fire = { x: camp.x + 0.55, y: camp.y + 0.15 }, store = { x: camp.x - 0.45, y: camp.y + 0.35 };
+const seat = k => { const a = k * 2.1 + 0.4, r = 0.62 + (k % 3) * 0.16; return { x: fire.x + Math.cos(a) * r, y: fire.y + Math.sin(a) * r * 0.9 }; };
+const campR = () => Math.min(T0.huts, hutSpots.length) > 6 ? 4.6 : 3.3;
+
+// ================================================================== ground: painted from the engine's fields, crossfaded, touched up locally while a power is held
+const gcv = [mkC(WW, WH), mkC(WW, WH)], gctx = gcv.map(c => c.getContext('2d')); let gFront = 0, gFade = null;
+const img = gctx[0].createImageData(WW, WH), px32 = new Uint32Array(img.data.buffer);
+const noise = new Uint8Array(WW * WH), noise2 = new Uint8Array(WW * WH);
+{ let s = seed * 9301 + 7; const r = () => { s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff; return s >>> 8 & 255; }; for (let i = 0; i < WW * WH; i++) { noise[i] = r(); noise2[i] = r(); } }
+const rgb = h => { const n = parseInt(h.slice(1), 16); return 0xff000000 | ((n & 255) << 16) | (n & 0xff00) | (n >> 16); };
+const C = {
+  deep: rgb('#3d7a8f'), mid: rgb('#4f93a3'), shal: rgb('#6fb0b5'), foam: rgb('#cfe9e4'), glint: rgb('#9fd3d0'), ice: rgb('#cfe6f2'), ice2: rgb('#eef7fb'), iceCrack: rgb('#a9cfe2'),
+  bankLine: rgb('#5a4630'), sand: rgb('#d8c48a'), sandWet: rgb('#b59c68'),
+  dry1: rgb('#cdb07a'), dry2: rgb('#b99a64'), earth1: rgb('#a5825a'), earth2: rgb('#8f6f4b'), wet1: rgb('#7a5c40'), wet2: rgb('#644a34'), mud: rgb('#553f2d'), puddle: rgb('#6f8f98'), puddle2: rgb('#8fb1b8'),
+  gA: rgb('#86b24c'), gB: rgb('#79a645'), gHi: rgb('#a9cf63'), gLo: rgb('#5f8a3c'), lushA: rgb('#6da247'), lushB: rgb('#5f943f'), dryA: rgb('#b9b25a'), dryB: rgb('#a7a04e'), froA: rgb('#93a67c'), froB: rgb('#86996f'),
+  shadeA: rgb('#4f7f3a'), shadeB: rgb('#447035'), flowerW: rgb('#fbf4e2'), flowerY: rgb('#f3d24f'), flowerP: rgb('#e08fb8'), flowerR: rgb('#d9523f'),
+  snow: rgb('#f6f9fc'), snow2: rgb('#e3ebf5'), snow3: rgb('#cddaea'), frost: rgb('#dfeadf'),
+  furrow: rgb('#5f4630'), tilled: rgb('#8c6c47'), crop1: rgb('#8fbf52'), crop2: rgb('#c2c957'), crop3: rgb('#e6c453'), stubble: rgb('#cdb06c'),
+  ash: rgb('#3a3432'), ash2: rgb('#5a5350'), ember: rgb('#c9552c'), floodA: rgb('#6aa3b0'), floodB: rgb('#7bb2bb'),
+  path1: rgb('#b49a6c'), path2: rgb('#a3875a'), pathEdge: rgb('#9a9a55'),
+  cl1: rgb('#8a6444'), cl2: rgb('#765338'), cl3: rgb('#5f412c'), cl4: rgb('#4a3222'), clEdge: rgb('#3a2619'), clGrass: rgb('#5f8a3c')
+};
+const BN = N * 8, mkB = () => new Float32Array(BN * BN), bG = mkB(), bS = mkB(), bM = mkB(), bWt = mkB(), bF = mkB(), bT = mkB(), bFe = mkB(), bTr = mkB(), bSc = mkB();
+const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
+for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
+function blurRect(src, dst, bx0, by0, bx1, by1) {
+  bx0 = Math.max(0, bx0); by0 = Math.max(0, by0); bx1 = Math.min(BN - 1, bx1); by1 = Math.min(BN - 1, by1);
+  for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) {
+    const fx = (bx + 0.5) / 8 - 0.5, fy = (by + 0.5) / 8 - 0.5, x0 = clamp(Math.floor(fx), 0, N - 1), y0 = clamp(Math.floor(fy), 0, N - 1), x1 = Math.min(N - 1, x0 + 1), y1 = Math.min(N - 1, y0 + 1), u = clamp(fx - x0, 0, 1), v = clamp(fy - y0, 0, 1);
+    dst[by * BN + bx] = (src[y0 * N + x0] * (1 - u) + src[y0 * N + x1] * u) * (1 - v) + (src[y1 * N + x0] * (1 - u) + src[y1 * N + x1] * u) * v;
+  }
+}
+const blur = (src, dst) => blurRect(src, dst, 0, 0, BN - 1, BN - 1);
+blur(waterF, bWt); blur(W.fert, bFe);
+let gRipe = 0, gWarm = false, campOn = true;
+function groundState() { gRipe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0; gWarm = S.air > 9; campOn = S.popPeople > 0 || T0.huts > 0; }
+function colorAt(pxx, py) {
+  const p = py * WW + pxx, v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
+  if (fx < 0 || fy < 0) return 0;
+  if (fx >= N || fy >= N) {                                                    // the cut edge of the land
+    const d = Math.max(fx - N, fy - N) * TH; if (fx - CLIFF / TH >= N || fy - CLIFF / TH >= N || fx - d / TH < 0 || fy - d / TH < 0) return 0;
+    const n = noise[p]; return d < 3 ? C.clGrass : d > CLIFF - 2 ? C.clEdge : d < 12 ? (n > 200 ? C.cl2 : C.cl1) : d < 26 ? (n > 190 ? C.cl3 : C.cl2) : (n > 180 ? C.cl4 : C.cl3);
+  }
+  const ci = (fy | 0) * N + (fx | 0), b = ((fy * 8) | 0) * BN + ((fx * 8) | 0), n = noise[p], n2 = noise2[p], jn = (n - 128) / 255;
+  const w = bWt[b] + jn * 0.06, T = cellT[ci]; let col;
+  if (w > 0.5) {
+    if (T < -3) col = n2 > 248 ? C.iceCrack : n > 170 ? C.ice2 : C.ice;
+    else col = w < 0.57 ? C.foam : w > 0.88 ? C.deep : w > 0.7 ? C.mid : C.shal;
+    if (T >= -3 && n2 > 252 && w > 0.6) col = C.glint;
+    if (bS[b] * 3 > 0.6 && T < -3 && n > 110) col = C.snow;
+    return col;
+  }
+  if (w > 0.455) return C.bankLine;
+  const m = bM[b] + jn * 0.18, g = bG[b];
+  col = m < 0.28 ? (n2 > 215 ? C.dry2 : C.dry1) : m < 0.78 ? (n2 > 215 ? C.earth2 : C.earth1) : m < 1.08 ? (n2 > 215 ? C.wet2 : C.wet1) : (n2 > 150 ? C.puddle2 : C.puddle);
+  if (w > 0.36) col = m > 0.85 ? C.sandWet : C.sand;
+  else if (W.field[ci]) {
+    const row = ((pxx + py * 2) >> 2) & 3; col = row === 0 ? C.furrow : C.tilled;
+    if (row !== 0 && g * 1.5 + jn * 0.4 > 0.35) col = gRipe > 0.8 ? C.crop3 : gRipe > 0.45 ? C.crop2 : gRipe > 0 ? C.crop1 : C.stubble;
+  } else if (g * 1.6 + jn * 0.22 > 0.3 && m < 1.12) {
+    const patch = bFe[b] + jn * 0.08 > 0.72;
+    if (T < 0) col = patch ? C.froB : C.froA; else if (m < 0.3) col = patch ? C.dryB : C.dryA; else if (m > 0.8 && g > 0.5) col = patch ? C.lushB : C.lushA; else col = patch ? C.gB : C.gA;
+    if (bT[b] + jn * 0.2 > 0.5) col = patch ? C.shadeB : C.shadeA;
+    if (n2 < 5) col = T < 0 ? C.frost : C.gHi; else if (n2 > 250) col = C.gLo;
+    else if (gWarm && g > 0.5 && m > 0.35 && n2 === 7) col = n < 64 ? C.flowerW : n < 128 ? C.flowerY : n < 192 ? C.flowerP : C.flowerR;
+  }
+  // footpaths worn by people, and the trodden ground of the camp
+  if (!W.field[ci]) {
+    let worn = bTr[b] + jn * 0.16;
+    if (campOn) { const dc = Math.hypot(fx - camp.x, fy - camp.y) / campR(); if (dc < 0.75) worn = Math.max(worn, 1.05 - dc * 0.7 + jn * 0.25); }
+    if (worn > 0.62) col = n2 > 205 ? C.path2 : C.path1; else if (worn > 0.48 && n2 > 120) col = C.pathEdge;
+  }
+  const sc = bSc[b] * 1.3 + jn * 0.35; if (sc > 0.45 && n2 < clamp(sc, 0, 1) * 255) col = n > 242 && sc > 1 ? C.ember : n > 120 ? C.ash : C.ash2;
+  const s = bS[b];
+  if (s > 0.012) { if (s * 4.5 + jn * 0.5 > 0.42) col = n2 > 240 ? C.snow3 : n2 > 190 ? C.snow2 : C.snow; else if (n2 > 220) col = C.frost; }
+  if (bF[b] + jn * 0.2 > 0.45) col = n2 > 128 ? C.floodA : C.floodB;
+  return col;
+}
+// a full repaint runs a strip at a time into the shared pixels, then crossfades over the old picture
+let paint = null, groundWanted = true;
+function startPaint() { blur(W.grass, bG); blur(W.snow, bS); blur(W.soil, bM); blur(W.flood, bF); blur(W.tree, bT); blur(trail, bTr); blur(scar, bSc); for (let i = 0; i < N * N; i++) cellT[i] = W.tempAt(i); groundState(); paint = { row: 0 }; groundWanted = false; }
+function paintSome(rows) {
+  const end = Math.min(WH, paint.row + rows);
+  for (let py = paint.row; py < end; py++) for (let pxx = 0; pxx < WW; pxx++) px32[py * WW + pxx] = colorAt(pxx, py);
+  paint.row = end;
+  if (end >= WH) { const back = 1 - gFront; gctx[back].putImageData(img, 0, 0); gFade = { t: now, from: gFront, to: back }; paint = null; }
+}
+// touch up only the ground a power is working on, right away
+function repaintCells(x0, y0, x1, y1) {
+  x0 = clamp(x0 | 0, 0, N - 1); y0 = clamp(y0 | 0, 0, N - 1); x1 = clamp(x1 | 0, 0, N - 1); y1 = clamp(y1 | 0, 0, N - 1);
+  const bx0 = (x0 - 1) * 8, by0 = (y0 - 1) * 8, bx1 = (x1 + 2) * 8, by1 = (y1 + 2) * 8;
+  for (const [s, d] of [[W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [scar, bSc]]) blurRect(s, d, bx0, by0, bx1, by1);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) cellT[y * N + x] = W.tempAt(y * N + x);
+  groundState();
+  const pxa = clamp(Math.floor(isoX(x0, y1 + 1)), 0, WW - 1), pxb = clamp(Math.ceil(isoX(x1 + 1, y0)), 0, WW - 1), pya = clamp(Math.floor(isoY(x0, y0)), 0, WH - 1), pyb = clamp(Math.ceil(isoY(x1 + 1, y1 + 1)), 0, WH - 1);
+  for (let py = pya; py <= pyb; py++) for (let pxx = pxa; pxx <= pxb; pxx++) px32[py * WW + pxx] = colorAt(pxx, py);
+  for (const k of [0, 1]) if (k === gFront || gFade) gctx[k].putImageData(img, 0, 0, pxa, pya, pxb - pxa + 1, pyb - pya + 1);
+}
+
+// ================================================================== things standing on the ground: they grow, fade and crossfade
+const nearWater = new Uint8Array(N * N); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { if (W.water[y * N + x]) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N && W.water[ny * N + nx]) nearWater[y * N + x] = 1; } }
+const STAGES = 8, stageCache = new Map();
+function stageImg(src, stage) { if (stage >= STAGES - 1) return src; let m = stageCache.get(src); if (!m) stageCache.set(src, m = []); return m[stage] || (m[stage] = A.shrink(src, 0.3 + 0.7 * stage / (STAGES - 1))); }
+function treeLook(i, T, awake, snowy, falling) {
+  const h1 = hash(i, 11), pine = W.fert[i] < 0.63;
+  if (pine) { const P = A.pines[(h1 * 3) | 0].big; return { base: 'p' + ((h1 * 3) | 0), state: scar[i] > 0.6 ? 'burnt' : snowy ? 'snow' : 'green', img: scar[i] > 0.6 ? P.burnt : snowy ? P.snow : P.green }; }
+  const L = A.trees[(h1 * 4) | 0].big, fr = W.fruit[i] > 0.12 && hash(i, 12) < 0.7; let st;
+  if (scar[i] > 0.6) st = 'burnt';
+  else if (awake) st = fr ? 'fruit' : W.soil[i] < 0.26 ? 'dry' : L.blossom && W.warmSum[i] < 1.2 ? 'blossom' : 'green';   // in flower between waking and setting fruit
+  else if (T > 2.5 && falling) st = fr ? 'goldFruit' : hash(i, 13) < 0.4 ? 'red' : 'gold';
+  else if (T > 2.5) st = snowy ? 'snow' : 'green';
+  else st = snowy ? 'bareSnow' : 'bare';
+  return { base: 'l' + ((h1 * 4) | 0), state: st, img: L[st] };
+}
+const props = new Map();
+function wantProps() {
+  const want = new Map(), falling = !W.daysLengthen(), cR = campR();
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = y * N + x; if (W.water[i]) continue;
+    const tr = W.tree[i], h0 = hash(i, 1), jx = (hash(i, 2) - 0.5) * 0.5, jy = (hash(i, 3) - 0.5) * 0.5, T = W.tempAt(i), snowy = W.snow[i] > 0.08;
+    const inCamp = campOn && Math.hypot(x + 0.5 - camp.x, y + 0.5 - camp.y) < cR, px = x + 0.5 + jx, py = y + 0.5 + jy;
+    const lag = hash(i, 9) * 0.1;                                          // each spot sprouts and fills out at its own pace
+    if (tr >= 0.06 + lag && !inCamp && !W.field[i] && h0 < (tr < 0.42 ? 0.5 : 0.42 + tr * 0.4)) {
+      const lk = treeLook(i, T, W.warmSum[i] > 0, snowy, falling), stage = Math.round(clamp((tr - 0.06 - lag) / (0.45 + lag * 2), 0, 1) * (STAGES - 1));
+      want.set('t' + i, { kind: 'tree', i, x: px, y: py, base: lk.base + lk.state, stage, img: stageImg(lk.img, stage), dy: 0 }); continue;
+    }
+    if (inCamp || W.field[i]) continue;
+    if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) { const B = A.bush[(hash(i, 4) * 3) | 0], st = snowy ? 'snow' : W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4) ? 'berry' : 'plain'; want.set('b' + i, { kind: 'bush', i, x: px, y: py, base: 'b' + st, img: B[st], dy: 4 }); }
+    else if (h0 < 0.02 && W.fert[i] < 0.75) { const Rk = A.rock[(hash(i, 6) * 3) | 0]; want.set('r' + i, { kind: 'rock', i, x: px, y: py, base: 'r' + snowy, img: snowy ? Rk.snow : Rk.plain, dy: 4 }); }
+    else if (nearWater[i] && h0 > 0.4 && h0 < 0.62 && T > -3) want.set('d' + i, { kind: 'reeds', i, x: x + 0.5 + jx * 0.6, y: y + 0.5, base: 'd', img: A.reeds, dy: 2 });
+  }
+  for (const h of S.homes.values()) { const snowy = W.snow[h.y * N + h.x] > 0.08; want.set('h' + h.id, { kind: h.kind, home: h, x: h.x + 0.5, y: h.y + 0.5, base: h.kind + snowy, img: h.kind === 'den' ? (snowy ? A.denSnow : A.den) : (snowy ? A.burrowSnow : A.burrow), dy: h.kind === 'den' ? 10 : 6 }); }
+  const piles = campOn ? Math.min(6, Math.ceil(T0.store / 7)) : 0; for (let k = 0; k < piles; k++) want.set('k' + k, { kind: 'basket', x: store.x + (k % 3) * 0.22 - 0.2, y: store.y + ((k / 3) | 0) * 0.25, base: 'k', img: A.basket, dy: 6 });
+  if (campOn && T0.skills.fire) want.set('ring', { kind: 'ring', x: fire.x, y: fire.y, base: 'ring', img: A.ring, dy: 4 });
+  return want;
+}
+function reconcile() {
+  const want = wantProps();
+  for (const [k, w] of want) {
+    const p = props.get(k);
+    if (!p) { props.set(k, Object.assign(w, { born: now, die: 0, swap: 0, prev: null, pop: 0 })); continue; }
+    if (p.die) { p.die = 0; p.born = now - 400; }
+    p.x = w.x; p.y = w.y; p.home = w.home;
+    if (p.img !== w.img) {
+      if (p.base === w.base) { if (w.stage !== p.stage) p.pop = now; p.img = w.img; }   // grew a size: a little bounce
+      else { p.prev = p.img; p.img = w.img; p.swap = now; }                                // changed colour or state: a slow crossfade
+      p.base = w.base; p.stage = w.stage;
+    }
+  }
+  for (const [k, p] of props) if (!want.has(k) && !p.die) p.die = now;
+}
+
+// huts are built in front of you: poles first, then the walls and thatch rise
+const huts = [];
+function syncHuts(builder) {
+  const want = campOn ? Math.min(T0.huts, hutSpots.length) : 0;
+  for (let k = 0; k < want; k++) if (!huts[k] || huts[k].die) huts[k] = { k, x: hutSpots[k].x, y: hutSpots[k].y, p: huts.length === 0 && S.tickNo < 3 ? 1 : 0, born: now, die: 0, builder: 0 };
+  for (let k = want; k < huts.length; k++) if (huts[k] && !huts[k].die) { huts[k].die = now; burst(huts[k].x, huts[k].y, 'debris', 16); }
+}
+const graves = [], relics = [];
+
+// ================================================================== particles and small life
+const parts = [];
+const PCOL = { grass: ['#8fbf52', '#6da247'], fruit: ['#d8402f', '#f2c14e'], chips: ['#c9a779', '#8a6a48'], dirt: ['#8f6f4b', '#6e5238'], splash: ['#cfe9e4', '#9fd3d0'], dust: ['#d8c48a', '#bfa878'],
+  sparkle: ['#e9ffb0', '#b6f07a', '#fff6c0'], heat: ['#ffd27a', '#ffb24a'], steam: ['#f4f7fb', '#e3ebf5'], smoke: ['#8d8984', '#a9a49d'], blood: ['#a8352c', '#7a2620'], debris: ['#a8853f', '#6a4c30', '#c9a85a'],
+  leafG: ['#d09a34', '#b9552c', '#e6b94a'], petal: ['#fbf4e2', '#e08fb8'], drop: ['#8fc4ea'], snow: ['#ffffff'], ember: ['#ffd95a', '#f08a2c'], heart: ['#e0507a'], zz: ['#e8ecff'] };
+function spawn(kind, wx, wy, o) { if (parts.length > 700) return; const c = PCOL[kind] || ['#fff']; parts.push(Object.assign({ kind, x: wx, y: wy, vx: 0, vy: 0, g: 0, life: 0, max: 1200, col: c[(Math.random() * c.length) | 0], s: 1 }, o)); }
+function burst(cx0, cy0, kind, n, o) {
+  const wx = isoX(cx0, cy0), wy = isoY(cx0, cy0);
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * 6.28, sp = Math.random();
+    if (kind === 'sparkle') spawn(kind, wx + Math.cos(a) * 40 * sp, wy + Math.sin(a) * 20 * sp, { vy: -0.012 - Math.random() * 0.02, max: 900 + Math.random() * 600, s: Math.random() < 0.5 ? 2 : 1, tw: 1 });
+    else if (kind === 'steam' || kind === 'smoke') spawn(kind, wx + (Math.random() - 0.5) * 30, wy - Math.random() * 6, { vy: -0.015 - Math.random() * 0.01, vx: (Math.random() - 0.3) * 0.006, max: 1600 + Math.random() * 900, s: 2 });
+    else if (kind === 'heat') spawn(kind, wx + Math.cos(a) * 50 * sp, wy + Math.sin(a) * 25 * sp, { vy: -0.02 - Math.random() * 0.02, max: 700 + Math.random() * 500 });
+    else spawn(kind, wx + (Math.random() - 0.5) * 10, wy - 4 - Math.random() * 8, Object.assign({ vx: (Math.random() - 0.5) * 0.07, vy: -0.05 - Math.random() * 0.06, g: 0.00018, max: 700 + Math.random() * 500, floor: wy + Math.random() * 6 }, o));
+  }
+}
+const ripples = [];   // rings on water: fish, rain, things dropped in
+const flock = { list: [], next: 9000 }, flies = [];
+let clouds = []; for (let k = 0; k < 5; k++) clouds.push({ x: Math.random() * WW, y: OY + Math.random() * N * TH, r: 180 + Math.random() * 160, sp: 0.004 + Math.random() * 0.004 });
+
+// ================================================================== creatures: each has a short plan for the coming step of time
+const actors = new Map();
+const lookOf = a => A.look[a.d.look || a.sp] || (A.look[a.sp] = A.generic(a.d));
+const jit = (id, k) => (((id * (k ? 53 : 37)) % 11) - 5) * 0.055;
+const endOf = a => ({ x: a.x + 0.5 + jit(a.id, 0), y: a.y + 0.5 + jit(a.id, 1) });
+const kind = a => a.d.people ? 'person' : a.d.mass < 1 ? 'small' : a.d.eats.meat ? 'hunter' : 'grazer';
+const SPEED = { person: { walk: 0.62, run: 1.7 }, small: { walk: 0.75, run: 2.6 }, grazer: { walk: 0.42, run: 2.3 }, hunter: { walk: 0.8, run: 2.8 } };
+const STEPS = { person: 3.6, small: 2.2, grazer: 2.6, hunter: 2.8 };   // leg swings per cell walked: the feet keep pace with the ground
+const BODY = { person: 0.17, small: 0.1, grazer: 0.26, hunter: 0.22 };
+function newRec(a, x, y, o) { const r = Object.assign({ id: a.id, a, x, y, face: a.id % 2 ? 'r' : 'l', odo: 0, plan: null, si: 0, bub: '', bubT: -1e9, ox: 0, oy: 0, alpha: 1, born: now, dead: null, hidden: false, scale: 1 }, o); actors.set(a.id, r); return r; }
+const recOf = id => actors.get(id);
+
+// water-free routes: straight when the way is clear, otherwise around the water cell by cell
+function clear(x0, y0, x1, y1) { const d = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(d * 4); for (let k = 1; k <= n; k++) { const t = k / n; if (isWater(lerp(x0, x1, t), lerp(y0, y1, t))) return false; } return true; }
+const prevA = new Int16Array(N * N);
+function route(x0, y0, x1, y1) {
+  if (clear(x0, y0, x1, y1)) return [{ x: x1, y: y1 }];
+  const s = (y0 | 0) * N + (x0 | 0), e = (y1 | 0) * N + (x1 | 0); prevA.fill(-1); prevA[s] = s; const q = [s];
+  for (let h = 0; h < q.length && prevA[e] < 0; h++) { const c = q[h], cx0 = c % N, cy0 = (c / N) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const nx = cx0 + dx, ny = cy0 + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; const j = ny * N + nx; if (prevA[j] >= 0 || W.water[j] || (dx && dy && (W.water[cy0 * N + nx] || W.water[ny * N + cx0]))) continue; prevA[j] = c; q.push(j); } }
+  if (prevA[e] < 0) return [{ x: x1, y: y1 }];
+  const cellsP = []; for (let c = e; c !== s; c = prevA[c]) cellsP.push(c); cellsP.reverse();
+  const pts = []; let ax = x0, ay = y0;
+  for (let k = 0; k < cellsP.length; k++) { const c = cellsP[k], px = (c % N) + 0.5, py = ((c / N) | 0) + 0.5, nx = k + 1 < cellsP.length ? (cellsP[k + 1] % N) + 0.5 : x1, ny = k + 1 < cellsP.length ? ((cellsP[k + 1] / N) | 0) + 0.5 : y1; if (!clear(ax, ay, nx, ny)) { pts.push({ x: px, y: py }); ax = px; ay = py; } }
+  pts.push({ x: x1, y: y1 }); return pts;
+}
+// a plan: moves and pauses laid out over the step (u runs 0 to 1)
+class Plan {
+  constructor(r) { this.r = r; this.steps = []; this.u = 0; this.x = r.x; this.y = r.y; }
+  go(x, y, sp, pose, o) { for (const p of route(this.x, this.y, x, y)) { const d = Math.hypot(p.x - this.x, p.y - this.y); if (d < 0.02) continue; const du = d / (sp * TS); this.steps.push(Object.assign({ t: 'm', u0: this.u, u1: this.u + du, x1: p.x, y1: p.y, pose: pose || 'walk' }, o)); this.u += du; this.x = p.x; this.y = p.y; } return this; }
+  wait(du, pose, o) { if (du > 0) { this.steps.push(Object.assign({ t: 's', u0: this.u, u1: this.u + du, pose: pose || 'idle' }, o)); this.u += du; } return this; }
+  until(u, pose, o) { return this.wait(u - this.u, pose, o); }
+  follow(du, id, o) { this.steps.push(Object.assign({ t: 'f', u0: this.u, u1: this.u + du, id, pose: 'walk' }, o)); this.u += du; const m = recOf(id); if (m) { this.x = m.x; this.y = m.y; } return this; }
+  squeeze(upto) { if (this.u > upto) { const f = upto / this.u; for (const s of this.steps) { s.u0 *= f; s.u1 *= f; } this.u = upto; } return this; }
+  done(pose, o) { this.squeeze(1); if (this.u < 1) this.wait(1 - this.u, pose, o); this.r.plan = this.steps; this.r.si = -1; return this; }
+}
+const near = (x, y, r) => { for (let k = 0; k < 12; k++) { const a = Math.random() * 6.28, d = Math.random() * r, px = clamp(x + Math.cos(a) * d, 0.3, N - 0.3), py = clamp(y + Math.sin(a) * d, 0.3, N - 0.3); if (!isWater(px, py)) return { x: px, y: py }; } return { x, y }; };
+// where to stand to work a spot: in front of a tree, or on the bank beside a piece of water
+function standBy(x, y, from) {
+  const cx0 = x + 0.5, cy0 = y + 0.5;
+  if (!W.water[y * N + x]) return { x: cx0 + 0.32 + R(-0.1, 0.1), y: cy0 + 0.32 + R(-0.1, 0.1), lx: cx0, ly: cy0 };
+  let best = null, bd = 1e9; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N || W.water[ny * N + nx]) continue; const d = Math.hypot(nx + 0.5 - from.x, ny + 0.5 - from.y); if (d < bd) { bd = d; best = { x: nx + 0.5 - dx * 0.38, y: ny + 0.5 - dy * 0.38, lx: cx0, ly: cy0 }; } }
+  return best || { x: from.x, y: from.y, lx: cx0, ly: cy0 };
+}
+const hutOf = r => huts.length ? huts[(r.id * 7) % huts.length] : null;
+const door = h => ({ x: h.x + 0.42, y: h.y + 0.42 });
+
+// ---- people
+function planPerson(r, phase, pi) {
+  const a = r.a, act = a.act || { k: 'idle' }, P = new Plan(r), end = endOf(a), evening = phase === 2, young = a.age < 13, sp = young ? 0.7 : a.age > 46 ? 0.5 : SPEED.person.walk;
+  r.carriedBy = 0;
+  if (r.pose === 'hidden') {                                         // waking up: out of the hut door, one by one
+    if (act.k === 'sleep') { P.done('hidden', r.step && r.step.hut ? { hut: r.step.hut } : {}); return; }
+    P.wait(R(0.01, 0.12), 'hidden'); P.wait(0.03, 'emerge');
+  }
+  const home = () => { const h = huts.filter(q => q && q.p >= 1 && !q.die), q = h.length ? h[(r.id * 7) % h.length] : null; if (q) { P.go(door(q).x, door(q).y, sp); P.wait(0.03, 'enter', { hut: q.k + 1 }); P.done('hidden', { hut: q.k + 1 }); } else { const s = seat(pi); P.go(s.x, s.y, sp); P.done('lie', { zz: 1 }); } };
+  switch (act.k) {
+    case 'sleep': return home();
+    case 'baby': {
+      let mom = a.mom && recOf(a.mom);
+      if (mom && mom.id % 2 === 0) { let bd = 1e9; for (const o of actors.values()) if (!o.dead && o.a.d.people && o.a.age >= 16 && o.id % 2 === 1) { const d = Math.hypot(o.x - r.x, o.y - r.y); if (d < bd) { bd = d; mom = o; } } }   // the one who carries the baby
+      if (mom && !mom.dead && mom.a.age >= 13) { r.carriedBy = mom.id; P.done('carried'); return; }
+      const s = seat(pi + 3); P.go(s.x, s.y, 0.3, 'crawl'); P.done('sit', { lx: fire.x, ly: fire.y }); return;
+    }
+    case 'play': {
+      const pals = [...actors.values()].filter(o => o !== r && !o.dead && o.a.d.people && o.a.age >= 2 && o.a.age < 13);
+      if (pals.length && Math.random() < 0.55) { const o = pals[(Math.random() * pals.length) | 0]; P.follow(0.45, o.id, { gap: 0.35, sp: 1.1, pose: 'run', playful: 1 }); }
+      for (let k = 0; k < 4 && P.u < 0.85; k++) { const q = near(camp.x, camp.y, 2.4); P.go(q.x, q.y, 0.9, 'hop'); P.wait(R(0.05, 0.12), Math.random() < 0.4 ? 'sit' : 'idle', { play: 1 }); }
+      break;
+    }
+    case 'gather': {
+      const st = standBy(act.x, act.y, r);
+      P.go(st.x, st.y, sp); P.wait(R(0.18, 0.3), 'work', { fx: act.fruit ? 'fruit' : 'grass', lx: st.lx, ly: st.ly });
+      P.go(store.x + 0.3, store.y + 0.15, sp * 0.85, 'carry', { item: act.fruit ? 'basket' : 'grain' }); P.wait(0.04, 'work', { drop: 1, lx: store.x, ly: store.y });
+      break;
+    }
+    case 'fish': {
+      const st = standBy(act.x, act.y, r);
+      P.go(st.x, st.y, sp); P.wait(R(0.25, 0.4), 'fish', { lx: st.lx, ly: st.ly, catch: act.got > 0.02 });
+      P.go(store.x + 0.3, store.y + 0.15, sp * 0.85, 'carry', { item: 'fish' }); P.wait(0.04, 'work', { drop: 1, lx: store.x, ly: store.y });
+      break;
+    }
+    case 'hunt': {
+      const tg = recOf(act.id);
+      if (act.kill && tg) { const sx = act.x + 0.5, sy = act.y + 0.5; P.wait(0.05, 'look', { at: act.id }); P.go(sx, sy, SPEED.person.run, 'run', { killMark: 1 }); P.wait(0.08, 'work', { fx: 'blood', lx: sx, ly: sy }); P.go(store.x + 0.3, store.y + 0.15, sp * 0.8, 'carry', { item: 'meat' }); P.wait(0.04, 'work', { drop: 1 }); }
+      else if (tg) { P.wait(0.05, 'look', { at: act.id }); P.go(lerp(P.x, tg.x, 0.8), lerp(P.y, tg.y, 0.8), SPEED.person.run, 'run'); P.wait(0.08, 'look', { at: act.id }); }
+      P.go(end.x, end.y, sp); break;
+    }
+    case 'build': {
+      const tx = act.j % N, ty = (act.j / N) | 0, st = standBy(tx, ty, r), h = huts[act.n - 1];
+      P.go(st.x, st.y, sp); P.wait(0.12, 'work', { fx: 'chips', lx: st.lx, ly: st.ly, shake: act.j });
+      if (h) { h.builder = r.id; P.go(h.x + 0.5, h.y + 0.25, sp * 0.8, 'carry', { item: 'log' }); P.done('work', { fx: 'hammer', site: h.k, lx: h.x, ly: h.y }); return; }
+      break;
+    }
+    case 'guard': { const tg = recOf(act.id); if (tg) { P.go(tg.x, tg.y, SPEED.person.run, 'run', { killMark: 1 }); P.wait(0.1, 'work', { fx: 'blood', at: act.id }); } break; }
+    default: {   // nothing worth fetching this time: firewood, the fields, a chat by the fire
+      if (a.wood >= 0) { const tx = a.wood % N, ty = (a.wood / N) | 0, st = standBy(tx, ty, r); P.go(st.x, st.y, sp); P.wait(0.08, 'work', { fx: 'chips', lx: st.lx, ly: st.ly }); P.go(fire.x - 0.3, fire.y + 0.2, sp, 'carry', { item: 'sticks' }); P.wait(0.04, 'work', { drop: 1 }); }
+      const fields = []; if (T0.sown) for (let i = 0; i < N * N; i++) if (W.field[i]) fields.push(i);
+      if (fields.length && Math.random() < 0.7) { const f = fields[(Math.random() * fields.length) | 0], fx0 = f % N + 0.5, fy0 = ((f / N) | 0) + 0.5; P.go(fx0, fy0, sp); P.wait(0.22, 'work', { fx: 'dirt', lx: fx0 + 0.3, ly: fy0 + 0.3 }); P.go(fx0 + R(-0.4, 0.4), fy0 + R(-0.4, 0.4), 0.3); P.wait(0.18, 'work', { fx: 'dirt' }); }
+      else { const s = seat(pi); P.go(s.x, s.y, sp); P.wait(0.4, 'sit', { chat: 1, lx: fire.x, ly: fire.y }); }
+    }
+  }
+  if (evening) { P.squeeze(0.6); const s = seat(pi); P.go(s.x, s.y, sp); P.done('sit', { chat: 1, lx: fire.x, ly: fire.y }); return; }
+  if (act.k === 'play') { P.done('idle', { play: 1 }); return; }
+  P.go(end.x, end.y, sp); P.done('idle');
+}
+
+// ---- animals
+function planAnimal(r) {
+  const a = r.a, act = a.act || { k: 'idle' }, k = kind(a), V = SPEED[k], P = new Plan(r), end = endOf(a), hop = k === 'small' ? 'hop' : 'walk';
+  if (r.pose === 'hidden') { if (a.hidden) { P.done('hidden'); return; } P.wait(R(0, 0.1), 'hidden'); P.wait(0.03, 'emerge'); }
+  const homeAt = id => { const h = S.homes.get(id); return h ? { x: h.x + 0.5, y: h.y + 0.5 } : null; };
+  switch (act.k) {
+    case 'graze': {
+      const legs = k === 'small' ? 3 : 2;
+      for (let s = 1; s <= legs; s++) { const t = s / legs, q = { x: lerp(r.x, end.x, t) + (s < legs ? R(-0.3, 0.3) : 0), y: lerp(r.y, end.y, t) + (s < legs ? R(-0.3, 0.3) : 0) }; if (!isWater(q.x, q.y)) P.go(q.x, q.y, V.walk * (k === 'small' ? 1 : 0.8), hop); P.wait(R(0.12, 0.25), act.wary && Math.random() < 0.5 ? 'look' : 'graze', { at: act.wary }); }
+      P.done('graze'); return;
+    }
+    case 'rest': case 'sleep': P.wait(R(0, 0.08), 'graze'); P.go(end.x, end.y, V.walk, hop); P.wait(0.04, 'idle'); P.done('lie', { zz: act.k === 'sleep' && Math.random() < 0.6 }); return;
+    case 'follow': { const m = recOf(act.id); if (m) { P.follow(1, act.id, { gap: 0.32 + (a.id % 3) * 0.12, sp: V.walk * 1.6, pose: hop, playful: 1 }); P.done('idle'); return; } break; }
+    case 'flee': {
+      const th = recOf(act.id); P.wait(R(0.01, 0.05), 'look', { at: act.id });
+      const h = act.home && homeAt(act.home);
+      if (h) { P.go(h.x, h.y, V.run, 'run'); P.wait(0.03, 'enter'); P.done('hidden'); return; }
+      P.go(end.x, end.y, V.run, 'run'); P.done('look', { at: th ? act.id : 0 }); return;
+    }
+    case 'hide': case 'den': case 'home': {
+      const h = homeAt(a.home) || end; P.go(h.x, h.y, act.k === 'hide' ? V.run : V.walk, act.k === 'hide' ? 'run' : hop);
+      if (a.hidden) { P.wait(0.03, 'enter'); P.done('hidden'); } else P.done('idle'); return;
+    }
+    case 'stalk': P.wait(R(0.02, 0.1), 'look', { at: act.id }); P.go(end.x, end.y, V.walk * 0.45, 'creep', { at: act.id }); P.done('look', { at: act.id }); return;
+    case 'chase': P.wait(R(0.04, 0.12), 'look', { at: act.id }); P.go(end.x, end.y, V.run, 'run'); P.wait(0.06, 'idle'); P.done('look', { at: act.id }); return;
+    case 'kill': { const sx = act.x + 0.5, sy = act.y + 0.5; P.wait(R(0.05, 0.12), 'look', { at: act.id }); P.go(sx, sy, V.run, 'run', { killMark: 1 }); P.done('feed', { lx: sx, ly: sy }); return; }
+    case 'feed': { const sx = act.x + 0.5 + jit(a.id, 0) * 2, sy = act.y + 0.5 + jit(a.id, 1) * 2; P.go(sx, sy, V.walk * 1.3, 'walk'); P.done('feed', { lx: act.x + 0.5, ly: act.y + 0.5 }); return; }
+    case 'prowl': { const m = { x: lerp(r.x, end.x, 0.5) + R(-0.5, 0.5), y: lerp(r.y, end.y, 0.5) + R(-0.5, 0.5) }; if (!isWater(m.x, m.y)) P.go(m.x, m.y, V.walk); P.wait(0.1, 'graze'); P.go(end.x, end.y, V.walk); P.done('look'); return; }
+  }
+  P.go(end.x, end.y, V.walk, hop); P.done('idle');
+}
+// the hunted see it coming: they look up, bolt, and either get away or are caught where the hunter catches them
+function preyReacts() {
+  for (const h of actors.values()) {
+    if (h.dead || !h.a.act) continue; const act = h.a.act, prey = act.id && recOf(act.id); if (!prey || prey.dead && prey.dead.by !== h.id) continue;
+    if ((act.k === 'kill' || (act.k === 'hunt' && act.kill) || act.k === 'guard') && prey.dead) {
+      const ks = h.plan && h.plan.filter(q => q.killMark).pop(), P = new Plan(prey), sx = act.x !== undefined ? act.x + 0.5 : prey.x, sy = act.y !== undefined ? act.y + 0.5 : prey.y, at = ks ? ks.u1 : 0.4;
+      P.wait(Math.max(0, at - 0.25), 'graze'); P.wait(0.03, 'look', { at: h.id }); P.go(sx + R(-0.2, 0.2), sy + R(-0.2, 0.2), SPEED[kind(prey.a)].run, 'run'); P.squeeze(at); P.until(at, 'look', { at: h.id }); P.done('dead');
+      prey.dead.u = at; prey.dead.shown = false;
+    } else if ((act.k === 'chase' || act.k === 'hunt') && !prey.dead && prey.plan) {
+      const P = new Plan(prey), away = { x: prey.x + Math.sign(prey.x - h.x || 1) * 1.6, y: prey.y + Math.sign(prey.y - h.y || 1) * 1.6 }, e = endOf(prey.a), safe = isWater(away.x, away.y) ? e : away;
+      P.wait(R(0.04, 0.1), 'graze'); P.wait(0.03, 'look', { at: h.id }); P.go(safe.x, safe.y, SPEED[kind(prey.a)].run, 'run'); P.wait(0.08, 'look', { at: h.id }); P.go(e.x, e.y, SPEED[kind(prey.a)].walk); P.done('look', { at: h.id });
+      if (Math.random() < 0.5) say2(prey, 'afraid');
+    }
+  }
+}
+function planDeath(r) {
+  const d = r.dead, P = new Plan(r); if (d.u !== undefined && !d.instant) return;   // a hunt already laid out the end
+  d.u = d.instant ? tickFrac : R(0.05, 0.25);
+  if (d.instant) { r.plan = [{ t: 's', u0: 0, u1: 1, pose: 'dead' }]; r.si = -1; return; }
+  P.wait(d.u, d.why === 'old age' || d.why === 'hunger' || d.why === 'cold and hunger' ? 'lie' : 'idle'); P.done('dead');
+}
+
+// ================================================================== events from the engine, turned into things you can see
+function say2(r, b) { if (now - r.bubT > 6000) { r.bub = b; r.bubT = now + Math.random() * 600; } }
+function takeEvents(instant) {
+  for (const f of S.fx.splice(0)) {
+    if (f.kind === 'death') {
+      const r = recOf(f.id); if (!r) continue; r.dead = { why: f.why, by: f.by, t: gameMs, instant: !!instant };
+      if (instant) { r.dead.u = tickFrac; r.dead.shown = true; r.dead.t = gameMs; if (f.why === 'struck') burst(r.x, r.y, 'smoke', 6); }
+      if (W.SPECIES[f.sp].people) {
+        const g = near(camp.x - 2.6, camp.y - 1.6, 1.2); graves.push({ x: g.x, y: g.y, born: now }); if (graves.length > 14) graves.shift();
+        for (const o of actors.values()) if (o !== r && !o.dead && o.a.d.people && Math.hypot(o.x - r.x, o.y - r.y) < 6) { o.bub = 'grief'; o.bubT = now + 1200 + Math.random() * 3000; }
+      }
+    } else if (f.kind === 'birth') {
+      const a = S.byId.get(f.id), m = f.mom && recOf(f.mom); if (!a) continue;
+      const r = newRec(a, m ? m.x + R(-0.15, 0.15) : a.x + 0.5, m ? m.y + R(-0.1, 0.15) : a.y + 0.5, { born: now, newborn: 1, alpha: 0 });
+      if (m && (a.d.people || Math.random() < 0.5)) { m.bub = 'love'; m.bubT = now + 400; } if (a.d.people) for (const o of actors.values()) if (o.a.d.people && !o.dead && o !== m && Math.random() < 0.6) { o.bub = 'love'; o.bubT = now + 1500 + Math.random() * 3000; }
+    } else if (f.kind === 'arrive') {
+      const a = S.byId.get(f.id); if (!a) continue; const ex = a.x < N / 2 ? -0.4 : N + 0.4; newRec(a, ex, a.y + 0.5, { born: now, arrive: 1, alpha: 0 });
+    } else if (f.kind === 'hut') syncHuts(f.by);
+  }
+}
+function onTick() {
+  takeEvents(false); syncHuts();
+  for (const a of S.agents) { if (!a.alive) continue; let r = recOf(a.id); if (!r) { const e = endOf(a); r = newRec(a, e.x, e.y, { alpha: 0 }); } r.a = a; }
+  const phase = S.tickNo % DAY; let pi = 0;
+  for (const r of actors.values()) {
+    if (r.dead) { if (r.dead.shown) continue; planDeath(r); continue; }
+    if (r.held) continue;
+    if (r.a.d.people) planPerson(r, phase, pi++); else planAnimal(r);
+  }
+  preyReacts();
+  for (let i = 0; i < N * N; i++) { trail[i] *= 0.992; if (W.burn[i] > 0) scar[i] = 1; else if (scar[i] > 0) scar[i] = Math.max(0, scar[i] - 0.012 - W.grass[i] * 0.02); }
+  reconcile(); chronicle(); groundWanted = true;
+}
+
+// ---- moving along the plan, every frame
+function stepAt(r, u, dts) {
+  const pl = r.plan; if (!pl || !pl.length) return null;
+  const enter = i => { const s = pl[i]; s.x0 = r.x; s.y0 = r.y; };
+  if (r.si < 0) { r.si = 0; enter(0); }
+  while (r.si < pl.length - 1 && u >= pl[r.si].u1) { const s = pl[r.si]; if (s.t === 'm') { r.odo += Math.hypot(s.x1 - r.x, s.y1 - r.y); r.x = s.x1; r.y = s.y1; } r.si++; enter(r.si); }
+  const s = pl[r.si], k = clamp((u - s.u0) / Math.max(1e-6, s.u1 - s.u0), 0, 1);
+  if (s.t === 'm') {
+    const first = r.si === 0 || pl[r.si - 1].t !== 'm', last = r.si === pl.length - 1 || pl[r.si + 1].t !== 'm';
+    const kk = first && last ? ease(k) : first ? k * k * (2 - k) * 0.5 + k * 0.5 : last ? 1 - (1 - k) * (1 - k) * 0.5 - (1 - k) * 0.5 : k;
+    const nx = lerp(s.x0, s.x1, kk), ny = lerp(s.y0, s.y1, kk); r.vx = nx - r.x; r.vy = ny - r.y; r.odo += Math.hypot(r.vx, r.vy); r.x = nx; r.y = ny;
+    r.spd = Math.hypot(s.x1 - s.x0, s.y1 - s.y0) / Math.max(0.05, (s.u1 - s.u0) * TS);
+  } else if (s.t === 'f') {
+    const m = recOf(s.id); r.vx = r.vy = 0;
+    if (m && !m.dead) { const ang = (r.id % 7) * 0.9 + (s.playful ? Math.sin(gameMs / 900 + r.id) * 0.8 : 0), tx = m.x + Math.cos(ang) * s.gap, ty = m.y + Math.sin(ang) * s.gap * 0.8, d = Math.hypot(tx - r.x, ty - r.y);
+      if (d > 0.06 && !isWater(tx, ty)) { const step = Math.min(d, (d > 0.6 ? s.sp * 1.5 : s.sp) * dts); r.vx = (tx - r.x) / d * step; r.vy = (ty - r.y) / d * step; r.x += r.vx; r.y += r.vy; r.odo += step; r.spd = step / Math.max(1e-3, dts); } else r.spd = 0; }
+  } else { r.vx = r.vy = 0; r.spd = 0; }
+  return s;
+}
+
+// ================================================================== camera and touch
+function resize() { dpr = Math.min(3, window.devicePixelRatio || 1); cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); clampCam(); }
+const minZ = () => Math.min(cv.width / WW, cv.height / WH) * 0.96, maxZ = () => 5 * dpr;
+function clampCam() { cam.z = clamp(cam.z, minZ(), maxZ()); const vw = cv.width / cam.z, vh = cv.height / cam.z; cam.x = vw >= WW ? (WW - vw) / 2 : clamp(cam.x, -vw * 0.3, WW - vw * 0.7); cam.y = vh >= WH ? (WH - vh) / 2 : clamp(cam.y, -vh * 0.3, WH - vh * 0.7); }
+const toWorld = (sx, sy) => ({ x: cam.x + sx * dpr / cam.z, y: cam.y + sy * dpr / cam.z });
+const toCell = (sx, sy) => { const w = toWorld(sx, sy), c = cellAt(w.x, w.y); return { x: clamp(c.x, 0, N - 0.01), y: clamp(c.y, 0, N - 0.01), wx: w.x, wy: w.y }; };
+function zoomAt(sx, sy, f) { const w = toWorld(sx, sy); cam.z = clamp(cam.z * f, minZ(), maxZ()); cam.x = w.x - sx * dpr / cam.z; cam.y = w.y - sy * dpr / cam.z; clampCam(); }
+const ptrs = new Map(); let pinch = null, held = null, act = null, lastStrike = 0, bolt = null;
+function actorAt(w) { let best = null, bd = 26; for (const r of actors.values()) { if (r.dead || r.hidden || r.carriedBy || r.pose === 'hidden') continue; const sp = lookOf(r.a).grown[0], d = Math.hypot(isoX(r.x, r.y) - w.x, isoY(r.x, r.y) - sp.h * 0.4 - w.y); if (d < bd) { bd = d; best = r; } } return best; }
+cv.addEventListener('pointerdown', e => {
+  if (paused) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) { const [p, q] = [...ptrs.values()]; pinch = { d: Math.hypot(p.x - q.x, p.y - q.y), mx: (p.x + q.x) / 2, my: (p.y + q.y) / 2 }; if (held) dropHeld(); act = null; return; }
+  const w = toWorld(e.clientX, e.clientY);
+  if (tool === 'hand') { const r = actorAt(w); if (r) { held = r; r.held = true; r.a.held = true; r.bub = 'afraid'; r.bubT = now; } act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r }; }
+  else if (tool === 'strike') { if (now - lastStrike > 600) { lastStrike = now; const c = toCell(e.clientX, e.clientY); W.G.strike(c.x | 0, c.y | 0); bolt = { x: w.x, y: w.y, t: now, seed: (Math.random() * 99) | 0 }; takeEvents(true); scatterFrom(c.x, c.y, 4); burst(c.x, c.y, 'smoke', 10); burst(c.x, c.y, 'ember', 12); for (let i = 0; i < N * N; i++) if (W.burn[i] > 0) scar[i] = 1; reconcile(); repaintCells(c.x - 2, c.y - 2, c.x + 2, c.y + 2); } }
+  else act = { id: e.pointerId, x: e.clientX, y: e.clientY, acc: 0, t: 0 };
+});
+cv.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if (!p) return; const ox = p.x, oy = p.y; p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size >= 2 && pinch) { const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; cam.x -= (mx - pinch.mx) * dpr / cam.z; cam.y -= (my - pinch.my) * dpr / cam.z; zoomAt(mx, my, d / Math.max(1, pinch.d)); pinch = { d, mx, my }; return; }
+  if (!act || act.id !== e.pointerId) return; act.x = p.x; act.y = p.y;
+  if (held) { const c = toCell(p.x, p.y + 10); held.x = c.x; held.y = c.y; }
+  else if (act.pan) { cam.x -= (p.x - ox) * dpr / cam.z; cam.y -= (p.y - oy) * dpr / cam.z; clampCam(); }
+});
+function dropHeld() {
+  const r = held; held = null; if (!r) return; r.held = false; r.a.held = false;
+  if (isWater(r.x, r.y)) { const q = near(r.x, r.y, 2); r.x = q.x; r.y = q.y; ripples.push({ x: isoX(r.x, r.y), y: isoY(r.x, r.y), t: now }); }
+  W.moveTo(r.a, clamp(r.x | 0, 0, N - 1), clamp(r.y | 0, 0, N - 1)); burst(r.x, r.y, 'dust', 6);
+  // a moment to get its bearings, then it carries on from where it was put
+  const P = new Plan(r), u = tickFrac; P.wait(u, 'idle'); P.wait(0.04, 'hop'); P.wait(0.06, 'look'); r.plan = null;
+  if (r.a.d.people) { P.go(camp.x + R(-1, 1), camp.y + R(-1, 1), SPEED.person.walk); } else { const e = endOf(r.a); P.go(e.x, e.y, SPEED[kind(r.a)].walk); }
+  P.done('idle'); r.si = -1; for (const s of r.plan) if (s.u1 <= u) { s.u0 = s.u1 = u; }
+}
+const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (act && act.id === e.pointerId) { if (held) dropHeld(); act = null; } };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 0.87); }, { passive: false });
+let lastTap = 0; cv.addEventListener('click', e => { if (now - lastTap < 320 && tool === 'hand') zoomAt(e.clientX, e.clientY, 1.8); lastTap = now; });
+// creatures near a sudden blow run from it
+function scatterFrom(x, y, rad) {
+  for (const r of actors.values()) {
+    if (r.dead || r.held || r.hidden || r.carriedBy) continue; const d = Math.hypot(r.x - x, r.y - y); if (d > rad || d < 0.01) continue;
+    const P = new Plan(r), u = tickFrac, fx0 = r.x + (r.x - x) / d * 1.8, fy0 = r.y + (r.y - y) / d * 1.8, q = isWater(fx0, fy0) ? near(r.x, r.y, 1.5) : { x: fx0, y: fy0 }, k = kind(r.a);
+    P.wait(u, 'idle'); P.go(q.x, q.y, SPEED[k].run, 'run'); P.wait(0.1, 'look'); if (!r.a.d.people) { const e = endOf(r.a); P.go(e.x, e.y, SPEED[k].walk); } P.done('idle');
+    for (const s of r.plan) if (s.u1 <= u) s.u0 = s.u1 = u; r.si = -1; r.bub = 'afraid'; r.bubT = now;
+  }
+}
+// the powers: each one pushes the engine at the touched place, and the ground answers at once
+function usePower(dtMs) {
+  if (!act || tool === 'hand' || tool === 'strike') return; act.acc += dtMs; act.t += dtMs; if (act.acc < 120) return;
+  const frac = act.acc / 2500; act.acc = 0; const c = toCell(act.x, act.y), x = c.x | 0, y = c.y | 0, cold = W.tempAt(y * N + x) < 0;
+  if (tool === 'rain') { W.G.rain(x, y, 2, 0.2 * frac); if (!cold) for (let k = 0; k < 3; k++) { const q = { x: c.x + R(-2.3, 2.3), y: c.y + R(-2.3, 2.3) }; if (isWater(q.x, q.y)) ripples.push({ x: isoX(q.x, q.y), y: isoY(q.x, q.y), t: now, small: 1 }); else burst(q.x, q.y, 'splash', 2, { vy: -0.03, max: 350 }); } }
+  else if (tool === 'sun') { const hadSnow = W.snow[y * N + x] > 0.02; W.G.sun(x, y, 2, 7 * frac); burst(c.x + R(-1.5, 1.5), c.y + R(-1.5, 1.5), 'heat', 3); if (hadSnow) burst(c.x + R(-1.5, 1.5), c.y + R(-1.5, 1.5), 'steam', 2); }
+  else if (tool === 'grow') { W.G.grow(x, y, 2, 0.12 * frac); burst(c.x + R(-1.8, 1.8), c.y + R(-1.8, 1.8), 'sparkle', 4); if (Math.random() < 0.5) burst(c.x + R(-1.5, 1.5), c.y + R(-1.5, 1.5), 'petal', 1); }
+  repaintCells(x - 3, y - 3, x + 3, y + 3); reconcile();
+  // those under the touch notice it
+  for (const r of actors.values()) {
+    if (r.dead || r.hidden || r.carriedBy || Math.hypot(r.x - c.x, r.y - c.y) > 2.6 || Math.random() > 0.08) continue; const T = W.tempAt((r.y | 0) * N + (r.x | 0));
+    if (tool === 'rain') say2(r, cold ? 'cold' : 'wet'); else if (tool === 'sun') say2(r, T > 30 ? 'hot' : T < r.a.d.comfort + 6 ? 'warm' : 'fed'); else if (tool === 'grow' && r.a.d.people) say2(r, 'play');
+  }
+}
+
+// ================================================================== chronicle: a few words when something big happens
+const say = (() => { const el = document.getElementById('news'); let h; return t => { el.textContent = t; el.style.opacity = 1; clearTimeout(h); h = setTimeout(() => el.style.opacity = 0, 6500); }; })();
+let logSeen = 0, hadPeople = true, hadFlood = false;
+function chronicle() {
+  while (logSeen < S.log.length) say(S.log[logSeen++].text);
+  if (hadPeople && !S.popPeople) say('The valley is empty of people.'); hadPeople = S.popPeople > 0;
+  const fl = W.flood[T0.y * N + T0.x]; if (fl && !hadFlood && S.popPeople) say('The water has reached the camp.'); hadFlood = !!fl;
+}
+
+// ================================================================== drawing
+const draws = [];
+const put = (im, wx, wy, extra) => { const d = Object.assign({ y: wy, img: im, x: Math.round(wx - im.width / 2), top: Math.round(wy - im.height) }, extra); draws.push(d); return d; };
+function lightAt(tod) { // 0 = full day, 1 = full night; tod runs over one day of DAY steps
+  if (tod < 0.06) return 1 - tod / 0.06; if (tod < 0.6) return 0; if (tod < 0.76) return (tod - 0.6) / 0.16; if (tod < 0.94) return 1; return 1 - (tod - 0.94) / 0.12;
+}
+function frame(t) {
+  requestAnimationFrame(frame); const dtMs = Math.min(100, t - now); now = t;
+  const dts = paused ? 0 : dtMs * speed / 1000;
+  if (!paused) {
+    usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
+    if (tickFrac >= 1) { tickFrac -= Math.floor(tickFrac); W.tick(); onTick(); }
+  }
+  if (!paint && groundWanted) startPaint(); if (paint) paintSome(speed > 1 || act ? 200 : 90);
+  const z = cam.z, u = tickFrac, tod = ((S.tickNo % DAY) + u) / DAY, dark = lightAt(tod) * (speed >= 8 ? 0.5 : 1);
+  cx.setTransform(1, 0, 0, 1, 0, 0);
+  const sky = cx.createLinearGradient(0, 0, 0, cv.height); sky.addColorStop(0, '#31504f'); sky.addColorStop(1, '#1d3136'); cx.fillStyle = sky; cx.fillRect(0, 0, cv.width, cv.height);
+  cx.imageSmoothingEnabled = false; cx.setTransform(z, 0, 0, z, -Math.round(cam.x * z), -Math.round(cam.y * z));
+  // ground, crossfading into its newest picture
+  if (gFade) { const k = clamp((now - gFade.t) / 2600, 0, 1); cx.drawImage(gcv[gFade.from], 0, 0); cx.globalAlpha = ease(k); cx.drawImage(gcv[gFade.to], 0, 0); cx.globalAlpha = 1; if (k >= 1) { gFront = gFade.to; gFade = null; } }
+  else cx.drawImage(gcv[gFront], 0, 0);
+  const vw = cv.width / z, vh = cv.height / z, vx0 = cam.x - 80, vx1 = cam.x + vw + 80, vy0 = cam.y - 20, vy1 = cam.y + vh + 150;
+  const vis = (wx, wy) => wx > vx0 && wx < vx1 && wy > vy0 && wy < vy1;
+  // cloud shadows drifting over the land
+  const cloudy = S.precip > 0 ? 0.16 : 0.07;
+  for (const c of clouds) { c.x += c.sp * dtMs * (speed || 0) * (paused ? 0 : 1) * 3; if (c.x - c.r > WW) { c.x = -c.r; c.y = OY + Math.random() * N * TH; } cx.globalAlpha = cloudy; cx.drawImage(A.shadowBlob, c.x - c.r, c.y - c.r * 0.5, c.r * 2, c.r); }
+  cx.globalAlpha = 1;
+  // ripples on the water
+  for (let k = ripples.length - 1; k >= 0; k--) { const r = ripples[k], age = (now - r.t) / (r.small ? 600 : 1300); if (age > 1) { ripples.splice(k, 1); continue; } cx.strokeStyle = 'rgba(230,248,250,' + (0.7 * (1 - age)).toFixed(2) + ')'; cx.lineWidth = 1; cx.beginPath(); cx.ellipse(r.x, r.y, 3 + age * (r.small ? 7 : 16), (3 + age * (r.small ? 7 : 16)) * 0.5, 0, 0, 6.3); cx.stroke(); }
+  draws.length = 0;
+  // ---- standing things
+  for (const [key, p] of props) {
+    const wx = isoX(p.x, p.y), wy = isoY(p.x, p.y) + (p.dy || 0); if (!vis(wx, wy)) continue;
+    let al = clamp((now - p.born) / 1100, 0, 1); if (p.die) { al = Math.min(al, 1 - (now - p.die) / 1600); if (al <= 0) { props.delete(key); continue; } }
+    const d = put(p.img, wx, wy, { alpha: al < 1 ? al : undefined, sway: p.kind === 'tree' ? p.i : -1, tree: p.kind === 'tree', prev: p.prev && now - p.swap < 2400 ? p.prev : null, swapK: clamp((now - p.swap) / 2400, 0, 1) });
+    if (p.kind === 'tree' && W.burn[p.i] > 0) put(A.flame[(((t / 140) | 0) + p.i) % 2], wx, wy - 6);
+    if (p.pop && now - p.pop < 380) d.pop = (now - p.pop) / 380;
+    if (p.home && p.kind === 'den') d.eyes = { x: wx, y: wy - 18, home: p.home.id };
+    if (p.home && p.kind === 'burrow') d.peek = { x: wx, y: wy - 12, home: p.home.id };
+    if (p.kind === 'tree' && dts > 0 && Math.random() < dts * 0.05) { const st = p.base.slice(2); if (st === 'gold' || st === 'red' || st === 'goldFruit') spawn('leafG', wx + R(-30, 30), wy - R(50, 90), { vx: R(-0.01, 0.01), vy: 0.012, max: 4200, floor: wy + R(-4, 8), leaf: 1 }); }
+  }
+  // the camp: huts going up, the fire, graves
+  for (let k = 0; k < huts.length; k++) {
+    const h = huts[k]; if (!h) continue; const wx = isoX(h.x, h.y), wy = isoY(h.x, h.y) + 8;
+    let al = 1; if (h.die) { al = 1 - (now - h.die) / 2500; if (al <= 0) { huts[k] = null; continue; } }
+    const working = [...actors.values()].some(r => r.step && r.step.site === h.k && r.step.pose === 'work');
+    if (h.p < 1 && dts > 0) h.p = Math.min(1, h.p + dts * (working ? 1 / 9 : 1 / 70));
+    const snowy = W.snow[(h.y | 0) * N + (h.x | 0)] > 0.08; put(snowy ? A.hutSnow : A.hut, wx, wy, { build: h.p < 1 ? h.p : undefined, alpha: al < 1 ? al : undefined, hut: h });
+  }
+  for (let k = huts.length - 1; k >= 0 && !huts[k]; k--) huts.pop();
+  for (const g of graves) { const wx = isoX(g.x, g.y), wy = isoY(g.x, g.y); if (vis(wx, wy)) put(A.grave, wx, wy + 4, { alpha: clamp((now - g.born) / 3000, 0, 1) }); }
+  const fireLit = campOn && T0.skills.fire && (S.t - (T0.fireT || -9) < 0.12 || dark > 0.2);
+  if (fireLit) { const wx = isoX(fire.x, fire.y), wy = isoY(fire.x, fire.y); put(A.fire[((t / 170) | 0) % 2], wx, wy + 2); if (dts > 0 && Math.random() < dts * 1.5) spawn('smoke', wx + R(-2, 2), wy - 14, { vy: -0.02, vx: 0.004, max: 2600, s: 2 }); if (dts > 0 && Math.random() < dts * 1.2) spawn('ember', wx + R(-3, 3), wy - 10, { vy: -0.03, vx: R(-0.005, 0.005), max: 900 }); }
+  // ---- creatures
+  const u2 = paused ? u : u;
+  for (const r of actors.values()) {
+    if (r.held) { r.pose = 'held'; } else { const s = stepAt(r, u2, dts); r.step = s; r.pose = s ? s.pose : 'idle'; }
+    if (r.carriedBy) { const m = recOf(r.carriedBy); if (m && !m.dead) { r.x = m.x; r.y = m.y; r.pose = m.pose === 'hidden' ? 'hidden' : 'carried'; } else { r.carriedBy = 0; r.pose = 'sit'; } }
+  }
+  // keep out of each other's way: bodies push gently apart
+  const bins = new Map();
+  for (const r of actors.values()) { if (r.dead && r.dead.shown || r.pose === 'hidden' || r.pose === 'carried' || r.held) continue; const key = ((r.x + r.ox) | 0) + ',' + ((r.y + r.oy) | 0); let b = bins.get(key); if (!b) bins.set(key, b = []); b.push(r); }
+  for (const r of actors.values()) {
+    r.ox *= 0.985; r.oy *= 0.985; if (!bins.size) break; const bx0 = (r.x + r.ox) | 0, by0 = (r.y + r.oy) | 0, rr = BODY[kind(r.a)];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const b = bins.get((bx0 + dx) + ',' + (by0 + dy)); if (!b) continue; for (const o of b) { if (o === r) continue; const ddx = (r.x + r.ox) - (o.x + o.ox), ddy = (r.y + r.oy) - (o.y + o.oy), d = Math.hypot(ddx, ddy), m = rr + BODY[kind(o.a)]; if (d < m && d > 1e-4) { const push = (m - d) * 0.12; r.ox += ddx / d * push; r.oy += ddy / d * push; } } }
+    r.ox = clamp(r.ox, -0.8, 0.8); r.oy = clamp(r.oy, -0.8, 0.8);
+  }
+  const babies = new Map(); for (const r of actors.values()) if (r.pose === 'carried') babies.set(r.carriedBy, r);
+  for (const [id, r] of actors) {
+    const a = r.a, pose = r.pose;
+    if (r.dead) {
+      if (!r.dead.shown && u >= (r.dead.u || 0)) { r.dead.shown = true; r.dead.t = gameMs; if (r.dead.why === 'eaten' || r.dead.why === 'hunted' || r.dead.why === 'killed by people') burst(r.x, r.y, 'blood', 5); if (r.dead.why === 'drowned') ripples.push({ x: isoX(r.x, r.y), y: isoY(r.x, r.y), t: now }); }
+      if (r.dead.shown) { const age = gameMs - r.dead.t, big = a.d.mass > 2, life = r.dead.why === 'eaten' ? 50000 : 30000; if (age > life) { actors.delete(id); if (big) relics.push({ x: r.x, y: r.y, t: gameMs }); continue; } r.alpha = clamp(1 - (age - life * 0.6) / (life * 0.4), 0, 1); }
+    } else if (r.alpha < 1) r.alpha = Math.min(1, r.alpha + dtMs / 1500);
+    if (pose === 'hidden' || pose === 'carried') continue;
+    const x = r.x + r.ox, y = r.y + r.oy, wx = isoX(x, y), wy = isoY(x, y); if (!vis(wx, wy)) continue;
+    const L = lookOf(a), dd = a.d, k = kind(a); let set = L.grown;
+    if (dd.people) { if (a.age < 2 && L.baby) set = null; else if (a.age < 6 && L.tot) set = L.tot; else if (a.age < dd.mature) set = L.young; else if (L.old && a.age > 46) set = L.old; }
+    else if (a.age < dd.mature * 0.75) set = L.young;
+    if (!set) { const b = L.baby[a.id % L.baby.length]; put(b, wx, wy, { shadow: { x: wx, y: wy, w: b.width }, alpha: r.alpha < 1 ? r.alpha : undefined }); continue; }
+    const sp = set[a.id % set.length]; let face = r.face;
+    const s = r.step; let look = null;
+    if (s && s.at) { const o = recOf(s.at); if (o) look = o; } else if (s && s.lx !== undefined) look = { x: s.lx, y: s.ly };
+    if (Math.abs(r.vx - r.vy) > 0.0005 && (pose === 'walk' || pose === 'run' || pose === 'hop' || pose === 'carry' || pose === 'creep' || pose === 'crawl')) face = (r.vx - r.vy) > 0 ? 'r' : 'l';
+    else if (look) { const ddx = (look.x - look.y) - (r.x - r.y); if (Math.abs(ddx) > 0.05) face = ddx > 0 ? 'r' : 'l'; }
+    r.face = face;
+    let im = sp[face][0], lift = 0, sq = 0, extra = {};
+    const moving = r.spd > 0.05 && (pose === 'walk' || pose === 'run' || pose === 'hop' || pose === 'carry' || pose === 'creep' || pose === 'crawl' || (s && s.t === 'f'));
+    const nf = sp.r.length, fr = moving ? ((r.odo * STEPS[k] * (nf / 2) * (pose === 'run' ? 0.8 : 1)) | 0) % nf : 0;   // sheets may carry more than two walking frames
+    switch (pose) {
+      case 'walk': case 'run': case 'creep': im = sp[face][fr]; if (pose === 'run' && k !== 'person') lift = fr ? 1 : 0; if (moving && k === 'small') lift = Math.round(Math.abs(Math.sin(r.odo * Math.PI * 2.2)) * 3); break;
+      case 'hop': im = sp[face][fr]; if (moving) lift = Math.round(Math.abs(Math.sin(r.odo * Math.PI * (k === 'person' ? 1.6 : 2.2))) * (k === 'person' ? 4 : 3)); else if (s && s.t === 's' && s.u1 - s.u0 < 0.06) lift = Math.round(Math.abs(Math.sin(gameMs / 120)) * 3); break;
+      case 'carry': im = sp.up ? (fr && sp.upB ? sp.upB[face] : sp.up[face]) : sp[face][fr]; extra.item = s && s.item; break;
+      case 'graze': if (sp.graze) im = sp.graze[face][Math.sin(gameMs / 420 + id) > 0.35 ? 1 : 0]; else { im = sp[face][0]; sq = Math.sin(gameMs / 420 + id) > 0.35 ? 1 : 0; } if (dts > 0 && Math.random() < dts * 0.5) spawn('grass', wx + (face === 'r' ? 1 : -1) * sp.w * 0.35, wy - 3, { vy: -0.02, vx: R(-0.01, 0.01), g: 0.0001, max: 500, floor: wy }); break;
+      case 'feed': im = sp[face][0]; sq = Math.sin(gameMs / 260 + id) > 0 ? 1 : 0; if (dts > 0 && Math.random() < dts * 0.6) spawn('blood', wx + (face === 'r' ? 1 : -1) * sp.w * 0.4, wy - 3, { vy: -0.02, g: 0.0002, max: 400, floor: wy }); break;
+      case 'lie': case 'dead': im = sp.lie ? sp.lie[face] : sp.sit ? sp.sit[face] : sp[face][0]; if (pose === 'lie' && s && s.zz && dts > 0 && Math.random() < dts * 0.35) spawn('zz', wx + 6, wy - im.height, { vy: -0.012, vx: 0.006, max: 1800, z: 1 }); break;
+      case 'sit': im = sp.sit ? sp.sit[face] : sp.lie ? sp.lie[face] : sp[face][0]; if (s && s.zz && dts > 0 && Math.random() < dts * 0.35) spawn('zz', wx + 6, wy - im.height, { vy: -0.012, vx: 0.006, max: 1800, z: 1 }); if (s && s.chat && Math.random() < dts * 0.04) say2(r, 'chat'); if (s && s.play && Math.random() < dts * 0.05) say2(r, 'play'); break;
+      case 'work': {
+        const ph = ((gameMs / 380 + id) | 0) % 2; im = ph && sp.up ? sp.up[face] : sp[face][0]; if (!sp.up) sq = ph;
+        const fx = s && s.fx; if (fx && ph && dts > 0 && Math.random() < dts * 3) { const lx = s.lx !== undefined ? isoX(s.lx, s.ly) : wx, ly = s.lx !== undefined ? isoY(s.lx, s.ly) : wy; spawn(fx === 'hammer' ? 'chips' : fx, lerp(wx, lx, 0.6) + R(-4, 4), (fx === 'fruit' ? ly - 40 : lerp(wy, ly, 0.6)) - R(2, 10), { vx: R(-0.03, 0.03), vy: fx === 'fruit' ? 0.01 : -0.05, g: 0.00022, max: 700, floor: wy }); }
+        if (s && s.shake !== undefined) { const p = props.get('t' + s.shake); if (p) p.pop = now - 200; }
+        break;
+      }
+      case 'fish': im = sp[face][0]; extra.rod = { face, catch: s && s.catch, id }; break;
+      case 'look': im = sp[face][0]; break;
+      case 'enter': { const k2 = s ? clamp((u - s.u0) / Math.max(1e-4, s.u1 - s.u0), 0, 1) : 1; extra.alpha = 1 - k2; sq = Math.round(k2 * im.height * 0.5); break; }
+      case 'emerge': { const k2 = s ? clamp((u - s.u0) / Math.max(1e-4, s.u1 - s.u0), 0, 1) : 1; extra.alpha = k2; sq = Math.round((1 - k2) * im.height * 0.5); break; }
+      case 'held': im = sp[face][((now / 90) | 0) % 2]; lift = 16; break;
+      case 'crawl': im = sp.sit ? sp.sit[face] : im; lift = moving ? (((r.odo * 6) | 0) % 2) : 0; break;
+      default: im = sp[face][0];
+    }
+    // the newborn and the newly arrived ease into view
+    let al = r.alpha; if (r.newborn) { const k2 = clamp((now - r.born) / 1400, 0, 1); if (k2 >= 1) r.newborn = 0; extra.grow = 0.45 + 0.55 * ease(k2); }
+    if (extra.alpha !== undefined) al = Math.min(al, extra.alpha);
+    const d = put(im, wx, wy - lift, Object.assign(extra, { y: wy, shadow: { x: wx, y: wy, w: sp.w, lifted: lift > 4 }, alpha: al < 1 ? al : undefined, sq, bub: now - r.bubT < 4200 && now >= r.bubT ? r.bub : '', bx: wx, dead: pose === 'dead' }));
+    if (babies.has(id)) { const b = L.baby ? L.baby[babies.get(id).a.id % L.baby.length] : null; if (b) d.baby = { img: b, x: wx + (face === 'r' ? -9 : 9) - b.width / 2, y: wy - im.height * 0.55 - lift - (pose === 'sit' ? -6 : 0) }; }
+    if (dd.people && moving && dts > 0) { const ci = (y | 0) * N + (x | 0); if (ci >= 0 && ci < N * N) trail[ci] = Math.min(1.2, trail[ci] + dts * 0.012); }
+  }
+  for (let k = relics.length - 1; k >= 0; k--) { const r = relics[k], age = gameMs - r.t; if (age > 240000) { relics.splice(k, 1); continue; } put(A.bones, isoX(r.x, r.y), isoY(r.x, r.y) + 2, { alpha: clamp(1 - (age - 200000) / 40000, 0, 1), y: isoY(r.x, r.y) - 6 }); }
+  // a crown that hides a creature turns glassy, so nothing is lost in the woods
+  if (z / dpr > 0.5) { const live = draws.filter(d => d.shadow); for (const d of draws) if (d.tree) { const x0 = d.x + 6, x1 = d.x + d.img.width - 6, y0 = d.top + 4, y1 = d.y - 14; for (const a of live) if (a.y < d.y && a.shadow.x > x0 && a.shadow.x < x1 && a.y > y0 && a.top < y1) { d.alpha = Math.min(d.alpha === undefined ? 1 : d.alpha, 0.38); break; } } }
+  draws.sort((p, q) => p.y - q.y);
+  const wind = S.precip > 0 ? 2 : 1;
+  for (const d of draws) {
+    if (d.shadow && !d.dead) { cx.fillStyle = d.shadow.lifted ? 'rgba(20,30,20,.18)' : 'rgba(20,30,20,.28)'; const sw = Math.round(d.shadow.w * 0.62); cx.globalAlpha = d.alpha === undefined ? 1 : d.alpha; cx.fillRect(Math.round(d.shadow.x - sw / 2), Math.round(d.shadow.y - 2), sw, 3); cx.fillRect(Math.round(d.shadow.x - sw / 2) + 2, Math.round(d.shadow.y - 3), sw - 4, 5); cx.globalAlpha = 1; }
+    const al = d.alpha === undefined ? 1 : d.alpha, im = d.img, w = im.width, h = im.height;
+    if (d.prev) { cx.globalAlpha = al; drawSway(d.prev, d, wind); cx.globalAlpha = al * ease(d.swapK); drawSway(im, d, wind); cx.globalAlpha = 1; }
+    else if (d.build !== undefined) drawBuilding(d);
+    else {
+      cx.globalAlpha = al;
+      if (d.dead) d.img = greyOf(im);
+      if (d.grow !== undefined) { const gw = Math.round(w * d.grow), gh = Math.round(h * d.grow); cx.drawImage(im, Math.round(d.x + (w - gw) / 2), d.top + h - gh, gw, gh); }
+      else if (d.pop !== undefined) { const e = Math.sin(d.pop * Math.PI) * 0.08, gw = Math.round(w * (1 + e)), gh = Math.round(h * (1 - e)); cx.drawImage(im, Math.round(d.x + (w - gw) / 2), d.top + h - gh, gw, gh); }
+      else if (d.sq) cx.drawImage(im, 0, 0, w, h - d.sq, d.x, d.top + d.sq, w, h - d.sq);
+      else if (d.sway >= 0) drawSway(im, d, wind);
+      else cx.drawImage(d.img, d.x, d.top);
+      cx.globalAlpha = 1;
+    }
+    if (d.item) { const it = A.item[d.item]; if (it) cx.drawImage(it, Math.round(d.x + w / 2 - it.width / 2), d.top - it.height + 3); }
+    if (d.baby) cx.drawImage(d.baby.img, Math.round(d.baby.x), Math.round(d.baby.y));
+    if (d.rod) drawRod(d);
+    if (d.peek) { let n = 0; for (const r of actors.values()) if (r.pose === 'hidden' && r.a.home === d.peek.home && !r.a.d.eats.meat) n++; if (n && ((t / 2200 + d.peek.home) | 0) % 3 !== 0) cx.drawImage(A.peek, Math.round(d.peek.x - 5), Math.round(d.peek.y - 4)); }
+    if (d.eyes) { let n = 0; for (const r of actors.values()) if (r.pose === 'hidden' && r.a.home === d.eyes.home) n++; if (n) { cx.fillStyle = '#f2d24a'; const blink = ((t / 3100) | 0) % 5 === 0; if (!blink) for (let q = 0; q < Math.min(3, n); q++) { const ex = Math.round(d.eyes.x - 6 + q * 6), ey = Math.round(d.eyes.y + (q % 2) * 3); cx.fillRect(ex, ey, 1, 1); cx.fillRect(ex + 3, ey, 1, 1); } } }
+    if (d.hut) { let n = 0; for (const r of actors.values()) if (r.pose === 'hidden' && r.step && r.step.hut === d.hut.k + 1) n++; d.hut.sleepers = n; if (n && dts > 0 && Math.random() < dts * 0.4) spawn('zz', d.x + w * 0.7, d.top + 8, { vy: -0.012, vx: 0.006, max: 2000, z: 1 }); }
+  }
+  // ---- particles
+  for (let k = parts.length - 1; k >= 0; k--) {
+    const p = parts[k]; p.life += dts * 1000; if (p.life > p.max) { parts.splice(k, 1); continue; }
+    const st = dts * 1000; p.vy += p.g * st; p.x += p.vx * st; p.y += p.vy * st;
+    if (p.leaf) p.x += Math.sin(p.life / 300) * 0.3;
+    if (p.floor !== undefined && p.y > p.floor && p.vy > 0) { p.y = p.floor; p.vx *= 0.5; p.vy = 0; p.g = 0; }
+    const fade = 1 - p.life / p.max; cx.globalAlpha = clamp(fade * 1.5, 0, 1);
+    if (p.z) { cx.fillStyle = '#e8ecff'; const zx = Math.round(p.x), zy = Math.round(p.y); cx.fillRect(zx, zy, 3, 1); cx.fillRect(zx + 1, zy + 1, 1, 1); cx.fillRect(zx, zy + 2, 3, 1); }
+    else { cx.fillStyle = p.col; cx.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s); }
+  }
+  cx.globalAlpha = 1;
+  // ---- small life: fish jumping, butterflies by day, fireflies by summer night, birds crossing
+  if (dts > 0) {
+    if (Math.random() < dts * 0.5) { for (let tries = 0; tries < 8; tries++) { const i = (Math.random() * N * N) | 0; if (W.water[i] && W.fish[i] > 0.3 && W.tempAt(i) > -3) { const x = i % N + Math.random(), y = ((i / N) | 0) + Math.random(), wx = isoX(x, y), wy = isoY(x, y); if (!vis(wx, wy)) continue; spawn('splash', wx, wy - 2, { vx: R(-0.02, 0.02), vy: -0.09, g: 0.0004, max: 520, floor: wy, s: 2, col: '#6f9db8' }); setTimeout(() => ripples.push({ x: wx, y: wy, t: now }), 450); break; } } }
+    const warmDay = S.air > 12 && dark < 0.3, summerNight = S.air > 13 && dark > 0.6;
+    while (flies.length < (warmDay ? 7 : summerNight ? 14 : 0)) { const q = near(camp.x + R(-8, 8), camp.y + R(-8, 8), 2); flies.push({ x: isoX(q.x, q.y), y: isoY(q.x, q.y) - R(6, 20), a: Math.random() * 6, kind: warmDay ? 'b' : 'f', col: ['#fbf4e2', '#f3d24f', '#e08fb8', '#9fd3f0'][(Math.random() * 4) | 0] }); }
+    if (!warmDay && !summerNight) flies.length = 0;
+    flock.next -= dts * 1000; if (flock.next < 0 && dark < 0.5) { flock.next = R(25000, 60000); const y0 = cam.y + R(0, vh * 0.6), dir = Math.random() < 0.5 ? 1 : -1; flock.list = []; for (let k = 0; k < 3 + ((Math.random() * 4) | 0); k++) flock.list.push({ x: (dir > 0 ? cam.x - 40 : cam.x + vw + 40) - dir * k * 14, y: y0 + Math.abs(k - 2) * 8 + k * 3, dir }); }
+  }
+  for (const f of flies) {
+    if (dts > 0) { f.a += R(-0.4, 0.4); f.x += Math.cos(f.a) * dts * 14; f.y += Math.sin(f.a) * dts * 7; }
+    if (f.kind === 'b') { cx.fillStyle = f.col; const w = ((now / 120) | 0) % 2; cx.fillRect(Math.round(f.x) - 1 - w, Math.round(f.y), 1 + w, 2); cx.fillRect(Math.round(f.x) + 1, Math.round(f.y), 1 + w, 2); }
+    else { const g = 0.5 + 0.5 * Math.sin(now / 400 + f.a * 9); cx.fillStyle = 'rgba(230,255,140,' + g.toFixed(2) + ')'; cx.fillRect(Math.round(f.x), Math.round(f.y), 1, 1); }
+  }
+  for (const b of flock.list) { if (dts > 0) b.x += b.dir * dts * 30; const wf = ((now / 200 + b.x) | 0) % 2; cx.fillStyle = '#3a3340'; const bx = Math.round(b.x), by = Math.round(b.y); cx.fillRect(bx - 2, by - wf, 2, 1); cx.fillRect(bx, by, 1, 1); cx.fillRect(bx + 1, by - wf, 2, 1); cx.fillStyle = 'rgba(20,30,20,.12)'; cx.fillRect(bx - 1, by + 60, 3, 1); }
+  // ---- thoughts, above everything; hidden when far away so the valley stays calm
+  if (z / dpr > 0.42) { let shown = 0; for (const d of draws) if (d.bub && A.bubble[d.bub] && shown++ < 24) cx.drawImage(A.bubble[d.bub], Math.round(d.bx - 13), d.top - 30, 26, 28); }
+  // ---- the touch of a power
+  if (act && tool !== 'hand' && tool !== 'strike') {
+    const c = toCell(act.x, act.y), wx = c.wx, wy = c.wy, cold = W.tempAt((c.y | 0) * N + (c.x | 0)) < 0;
+    if (tool === 'rain') { cx.fillStyle = cold ? '#f6f9fc' : '#8fc4ea'; for (let q = 0; q < 60; q++) { const a2 = hash(q, 3) * 6.28, r = Math.sqrt(hash(q, 4)) * 140, yy = ((t / (cold ? 14 : 3.5) + hash(q, 6) * 120) % 120); cx.fillRect(Math.round(wx + Math.cos(a2) * r), Math.round(wy - 120 + yy + Math.sin(a2) * r * 0.5), cold ? 2 : 1, cold ? 2 : 6); } const cl = cold ? A.cloud : A.cloudDark; cx.drawImage(cl, Math.round(wx - cl.width), Math.round(wy - 150 + Math.sin(t / 700) * 2), cl.width * 2, cl.height * 2); cx.globalAlpha = 0.12; cx.drawImage(A.shadowBlob, wx - 140, wy - 70, 280, 140); cx.globalAlpha = 1; }
+    else if (tool === 'sun') { const pulse = 1 + Math.sin(t / 300) * 0.05; for (let r = 150; r > 30; r -= 30) { cx.fillStyle = 'rgba(255,214,90,' + (0.05 + (150 - r) * 0.0009) + ')'; cx.beginPath(); cx.ellipse(wx, wy, r * pulse, r * 0.5 * pulse, 0, 0, 6.3); cx.fill(); } cx.strokeStyle = 'rgba(255,230,140,.35)'; cx.lineWidth = 2; for (let q = 0; q < 8; q++) { const a2 = q / 8 * 6.28 + t / 2000; cx.beginPath(); cx.moveTo(wx + Math.cos(a2) * 40, wy - 140 + Math.sin(a2) * 40); cx.lineTo(wx + Math.cos(a2) * 150, wy + Math.sin(a2) * 70); cx.stroke(); } }
+    else if (tool === 'grow') { cx.strokeStyle = 'rgba(214,245,166,.5)'; cx.lineWidth = 1; cx.beginPath(); cx.ellipse(wx, wy, 140, 70, 0, 0, 6.3); cx.stroke(); }
+  }
+  if (bolt) { const age = now - bolt.t; if (age > 300) bolt = null; else { cx.strokeStyle = age < 100 ? '#fffbe0' : '#ffd95a'; cx.lineWidth = age < 100 ? 4 : 2; cx.beginPath(); let bx = bolt.x + 40, by = cam.y - 10; cx.moveTo(bx, by); const st = 10; for (let q = 1; q <= st; q++) { const ty = by + (bolt.y - by) * q / st, tx = q === st ? bolt.x : bolt.x + 40 * (1 - q / st) + (hash(q, bolt.seed) - 0.5) * 46; cx.lineTo(tx, ty); } cx.stroke(); } }
+  // ---- light: dusk, night and dawn, with the warm lights of the camp on top
+  cx.setTransform(1, 0, 0, 1, 0, 0);
+  const sunH = W.sunHeight(), dim = (1 - sunH) * 0.08 + (S.precip > 0 ? 0.06 : 0); if (dim > 0.01) { cx.fillStyle = 'rgba(40,60,110,' + dim.toFixed(3) + ')'; cx.fillRect(0, 0, cv.width, cv.height); }
+  const duskGlow = tod > 0.55 && tod < 0.78 ? Math.sin((tod - 0.55) / 0.23 * Math.PI) : tod > 0.92 || tod < 0.06 ? Math.sin(((tod + 0.08) % 1) / 0.14 * Math.PI) * 0.7 : 0;
+  if (duskGlow > 0.01) { cx.fillStyle = 'rgba(255,140,70,' + (duskGlow * 0.13 * (speed >= 8 ? 0.5 : 1)).toFixed(3) + ')'; cx.fillRect(0, 0, cv.width, cv.height); }
+  if (dark > 0.01) {
+    cx.fillStyle = 'rgba(18,26,62,' + (dark * 0.46).toFixed(3) + ')'; cx.fillRect(0, 0, cv.width, cv.height);
+    cx.globalCompositeOperation = 'lighter'; const sx = wx => (wx - cam.x) * z, sy = wy => (wy - cam.y) * z;
+    if (fireLit) { const r = (70 + Math.sin(t / 150) * 4) * z, fx = sx(isoX(fire.x, fire.y)), fy = sy(isoY(fire.x, fire.y)) - 6 * z; cx.globalAlpha = dark * 0.55; cx.drawImage(A.glow, fx - r, fy - r * 0.6, r * 2, r * 1.2); }
+    for (const h of huts) if (h && h.p >= 1 && h.sleepers) { const r = 26 * z, hx = sx(isoX(h.x, h.y)), hy = sy(isoY(h.x, h.y)) - 4 * z; cx.globalAlpha = dark * 0.5; cx.drawImage(A.glow, hx - r, hy - r * 0.6, r * 2, r * 1.2); }
+    cx.globalAlpha = dark; for (const f of flies) if (f.kind === 'f') { const r = 5 * z; cx.drawImage(A.glow, sx(f.x) - r, sy(f.y) - r, r * 2, r * 2); }
+    cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
+  }
+  if (S.air > 24) { cx.fillStyle = 'rgba(255,170,60,' + clamp((S.air - 24) * 0.012, 0, 0.14).toFixed(3) + ')'; cx.fillRect(0, 0, cv.width, cv.height); }
+  if (bolt && now - bolt.t < 80) { cx.fillStyle = 'rgba(255,255,230,.3)'; cx.fillRect(0, 0, cv.width, cv.height); }
+  if (S.precip > 0 && !paused) {
+    const snowing = S.sky === 'snow', n = snowing ? 60 : 70, uu = Math.max(1, Math.round(dpr * 1.2)); cx.fillStyle = snowing ? 'rgba(250,252,255,.85)' : 'rgba(170,205,235,.55)';
+    for (let q = 0; q < n; q++) { const fall = snowing ? 0.04 : 0.6, yy = ((t * fall * dpr + hash(q, 21) * cv.height * 2) % (cv.height + 40)) - 20, xx = (hash(q, 22) * cv.width + (snowing ? Math.sin(t / 900 + q) * 14 * dpr : -yy * 0.16) + cv.width) % cv.width; cx.fillRect(xx | 0, yy | 0, uu, snowing ? uu : uu * 5); }
+  }
+}
+// the fallen are drawn in faded colours; made once per sprite
+const greys = new WeakMap();
+function greyOf(im) { let g = greys.get(im); if (g) return g; g = mkC(im.width, im.height); const x = g.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, g.width, g.height), a = d.data; for (let i = 0; i < a.length; i += 4) { const l = (a[i] * 0.3 + a[i + 1] * 0.55 + a[i + 2] * 0.15); a[i] = (a[i] * 0.4 + l * 0.6) * 0.78; a[i + 1] = (a[i + 1] * 0.4 + l * 0.6) * 0.78; a[i + 2] = (a[i + 2] * 0.4 + l * 0.6) * 0.8; } x.putImageData(d, 0, 0); greys.set(im, g); return g; }
+// trees sway: the crown moves a pixel in the wind while the trunk stays put
+function drawSway(im, d, wind) {
+  if (d.sway < 0) { cx.drawImage(im, d.x, d.top); return; }
+  const w = im.width, h = im.height, cut = Math.round(h * 0.62), off = Math.round(Math.sin(now / 1500 + d.sway * 1.7) * wind * 0.8);
+  cx.drawImage(im, 0, cut, w, h - cut, d.x, d.top + cut, w, h - cut); cx.drawImage(im, 0, 0, w, cut, d.x + off, d.top, w, cut);
+}
+// a hut going up: a ring of poles, then walls and thatch rising from the ground
+function drawBuilding(d) {
+  const im = d.img, w = im.width, h = im.height, p = d.build, al = d.alpha === undefined ? 1 : d.alpha, cxp = d.x + w / 2, base = d.top + h - 6;
+  cx.globalAlpha = al; cx.strokeStyle = '#6a4c30'; cx.lineWidth = 2;
+  const poles = Math.min(7, Math.ceil(p * 14));
+  for (let k = 0; k < poles; k++) { const a = k / 7 * Math.PI - Math.PI, bx = cxp + Math.cos(a) * 28, by = base + Math.sin(a) * -4 + 2; cx.beginPath(); cx.moveTo(Math.round(bx), Math.round(by)); cx.lineTo(Math.round(lerp(bx, cxp, 0.95)), Math.round(d.top + 6)); cx.stroke(); }
+  const k = clamp((p - 0.3) / 0.7, 0, 1), sh = Math.round(h * k); if (sh > 0) cx.drawImage(im, 0, h - sh, w, sh, d.x, d.top + h - sh, w, sh);
+  cx.globalAlpha = 1;
+}
+// a fishing rod and line out to a bobbing float; now and then a fish comes up on it
+function drawRod(d) {
+  const dir = d.rod.face === 'r' ? 1 : -1, hx = Math.round(d.x + d.img.width / 2 + dir * 8), hy = d.top + 18, tx = hx + dir * 16, ty = d.top + 2, fx = hx + dir * 30, fy = d.y + 4 + Math.round(Math.sin(now / 500 + d.rod.id) * 1);
+  cx.strokeStyle = '#7a5a3a'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(hx, hy); cx.lineTo(tx, ty); cx.stroke();
+  cx.strokeStyle = 'rgba(240,240,230,.7)'; cx.beginPath(); cx.moveTo(tx, ty); cx.quadraticCurveTo(tx + dir * 8, fy - 6, fx, fy); cx.stroke();
+  const tug = d.rod.catch && ((now / 2600 + d.rod.id) | 0) % 3 === 0; cx.fillStyle = '#d8402f'; cx.fillRect(fx - 1, fy - (tug ? 0 : 1), 2, 2);
+  if (tug && Math.random() < 0.04) { spawn('splash', fx, fy, { vx: R(-0.02, 0.02), vy: -0.06, g: 0.0003, max: 400, floor: fy }); ripples.push({ x: fx, y: fy, t: now, small: 1 }); }
+}
+
+// ================================================================== the few controls there are
+const tools = document.getElementById('tools');
+for (const [id, label] of [['hand', 'Hand'], ['rain', 'Rain'], ['sun', 'Sun'], ['grow', 'Grow'], ['strike', 'Strike']]) {
+  const b = document.createElement('button'); b.className = 'tool' + (id === tool ? ' sel' : ''); b.dataset.t = id; const c = document.createElement('canvas'); c.width = 12; c.height = 12; c.getContext('2d').drawImage(A.tool[id], 0, 0); b.appendChild(c); b.appendChild(document.createTextNode(label));
+  b.onclick = () => { tool = id; for (const q of tools.children) q.classList.toggle('sel', q.dataset.t === id); }; tools.appendChild(b);
+}
+const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 3, 8, 0]; bS2.onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; bS2.textContent = speed === 0 ? 'II' : speed + 'x'; };
+document.getElementById('begin').onclick = () => { document.getElementById('intro').style.display = 'none'; paused = false; };
+document.getElementById('bHelp').onclick = () => { document.getElementById('intro').style.display = 'flex'; paused = true; };
+addEventListener('resize', resize); resize();
+cam.z = clamp(dpr * 1.1, minZ(), maxZ()); { const wx = isoX(camp.x, camp.y), wy = isoY(camp.x, camp.y); cam.x = wx - cv.width / cam.z / 2; cam.y = wy - 30 - cv.height / cam.z / 2; clampCam(); }
+for (const a of S.agents) if (a.alive) { const e = endOf(a); newRec(a, e.x, e.y); }
+huts.length = 0; onTick();
+startPaint(); paintSome(WH); gFront = gFade ? gFade.to : gFront; gFade = null; for (const p of props.values()) p.born = -1e9;
+window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => { tool = t; }, start: () => { document.getElementById('intro').style.display = 'none'; paused = false; }, setSpeed: s => { speed = s; }, clampCam, sync: onTick, A, get tickFrac() { return tickFrac; }, set tickFrac(v) { tickFrac = v; }, parts, flies, scar, bSc, colorAt, repaintCells };
+requestAnimationFrame(t => { now = t; frame(t); });
+})();
