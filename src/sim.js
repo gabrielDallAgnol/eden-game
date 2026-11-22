@@ -201,7 +201,7 @@ function create(seed, opt) {
   // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
   // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
   const cut = new Uint8Array(N * N), CHOP = 0.3;   /* how much of a stand one day's felling takes (the owner asked for felling to clear ground sooner) */
-  function fell(j, amt) { const t = Math.min(tree[j], amt); tree[j] -= t; cut[j] = 1; if (tree[j] < 0.08) { tree[j] = 0; cut[j] = 0; } return t; }
+  function fell(j, amt) { const t = Math.min(tree[j], amt); tree[j] -= t; cut[j] = 1; if (tree[j] < 0.08) { tree[j] = 0; cut[j] = 0; S.stumps.push(j); if (S.stumps.length > 160) S.stumps.shift(); } return t; }   /* a felled stand leaves a stump */
   /* where the next wood comes from: a begun stand in reach, else the nearest new one big enough to be worth starting */
   // Piles: what lies on the ground ready to be taken (meat from a body, logs, loose stone). People take from a pile in reach
   // before they hunt, fell or quarry for the same thing; meat rots and logs burn.
@@ -368,7 +368,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
-    piles: [],
+    piles: [], stumps: [],
     stat: { wishes: 0, ponds: 0, newTrips: 0, newN: 0, reTrips: 0, reN: 0, pitD: 0, pitN: 0, lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
     levers: { hold: {},
       banned: {} } };
@@ -556,14 +556,15 @@ function create(seed, opt) {
     stories: { word: 'telling tales', where: 'fire', act: 'story', says: 'tells tales by the fire' },
     dancing: { word: 'dancing',      where: 'fire', act: 'dance', says: 'dances when there is music' },
     gardens: { word: 'gardening',    where: 'home', act: 'garden', says: 'tends a garden by the door' },
-    carving: { word: 'carving',      where: 'home', act: 'carve', says: 'carves wood at the door' }
+    carving: { word: 'carving',      where: 'home', act: 'carve', says: 'carves wood at the door' },
+    weaving: { word: 'weaving',      where: 'home', act: 'weave', says: 'weaves cloth at the loom' }
   };
   const LIKE_KEYS = Object.keys(LIKES), LEARN = { gather: 'gardens', build: 'carving', hunt: 'stories', fish: 'singing' };
   function hobby(a, d) {
     const T = S.tribe, h = homeSite(a), musicNow = S.musicT >= S.tickNo - 1;
     let k = a.likes[(rnd() * a.likes.length) | 0]; if (k === 'dancing' && !musicNow) { const o = a.likes.find(q => q !== 'dancing'); if (!o) return false; k = o; }
     const L = LIKES[k];
-    if (L.where === 'home') { if (!h) return false; a.x = h.x; a.y = h.y; if (k === 'gardens') h.garden = Math.min(1, (h.garden || 0) + 0.08); else h.carved = Math.min(1, (h.carved || 0) + 0.05); }
+    if (L.where === 'home') { if (!h) return false; a.x = h.x; a.y = h.y; if (k === 'gardens') h.garden = Math.min(1, (h.garden || 0) + 0.08); else if (k === 'weaving') h.woven = Math.min(1, (h.woven || 0) + 0.06); else h.carved = Math.min(1, (h.carved || 0) + 0.05); }
     else { if (!(mass[I(a.x, a.y)] === mass[I(T.x, T.y)] || route(a.x, a.y, T.x, T.y, a, 60).reached)) return false; a.x = T.x; a.y = T.y; if (L.act === 'music') { S.musicT = S.tickNo; sound(T.x, T.y, 2.5, 'play'); } }
     a.joy = Math.min(1, (a.joy || 0) + 0.12); a.act = { k: L.act, like: k }; S.stat.hobbies = (S.stat.hobbies || 0) + 1; return true;
   }
@@ -2066,7 +2067,7 @@ function create(seed, opt) {
     Object.assign(S, o.S); S.din = heardNow;
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
-      if (!S.piles) S.piles = [];
+      if (!S.piles) S.piles = []; if (!S.stumps) S.stumps = [];
       for (const a of S.agents) if (SP[a.sp] && SP[a.sp].people && !a.likes) { a.likes = [LIKE_KEYS[a.id % LIKE_KEYS.length]]; a.joy = 0.5; }   /* people from an older save love something too */
       if (!S.stat) S.stat = {}; for (const k of ['wishes', 'ponds', 'newTrips', 'newN', 'reTrips', 'reN', 'pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }

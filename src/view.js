@@ -394,6 +394,48 @@ function wantProps() {
     if ((q.carved || 0) > 0.2) want.set('bn' + q.id, { kind: 'bench', x: q.x + 0.4, y: q.y + 1.45, base: 'bn' + q.id, img: q.carved > 0.6 ? A.benchCarved : A.bench, dy: 4 });
     if ((q.fuel || 0) > 0.2) want.set('wp' + q.id, { kind: 'woodpile', x: q.x + 1.4, y: q.y - 0.2, base: 'wp', img: A.woodpile[Math.min(2, Math.floor(q.fuel))], dy: 3 });
   }
+  /* The things of village life, each where something in the household's life calls for it, at fixed places round its yard. */
+  if (campOn && A.prop) {
+    const P = A.prop, folkBy = new Map(), autumn = !W.daysLengthen() && S.air > -2;
+    for (const b of S.agents) if (b.alive && b.d.people && b.house) { let f = folkBy.get(b.house); if (!f) folkBy.set(b.house, f = { n: 0, small: 0, baby: 0, elder: 0, jobs: new Set(), likes: new Set(), herbs: 0 }); f.n++; if (b.age < 2) f.baby++; else if (b.age < b.d.mature) f.small++; if (b.age > 46) f.elder++; if (b.job) f.jobs.add(b.job); for (const k of b.likes || []) f.likes.add(k); if (b.skill && b.skill.gather > 1.3) f.herbs++; }
+    const SLOTS = [[-0.55, 0.5], [0.5, -0.55], [-0.5, -0.5], [-0.5, 1.5], [1.5, 1.5]];
+    for (const q of T0.sites) {
+      if (q.kind === 'well' || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
+      const f = folkBy.get(q.id); if (!f) continue; const L = q.larder || 0, n = Math.max(1, f.n), want2 = [];
+      if (L > n * 1.5 && S.air > 10 && P.table_bench) want2.push('table_bench');
+      if (f.small && P.toy_horse) want2.push('toy_horse');
+      if (f.baby && P.laundry_tub) want2.push('laundry_tub'); else if (f.small + f.baby >= 2 && P.washing_line) want2.push('washing_line');
+      if (f.elder && P.rocking_chair) want2.push('rocking_chair');
+      if (L > n * 2.5 && P.barrels) want2.push('barrels'); else if (L > n * 1.5 && (f.jobs.has('farmer') || f.jobs.has('fisher')) && P.crates) want2.push('crates');
+      if ((q.fields || 0) > 0 && autumn) want2.push((q.id % 2 ? 'pumpkins' : 'wheat_sheaves'));
+      if ((q.fields || 0) >= 9 && (f.jobs.has('farmer') || autumn) && P.haystack) want2.push('haystack');
+      if ((q.fields || 0) > 0 && L > n && P.coop) want2.push('coop');
+      if (f.likes.has('gardens') && (q.garden || 0) > 0.5 && P.beehives) want2.push('beehives');
+      if (f.likes.has('gardens') && P.potted_plants) want2.push('potted_plants');
+      if ((q.carved || 0) > 0.4 && P.woodworking_bench) want2.push('woodworking_bench');
+      if ((q.woven || 0) > 0.3 && P.loom) want2.push('loom');
+      if (f.jobs.has('fisher') && P.fish_rack) want2.push('fish_rack');
+      if (f.jobs.has('builder') && P.wheelbarrow) want2.push('wheelbarrow');
+      if (f.jobs.has('woodcutter') && P.chopping_block) want2.push('chopping_block');
+      if (f.herbs && P.herb_drying) want2.push('herb_drying');
+      want2.slice(0, SLOTS.length).forEach((k, i) => { const [ox, oy] = SLOTS[i]; want.set('hp' + q.id + ':' + i, { kind: 'prop', x: q.x + 0.5 + ox, y: q.y + 0.5 + oy, base: 'hp' + k, img: P[k], dy: 4 }); });
+      if ((q.fuel || 0) >= 1.2 && P.firewood_stack) want.set('wp' + q.id, { kind: 'woodpile', x: q.x + 1.4, y: q.y - 0.2, base: 'wpb', img: P.firewood_stack, dy: 4 });
+      if ((q.garden || 0) > 0.3 && P.planter) want.set('pl' + q.id, { kind: 'prop', x: q.x + 0.1, y: q.y + 1.2, base: 'pl', img: (q.garden || 0) > 0.7 && P.bench_flowers ? P.bench_flowers : P.planter, dy: 4 });
+    }
+    /* by the fire and the store: stalls when the common store holds plenty, a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
+    if (T0.store > 8 && P.stall_red) want.set('stall1', { kind: 'prop', x: store.x + 1.3, y: store.y - 1.1, base: 'stall', img: P.stall_red, dy: 4 });
+    if (T0.store > 25 && P.stall_green) want.set('stall2', { kind: 'prop', x: store.x - 1.1, y: store.y - 1.4, base: 'stall', img: P.stall_green, dy: 4 });
+    if ((T0.hunts || 0) > 0 && P.cooking_spit) want.set('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
+    if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) want.set('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
+    { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) want.set('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
+    if (S.agents.some(b => b.alive && b.tame) && P.trough) want.set('trough', { kind: 'prop', x: camp.x - 1.4, y: camp.y + 1.8, base: 'trough', img: P.trough, dy: 3 });
+    /* lanterns on paved crossings of the lattice */
+    if (T0.pave >= 2 && P.lantern) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH, y = T0.y + m * W.PITCH; if (x < 0 || y < 0 || x >= N || y >= N || !T0.road[y * N + x] || (k + m) % 2) continue; want.set('ln' + x + ',' + y, { kind: 'prop', x: x + 0.85, y: y + 0.85, base: 'ln', img: P.lantern, dy: 3 }); }
+    /* scarecrows in the middle of field lots */
+    if (P.scarecrow) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH + 2, y = T0.y + m * W.PITCH + 2; if (x < 0 || y < 0 || x >= N || y >= N || !W.field[y * N + x] || (k * 7 + m * 3) % 3) continue; want.set('sc' + x + ',' + y, { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'sc', img: P.scarecrow, dy: 3 }); }
+    /* stumps left by felling, with mushrooms, where nothing else has been put since */
+    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || W.water[j]) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
+  }
   /* once there has been music by the fire, there are logs to sit on round it */
   if (campOn && S.musicT) for (let k = 0; k < 3; k++) { const ang = k * 2.1 + 0.5; want.set('ls' + k, { kind: 'seat', x: fire.x + Math.cos(ang) * 1.1, y: fire.y + Math.sin(ang) * 0.9, base: 'ls', img: A.logSeat, dy: 2 }); }
   /* bridges: every one finished, and the one being laid as far as its timber goes */
@@ -741,6 +783,7 @@ function planPerson(r, phase, pi) {
     case 'music': case 'story': { const s = seat(pi); P.go(s.x, s.y, sp); r.bub = act.k === 'story' ? 'story' : 'music'; r.bubT = now + R(0, 900); P.done('sit'); return; }   // an evening by the fire with what they love
     case 'dance': { const s = seat(pi + 3); P.go(s.x, s.y, sp); r.bub = 'dance'; r.bubT = now + R(0, 900); for (let k = 0; k < 4; k++) P.go(s.x + R(-0.3, 0.3), s.y + R(-0.3, 0.3), sp * 1.2, 'hop'); P.done('idle'); return; }
     case 'garden': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), at = mine ? { x: mine.x + 1.0, y: mine.y + 0.5 } : { x: end.x, y: end.y }; P.go(at.x, at.y, sp); r.bub = 'garden'; r.bubT = now + R(0, 900); P.wait(0.6, 'work', { fx: 'grass', lx: at.x + 0.3, ly: at.y }); P.done('idle'); return; }
+    case 'weave': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), at = mine ? { x: mine.x - 0.6, y: mine.y + 0.4 } : { x: end.x, y: end.y }; P.go(at.x, at.y, sp); r.bub = 'carve'; r.bubT = now + R(0, 900); P.done('sit'); return; }
     case 'carve': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), at = mine ? { x: mine.x + 0.2, y: mine.y + 1.1 } : { x: end.x, y: end.y }; P.go(at.x, at.y, sp); r.bub = 'carve'; r.bubT = now + R(0, 900); P.wait(0.6, 'sit', { fx: 'chips', lx: at.x, ly: at.y }); P.done('sit'); return; }
     case 'watch': { const s = seat(pi); P.go(s.x, s.y, sp); P.done('sit'); return; }   // the night watch, awake by the fire
     case 'mourn': { const s = seat(pi); r.bub = 'grief'; r.bubT = now + 800; P.go(s.x, s.y, sp * 0.7); P.done('sit'); return; }                                    // foul weather: indoors

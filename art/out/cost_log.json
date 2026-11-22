@@ -651,5 +651,413 @@
   ],
   "time": 1795381998,
   "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_washing_line",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   80,
+   80
+  ],
+  "n": 1,
+  "prompt": "a washing line between two wooden posts with colourful clothes and a sheet hanging, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_washing_line_raw.png"
+  ],
+  "time": 1795382007,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_lantern",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "a wooden lantern post with a warm glowing lantern hanging from it, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_lantern_raw.png"
+  ],
+  "time": 1795382012,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_signpost",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "a wooden signpost with three arrow boards, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_signpost_raw.png"
+  ],
+  "time": 1795382020,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_planter",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "a wooden flower planter box full of colourful flowers, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_planter_raw.png"
+  ],
+  "time": 1795382027,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_scarecrow",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "a scarecrow with a straw hat and patched shirt on a wooden pole, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_scarecrow_raw.png"
+  ],
+  "time": 1795382032,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_wheelbarrow",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "a wooden wheelbarrow full of turnips, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_wheelbarrow_raw.png"
+  ],
+  "time": 1795382037,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_chopping_block",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "a tree stump chopping block with an axe stuck in it and split logs beside it, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_chopping_block_raw.png"
+  ],
+  "time": 1795382045,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_trough",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "a wooden water trough on legs filled with water, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_trough_raw.png"
+  ],
+  "time": 1795382052,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_coop",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   72,
+   72
+  ],
+  "n": 1,
+  "prompt": "a small wooden chicken coop with a ramp and two white hens, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_coop_raw.png"
+  ],
+  "time": 1795382059,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_cooking_spit",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a campfire with a cooking spit and a hanging iron pot, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_cooking_spit_raw.png"
+  ],
+  "time": 1795382064,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_fish_rack",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a wooden drying rack with fish hanging on it, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_fish_rack_raw.png"
+  ],
+  "time": 1795382074,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_music_corner",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "a small hand drum and a wooden flute resting on a stool, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_music_corner_raw.png"
+  ],
+  "time": 1795382079,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_rocking_chair",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "a wooden rocking chair with a knitted blanket, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_rocking_chair_raw.png"
+  ],
+  "time": 1795382087,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_laundry_tub",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "a wooden laundry tub with a washboard and soap, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_laundry_tub_raw.png"
+  ],
+  "time": 1795382096,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_potted_plants",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "a cluster of clay pots with green plants and herbs, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_potted_plants_raw.png"
+  ],
+  "time": 1795382101,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_pumpkins",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "a pile of orange pumpkins and squash, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_pumpkins_raw.png"
+  ],
+  "time": 1795382108,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_wheat_sheaves",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "three tied sheaves of golden wheat standing together, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_wheat_sheaves_raw.png"
+  ],
+  "time": 1795382115,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_stump_mushrooms",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "an old tree stump with red mushrooms growing on it, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_stump_mushrooms_raw.png"
+  ],
+  "time": 1795382120,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_bench_flowers",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "a wooden garden bench with a flower bed in front of it, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_bench_flowers_raw.png"
+  ],
+  "time": 1795382128,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_firewood_stack",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a neat stack of split firewood logs under a small wooden roof, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_firewood_stack_raw.png"
+  ],
+  "time": 1795382133,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_woodworking_bench",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a carpenter's workbench with a saw, a mallet and wood shavings, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_woodworking_bench_raw.png"
+  ],
+  "time": 1795382139,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_loom",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a small wooden weaving loom with colourful cloth, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_loom_raw.png"
+  ],
+  "time": 1795382161,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_herb_drying",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   56,
+   56
+  ],
+  "n": 1,
+  "prompt": "a wooden frame with bundles of herbs and flowers hanging to dry, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_herb_drying_raw.png"
+  ],
+  "time": 1795382169,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_toy_horse",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   40,
+   40
+  ],
+  "n": 1,
+  "prompt": "a small wooden toy rocking horse for a child, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_toy_horse_raw.png"
+  ],
+  "time": 1795382176,
+  "via": "mcp"
  }
 ]

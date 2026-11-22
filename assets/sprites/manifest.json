@@ -148,5 +148,191 @@
   "frames": 1,
   "w": 57,
   "h": 36
+ },
+ "prop_stall_red": {
+  "file": "prop_stall_red.png",
+  "frames": 1,
+  "w": 67,
+  "h": 81
+ },
+ "prop_stall_green": {
+  "file": "prop_stall_green.png",
+  "frames": 1,
+  "w": 61,
+  "h": 72
+ },
+ "prop_table_bench": {
+  "file": "prop_table_bench.png",
+  "frames": 1,
+  "w": 67,
+  "h": 48
+ },
+ "prop_barrels": {
+  "file": "prop_barrels.png",
+  "frames": 1,
+  "w": 52,
+  "h": 48
+ },
+ "prop_crates": {
+  "file": "prop_crates.png",
+  "frames": 1,
+  "w": 42,
+  "h": 53
+ },
+ "prop_haystack": {
+  "file": "prop_haystack.png",
+  "frames": 1,
+  "w": 62,
+  "h": 60
+ },
+ "prop_beehives": {
+  "file": "prop_beehives.png",
+  "frames": 1,
+  "w": 57,
+  "h": 54
+ },
+ "prop_washing_line": {
+  "file": "prop_washing_line.png",
+  "frames": 1,
+  "w": 68,
+  "h": 67
+ },
+ "prop_lantern": {
+  "file": "prop_lantern.png",
+  "frames": 1,
+  "w": 27,
+  "h": 45
+ },
+ "prop_signpost": {
+  "file": "prop_signpost.png",
+  "frames": 1,
+  "w": 28,
+  "h": 44
+ },
+ "prop_planter": {
+  "file": "prop_planter.png",
+  "frames": 1,
+  "w": 50,
+  "h": 50
+ },
+ "prop_scarecrow": {
+  "file": "prop_scarecrow.png",
+  "frames": 1,
+  "w": 31,
+  "h": 53
+ },
+ "prop_wheelbarrow": {
+  "file": "prop_wheelbarrow.png",
+  "frames": 1,
+  "w": 48,
+  "h": 44
+ },
+ "prop_chopping_block": {
+  "file": "prop_chopping_block.png",
+  "frames": 1,
+  "w": 44,
+  "h": 40
+ },
+ "prop_trough": {
+  "file": "prop_trough.png",
+  "frames": 1,
+  "w": 46,
+  "h": 42
+ },
+ "prop_coop": {
+  "file": "prop_coop.png",
+  "frames": 1,
+  "w": 63,
+  "h": 62
+ },
+ "prop_cooking_spit": {
+  "file": "prop_cooking_spit.png",
+  "frames": 1,
+  "w": 47,
+  "h": 49
+ },
+ "prop_fish_rack": {
+  "file": "prop_fish_rack.png",
+  "frames": 1,
+  "w": 47,
+  "h": 55
+ },
+ "prop_music_corner": {
+  "file": "prop_music_corner.png",
+  "frames": 1,
+  "w": 48,
+  "h": 49
+ },
+ "prop_rocking_chair": {
+  "file": "prop_rocking_chair.png",
+  "frames": 1,
+  "w": 35,
+  "h": 45
+ },
+ "prop_laundry_tub": {
+  "file": "prop_laundry_tub.png",
+  "frames": 1,
+  "w": 38,
+  "h": 42
+ },
+ "prop_potted_plants": {
+  "file": "prop_potted_plants.png",
+  "frames": 1,
+  "w": 42,
+  "h": 41
+ },
+ "prop_pumpkins": {
+  "file": "prop_pumpkins.png",
+  "frames": 1,
+  "w": 49,
+  "h": 45
+ },
+ "prop_wheat_sheaves": {
+  "file": "prop_wheat_sheaves.png",
+  "frames": 1,
+  "w": 44,
+  "h": 50
+ },
+ "prop_stump_mushrooms": {
+  "file": "prop_stump_mushrooms.png",
+  "frames": 1,
+  "w": 42,
+  "h": 39
+ },
+ "prop_bench_flowers": {
+  "file": "prop_bench_flowers.png",
+  "frames": 1,
+  "w": 47,
+  "h": 44
+ },
+ "prop_firewood_stack": {
+  "file": "prop_firewood_stack.png",
+  "frames": 1,
+  "w": 52,
+  "h": 56
+ },
+ "prop_woodworking_bench": {
+  "file": "prop_woodworking_bench.png",
+  "frames": 1,
+  "w": 58,
+  "h": 51
+ },
+ "prop_loom": {
+  "file": "prop_loom.png",
+  "frames": 1,
+  "w": 52,
+  "h": 52
+ },
+ "prop_herb_drying": {
+  "file": "prop_herb_drying.png",
+  "frames": 1,
+  "w": 46,
+  "h": 50
+ },
+ "prop_toy_horse": {
+  "file": "prop_toy_horse.png",
+  "frames": 1,
+  "w": 35,
+  "h": 32
  }
 }

@@ -130,6 +130,14 @@ S.apply = function (A, h) {
   if (S.meta.hut) { A.hut = one('hut'); A.hutSnow = snowOn(A.hut); A.hutLake = A.hutLakeSnow = null; }
   if (S.meta.well) { A.well = one('well'); A.wellSnow = snowOn(A.well); }
   if (S.meta.lakehouse) { A.houseLake = one('lakehouse'); A.houseLakeSnow = snowOn(A.houseLake); }
+  // ---------------------------------------------------------------- the things of village life (generated with RD Lite, 2026-11-22):
+  // each brought to Eden's scale by the height it should stand at, in pixels (a grown person is about 36)
+  const PROP_H = { stall_red: 50, stall_green: 46, table_bench: 26, barrels: 24, crates: 26, haystack: 34, beehives: 24, washing_line: 38, lantern: 34, signpost: 28,
+    planter: 18, scarecrow: 34, wheelbarrow: 20, chopping_block: 18, trough: 18, coop: 34, cooking_spit: 26, fish_rack: 30, music_corner: 22, rocking_chair: 24,
+    laundry_tub: 18, potted_plants: 18, pumpkins: 18, wheat_sheaves: 24, stump_mushrooms: 18, bench_flowers: 22, firewood_stack: 30, woodworking_bench: 24,
+    loom: 28, herb_drying: 26, toy_horse: 14 };
+  A.prop = {};
+  for (const k in S.meta) if (k.startsWith('prop_')) { const n = k.slice(5), c = one(k); A.prop[n] = sized(c, (PROP_H[n] || 24) / c.height); }
   if (S.meta.cart) { A.cart = sized(one('cart'), 0.66); A.cartL = flip(A.cart); }
 };
 
