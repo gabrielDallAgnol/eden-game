@@ -83,6 +83,17 @@ function create(seed, opt) {
     bank[i] = clamp(1 - d / 5, 0, 1); soil[i] = 0.45 + 0.55 * bank[i];
   }
 
+  // Sound. Work, play, a crying child, a kill, a howl: each is a noise at a place, as loud as the thing that made it. It
+  // carries a few tiles and fades with distance, a little faster through trees. Nothing is told what a noise means; each
+  // creature does with it what its body would: the hungry hunter goes to look, the grazer and the fed hunter keep away
+  // from the din of people, people who hear wolves at night remember it.
+  let din = [], heardNow = [];
+  const sound = (x, y, loud, kind) => { din.push({ x, y, l: loud, k: kind }); };
+  function hear(a, want) {
+    let best = null, bl = 0.25;
+    for (const q of heardNow) { if (!want(q.k)) continue; const v = q.l - Math.hypot(q.x - a.x, q.y - a.y) * (0.32 + 0.12 * tree[I(a.x, a.y)]); if (v > bl) { bl = v; best = q; } }
+    return best ? { x: best.x, y: best.y, l: bl, k: best.k } : null;
+  }
   // Order. What gets built, where and when is left to wants and pulls; how it sits on the ground is not. Land is taken up in
   // lots: square plots PITCH tiles apart, with a strip between them left open as a way. A roof stands in the middle of a lot,
   // and people keep to the ways between lots when they go anywhere. So a place grows wherever its people need it to, but it
@@ -298,7 +309,7 @@ function create(seed, opt) {
     S.tribe.x = bx; S.tribe.y = by;
     for (const sp in SP) if (SP[sp].people) { const n = opt[sp] === undefined ? SP[sp].start : opt[sp]; for (let k = 0; k < n; k++) add(sp, bx, by, 18 + k * 2, 1); if (opt.family) { const mom = S.agents[S.agents.length - 1]; for (const c of [add(sp, bx, by, 5, 1), add(sp, bx, by, 0.9, 1)]) { c.mom = mom.id; c.dad = mom.partner; } } }
   }
-  const die = (a, why, by) => { if (!a.alive) return; a.alive = false; folkList = null; S.fx.push({ kind: 'death', sp: a.sp, x: a.x, y: a.y, why, id: a.id, by: by || 0 }); const k = a.sp + ':' + why; S.deaths[k] = (S.deaths[k] || 0) + 1; if (a.d.people) { S.tribe.dead++; if (why === 'eaten') S.tribe.threat += 2; if (why === 'hunger' || why === 'cold and hunger') S.tribe.need.hunger += 0.4; if (why !== 'eaten' && why !== 'struck') S.tribe.need.loss += 1;
+  const die = (a, why, by) => { if (!a.alive) return; a.alive = false; folkList = null; if (why === 'eaten' || why === 'hunted' || why === 'killed by people') sound(a.x, a.y, 4, 'kill'); S.fx.push({ kind: 'death', sp: a.sp, x: a.x, y: a.y, why, id: a.id, by: by || 0 }); const k = a.sp + ':' + why; S.deaths[k] = (S.deaths[k] || 0) + 1; if (a.d.people) { S.tribe.dead++; if (why === 'eaten') S.tribe.threat += 2; if (why === 'hunger' || why === 'cold and hunger') S.tribe.need.hunger += 0.4; if (why !== 'eaten' && why !== 'struck') S.tribe.need.loss += 1;
       if (a.name) { const near = folk().filter(b => b !== a && (b.partner === a.id || kin(a, b))); for (const b of near) { b.grief = 1; if (b.partner === a.id) b.partner = 0; }
         const how = { 'old age': 'has died, full of years', eaten: 'was taken by a wolf', drowned: 'drowned in the flood', burned: 'died in the fire', struck: 'was struck down', hunger: 'starved', 'cold and hunger': 'died of cold and hunger' }[why] || 'has died';
         tell(a.name + ' ' + how + '.' + (near.length ? ' ' + near.slice(0, 3).map(b => b.name).join(', ') + (near.length > 1 ? ' mourn.' : ' mourns.') : '')); } }
@@ -439,9 +450,10 @@ function create(seed, opt) {
       const m = nearest(a, 3, b => b.sp === a.sp && b.act && b.act.k === 'flee' && !b.act.alarm);
       if (m) { a.mood = 'afraid'; a.act = { k: 'flee', id: m.act.id, alarm: 1 }; stepTo(a, a.x + (a.x - m.act.fx) * 3, a.y + (a.y - m.act.fy) * 3, d.speed); return; }
     }
-    // a camp full of people is given a wide berth by anything big enough to be noticed, unless hunger drives it in
-    if (!threat && d.mass >= 1 && !a.held && S.popPeople >= 2 && a.e > 0.25 && cheb(a, S.tribe) <= 3) {
-      const T = S.tribe; a.mood = 'afraid'; a.act = { k: 'flee', id: 0, alarm: 1 }; stepTo(a, a.x + ((a.x - T.x) || 1) * 3, a.y + ((a.y - T.y) || 1) * 3, d.speed); return;
+    // the din of people: anything big enough to be hunted, and any hunter with a full belly, keeps its distance from it.
+    // A camp asleep is quiet, and then they come close.
+    if (!threat && d.mass >= 1 && !a.held && (a.e > 0.6 || !d.eats.meat)) {
+      const n = hear(a, k => k === 'work' || k === 'play' || k === 'cry'); if (n && n.l > 0.9 && a.e > 0.25) { a.mood = 'afraid'; a.act = { k: 'flee', id: 0, alarm: 1 }; stepTo(a, a.x + ((a.x - n.x) || 1) * 3, a.y + ((a.y - n.y) || 1) * 3, d.speed); return; }
     }
     if (threat) {
       a.mood = 'afraid'; a.act = { k: 'flee', id: threat.id, fx: threat.x, fy: threat.y };
@@ -476,11 +488,19 @@ function create(seed, opt) {
         // a hunter on the move nearby: drift away from it while eating
         const eye = nearest(a, 4, b => canTake(b, a) && b.d.mass > bodyOf(a) * 0.8 && b.act && (b.act.k === 'stalk' || b.act.k === 'prowl'));
         if (eye) stepTo(a, a.x + Math.sign(a.x - eye.x), a.y + Math.sign(a.y - eye.y), 1);
+        if (d.social === 'herd' && a.id % 3 === 0) sound(a.x, a.y, 0.9, 'herd');   /* a herd at graze can be heard, if not from far */
         forage(a, d, dt, anc, !!eye); a.act = { k: 'graze', x: a.x, y: a.y, wary: eye ? eye.id : 0 }; return;
       }
       settle(a, d, anc, 'rest'); return;
     }
-    if (d.eats.meat && a.e < 0.8) { roam(a, 3, d.speed); a.act = { k: 'prowl', x: a.x, y: a.y }; return; }
+    if (d.eats.meat && a.e < 0.8) {
+      // nothing in sight: a hungry hunter goes toward whatever sounds like food. A kill, a herd, a crying child; and when it is
+      // hungry enough, the noise of people at work. At night a hungry pack gives tongue, and is heard a long way off.
+      const n = hear(a, k => k === 'kill' || k === 'herd' || k === 'cry' || (a.e < 0.45 && (k === 'work' || k === 'play')));
+      if (S.night && d.social === 'pack' && a.e < 0.5 && rnd() < 0.15) sound(a.x, a.y, 5, 'howl');
+      if (n) { stepTo(a, n.x, n.y, d.speed); a.act = { k: 'prowl', x: a.x, y: a.y, heard: n.k }; return; }
+      roam(a, 3, d.speed); a.act = { k: 'prowl', x: a.x, y: a.y }; return;
+    }
     settle(a, d, anc, S.night ? 'rest' : 'sleep');                           // a fed hunter sleeps through the day in the den's lee
   }
 
@@ -489,12 +509,15 @@ function create(seed, opt) {
     a.wood = -1; const T = S.tribe, dist = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)), pop = S.pop[a.sp];
     const short = T.store < pop * 0.5 && T.kidsHungry && a.age >= 13;        // when there is little, the grown go short so the children eat
     if (a.e < (short ? 0.4 : 0.85) && T.store > 0.05 && dist <= 8) { const take = Math.min(T.store, 1 - a.e, 0.5); T.store -= take; a.e += take; }
-    if (a.age < 6) { stepTo(a, T.x, T.y, 1); a.act = { k: S.night ? 'sleep' : a.age < 2 ? 'baby' : 'play' }; return; }
+    if (a.age < 6) { stepTo(a, T.x, T.y, 1); a.act = { k: S.night ? 'sleep' : a.age < 2 ? 'baby' : 'play' };
+      if (a.age < 2 && (a.e < 0.5 || a.mood === 'cold')) sound(a.x, a.y, 3, 'cry'); else if (!S.night && a.age >= 2) sound(a.x, a.y, 1.6, 'play');   /* a hungry or cold baby cries, day or night; children at play are not quiet */
+      return; }
     if (S.night) {                                                       // nights are spent at the camp; one of the able sits up by the fire
       const hm = a.house && T.sites.find(q => q.id === a.house);      /* home is their own roof once they have one; the fire until then */
       stepTo(a, hm ? hm.x : T.x, hm ? hm.y : T.y, 4);
       const day = Math.floor(S.tickNo / (DAY || 1)); if (a.age >= WED && a.age <= 46 && a.e > 0.5 && T.watchDay !== day) { T.watchDay = day; T.watcher = a.id; }
       const onWatch = T.watcher === a.id && T.watchDay === day; a.act = { k: onWatch ? 'watch' : 'sleep' };
+      if (onWatch) { const hw = hear(a, k => k === 'howl'); if (hw) T.threat += hw.l * 0.15; }   /* the one awake hears the pack, and says so in the morning */
       const w = nearest(a, onWatch ? 3 : 1, b => !b.hidden && canTake(b, a)); if (w && a.e > 0.6 && rnd() < (onWatch ? 0.5 : 0.2) * TPY * dt) { die(w, 'killed by people', a.id); a.act = { k: 'guard', id: w.id }; }
       return;
     }
@@ -655,7 +678,7 @@ function create(seed, opt) {
     if (s === T.wall) {                                               // stakes cut, carried and driven, a few paces of fence at a time
       if (T.wood < 1) { let bj = -1, bd = 1e9; for (let dy = -10; dy <= 10; dy++) for (let dx = -10; dx <= 10; dx++) { const x = T.x + dx, y = T.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y); if (tree[j] < 0.3) continue; const dd = Math.hypot(dx, dy) + rnd() * 1.5; if (dd < bd) { bd = dd; bj = j; } }
         if (bj < 0) return false; tree[bj] -= Math.min(tree[bj], 0.16); T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cartload(bj); a.act = { k: 'chop', j: bj, site: 0 }; return true; }
-      T.wood -= 1; const at = s.cells[Math.min(s.cells.length - 1, s.n)]; s.n = Math.min(s.cells.length, s.n + 4); a.act = { k: 'fence', j: at };
+      T.wood -= 1; const at = s.cells[Math.min(s.cells.length - 1, s.n)]; s.n = Math.min(s.cells.length, s.n + 4); a.act = { k: 'fence', j: at }; sound(at % N, (at / N) | 0, 3, 'work');
       if (s.n >= s.cells.length) { s.done = true; T.fence = new Uint8Array(N * N); for (const c of s.cells) T.fence[c] = 1; tell(s.grown ? 'The fence has been carried out round the new houses.' : 'The fence is closed. Nothing on four legs comes in now unless it is led.'); }
       return true;
     }
@@ -665,7 +688,7 @@ function create(seed, opt) {
       let bj = -1, bd = 1e9;                                        // fell the nearest standing timber; saplings are left to grow
       for (let dy = -9; dy <= 9; dy++) for (let dx = -9; dx <= 9; dx++) { const x = s.x + dx, y = s.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y); if (tree[j] < 0.3) continue; const dd = Math.hypot(dx, dy) + rnd() * 1.5; if (dd < bd) { bd = dd; bj = j; } }
       if (bj < 0) return false;
-      tree[bj] -= Math.min(tree[bj], 0.16); T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cartload(bj); a.act = { k: 'chop', j: bj, site: s.id }; walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1); if (!T.carts) T.need.toil += 0.12; return true;
+      tree[bj] -= Math.min(tree[bj], 0.16); T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cartload(bj); a.act = { k: 'chop', j: bj, site: s.id }; sound(bj % N, (bj / N) | 0, 3.5, 'work'); walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1); if (!T.carts) T.need.toil += 0.12; return true;
     }
     if (s.stone < needS) {
       if (T.stone >= 1) { const c = Math.min(T.stone, needS - s.stone); T.stone -= c; s.stone += c; a.act = { k: 'haul', site: s.id, item: 'stone' }; return true; }
@@ -673,10 +696,10 @@ function create(seed, opt) {
       for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const x = s.x + dx, y = s.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y); if (rock[j] < 0.15) continue; const dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; bj = j; } }
       if (bj < 0) { got = 1; for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const x = s.x + dx, y = s.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y); if (water[j] || bank[j] < 0.75) continue; const dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; bj = j; } } }
       if (bj < 0) return false;
-      T.stone += (got + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cartload(bj); a.act = { k: 'quarry', j: bj, site: s.id }; walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1); T.stoneWork++; if (!T.carts) T.need.toil += 0.16;
+      T.stone += (got + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cartload(bj); a.act = { k: 'quarry', j: bj, site: s.id }; sound(bj % N, (bj / N) | 0, 4, 'work'); walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1); T.stoneWork++; if (!T.carts) T.need.toil += 0.16;
       return true;
     }
-    s.stage++; a.act = { k: 'build', site: s.id, stage: s.stage };
+    s.stage++; a.act = { k: 'build', site: s.id, stage: s.stage }; sound(s.x, s.y, 3, 'work');
     if (raised(s)) {
       const first = !T.sites.some(q => q !== s && q.kind === s.kind && raised(q)), rebuilt = s.was; s.was = '';
       if (s.kind === 'well') { T.well = true; tell('The people have dug a well. The fields need not wait for rain.'); }
@@ -795,6 +818,7 @@ function create(seed, opt) {
 
   // ---------------------------------------------------------------- one step of time
   function tick() {
+    heardNow = din; din = []; S.din = heardNow;
     const dt = 1 / TPY; S.t += dt; S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
     for (const q of S.homes.values()) q.n = 0;
     for (const L of cells) L.length = 0; S.pop = {}; for (const sp in SP) S.pop[sp] = 0; S.popPeople = 0;
@@ -882,7 +906,7 @@ function create(seed, opt) {
   };
   const stats = () => { let g = 0, t = 0, n = 0, sn = 0, so = 0, fl = 0; for (let i = 0; i < N * N; i++) if (!water[i]) { g += grass[i]; t += tree[i]; sn += snow[i]; so += soil[i]; fl += flood[i]; n++; } return { grass: g / n, tree: t / n, snow: sn / n, soil: so / n, flood: fl / n, store: S.tribe.store, huts: S.tribe.huts, air: S.air, river: S.river }; };
   tick();
-  return { S, N, TPY, tick, G, stats, tread, PITCH, onWay, TECHS, IDEAS, ideas: () => Object.keys(IDEAS).map(k => ({ k, need: IDEAS[k].need, at: IDEAS[k].at, known: !!S.tribe.skills[k], can: !S.tribe.skills[k] && !!IDEAS[k].can(S.tribe) })), describe, craftOf, households, rock, land: landKind, LANDS, DWELL, SPECIES: SP, SKILLS, tempAt, sunHeight, daysLengthen, warmSum, fert, cells, moveTo(a, x, y) { const p = free(x, y); a.x = p[0]; a.y = p[1]; }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
+  return { S, N, TPY, tick, G, stats, tread, PITCH, onWay, hear, TECHS, IDEAS, ideas: () => Object.keys(IDEAS).map(k => ({ k, need: IDEAS[k].need, at: IDEAS[k].at, known: !!S.tribe.skills[k], can: !S.tribe.skills[k] && !!IDEAS[k].can(S.tribe) })), describe, craftOf, households, rock, land: landKind, LANDS, DWELL, SPECIES: SP, SKILLS, tempAt, sunHeight, daysLengthen, warmSum, fert, cells, moveTo(a, x, y) { const p = free(x, y); a.x = p[0]; a.y = p[1]; }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
 }
 root.Eden = { create, SPECIES, SKILLS, TECHS, JOBS };
 })(typeof window !== 'undefined' ? window : globalThis);
