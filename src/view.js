@@ -58,11 +58,12 @@ const chunkOfPixel = (pxx, py) => {
 };
 /* paint a rectangle (chunk-local pixels) of one chunk into the scratch image; pixels of other chunks stay transparent */
 function paintChunkRect(ch, x0, y0, x1, y1) {
-  const k = ch.j * NC + ch.i;
+  const k = ch.j * NC + ch.i; if (cbFor !== ch) chunkFields(ch);
   for (let y = y0; y < y1; y++) { const py = ch.oy + y; for (let x = x0; x < x1; x++) { const pxx = ch.ox + x; px32[y * CW + x] = pxx >= 0 && py >= 0 && pxx < WW && py < WH && chunkOfPixel(pxx, py) === k ? colorAt(pxx, py) : 0; } }
 }
-const noise = new Uint8Array(WW * WH), noise2 = new Uint8Array(WW * WH);
-{ let s = seed * 9301 + 7; const r = () => { s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff; return s >>> 8 & 255; }; for (let i = 0; i < WW * WH; i++) { noise[i] = r(); noise2[i] = r(); } }
+/* the speckle in the ground: a 512 x 512 tile of noise repeated over the whole land, so its size does not grow with the map */
+const NT = 512, noise = new Uint8Array(NT * NT), noise2 = new Uint8Array(NT * NT);
+{ let s = seed * 9301 + 7; const r = () => { s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff; return s >>> 8 & 255; }; for (let i = 0; i < NT * NT; i++) { noise[i] = r(); noise2[i] = r(); } }
 const rgb = h => { const n = parseInt(h.slice(1), 16); return 0xff000000 | ((n & 255) << 16) | (n & 0xff00) | (n >> 16); };
 const C = {
   deep: rgb('#3d7a8f'), mid: rgb('#4f93a3'), shal: rgb('#6fb0b5'), foam: rgb('#cfe9e4'), glint: rgb('#9fd3d0'), ice: rgb('#cfe6f2'), ice2: rgb('#eef7fb'), iceCrack: rgb('#a9cfe2'),
@@ -95,8 +96,9 @@ const C = {
   kerb: rgb('#7d776c'), mortar: rgb('#6f6a60'), cob1: rgb('#b3aea2'), cob2: rgb('#a09b90'), cob3: rgb('#c2bdb1'), grav1: rgb('#bdb39a'), grav2: rgb('#a89e86'), grav3: rgb('#cfc6ae'),
   cl1: rgb('#8a6444'), cl2: rgb('#765338'), cl3: rgb('#5f412c'), cl4: rgb('#4a3222'), clEdge: rgb('#3a2619'), clGrass: rgb('#5f8a3c')
 };
-const BN = N * 8,
-  mkB = () => new Float32Array(BN * BN),
+/* the fields, smoothed to 8 samples a tile, are held only for the chunk being painted: CB x CB samples, its corner at cbx, cby */
+const BN = N * 8, CB = 16 * 8,
+  mkB = () => new Float32Array(CB * CB),
   bG = mkB(),
   bS = mkB(),
   bM = mkB(),
@@ -110,8 +112,9 @@ const BN = N * 8,
   roadF = new Float32Array(N * N);
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
+let cbx = 0, cby = 0, cbFor = null;
 function blurRect(src, dst, bx0, by0, bx1, by1) {
-  bx0 = Math.max(0, bx0); by0 = Math.max(0, by0); bx1 = Math.min(BN - 1, bx1); by1 = Math.min(BN - 1, by1);
+  bx0 = Math.max(cbx, bx0); by0 = Math.max(cby, by0); bx1 = Math.min(BN - 1, cbx + CB - 1, bx1); by1 = Math.min(BN - 1, cby + CB - 1, by1);
   for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) {
     const fx = (bx + 0.5) / 8 - 0.5,
       fy = (by + 0.5) / 8 - 0.5,
@@ -121,21 +124,25 @@ function blurRect(src, dst, bx0, by0, bx1, by1) {
       y1 = Math.min(N - 1, y0 + 1),
       u = clamp(fx - x0, 0, 1),
       v = clamp(fy - y0, 0, 1);
-    dst[by * BN + bx] = (src[y0 * N + x0] * (1 - u) + src[y0 * N + x1] * u) * (1 - v) + (src[y1 * N + x0] * (1 - u) + src[y1 * N + x1] * u) * v;
+    dst[(by - cby) * CB + (bx - cbx)] = (src[y0 * N + x0] * (1 - u) + src[y0 * N + x1] * u) * (1 - v) + (src[y1 * N + x0] * (1 - u) + src[y1 * N + x1] * u) * v;
   }
 }
-const blur = (src, dst) => blurRect(src, dst, 0, 0, BN - 1, BN - 1);
-blur(waterF, bWt); blur(W.fert, bFe);
+const blur = (src, dst) => blurRect(src, dst, cbx, cby, cbx + CB - 1, cby + CB - 1);
+/* make the smoothed fields those of one chunk (as the land is now) */
+function chunkFields(ch) {
+  cbx = ch.i * CB; cby = ch.j * CB; cbFor = ch;
+  for (const [src, dst] of [[waterF, bWt], [W.fert, bFe], [roadF, bRd], [W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [trail, bTr], [scar, bSc]]) blur(src, dst);
+}
 let gRipe = 0, gWarm = false, campOn = true;
 function groundState() { gRipe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0; gWarm = S.air > 9; campOn = S.popPeople > 0 || T0.huts > 0; }
 function colorAt(pxx, py) {
-  const p = py * WW + pxx, v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
+  const p = ((py & (NT - 1)) * NT) | (pxx & (NT - 1)), v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
   if (fx < 0 || fy < 0) return 0;
   if (fx >= N || fy >= N) {                                                    // the cut edge of the land
     const d = Math.max(fx - N, fy - N) * TH; if (fx - CLIFF / TH >= N || fy - CLIFF / TH >= N || fx - d / TH < 0 || fy - d / TH < 0) return 0;
     const n = noise[p]; return d < 3 ? C.clGrass : d > CLIFF - 2 ? C.clEdge : d < 12 ? (n > 200 ? C.cl2 : C.cl1) : d < 26 ? (n > 190 ? C.cl3 : C.cl2) : (n > 180 ? C.cl4 : C.cl3);
   }
-  const ci = (fy | 0) * N + (fx | 0), b = ((fy * 8) | 0) * BN + ((fx * 8) | 0), n = noise[p], n2 = noise2[p], jn = (n - 128) / 255;
+  const ci = (fy | 0) * N + (fx | 0), b = (((fy * 8) | 0) - cby) * CB + (((fx * 8) | 0) - cbx), n = noise[p], n2 = noise2[p], jn = (n - 128) / 255;
   const w = bWt[b] + jn * 0.06, T = cellT[ci]; let col;
   if (w > 0.5) {
     if (T < -3) col = n2 > 248 ? C.iceCrack : n > 170 ? C.ice2 : C.ice;
@@ -188,21 +195,32 @@ function colorAt(pxx, py) {
 // a full repaint runs a strip at a time into the shared pixels, then crossfades over the old picture
 let paint = null, groundWanted = true;
 let waterSeen = 0;
+/* what a chunk's picture depends on, coarsely: if none of it has moved since the chunk was last painted, it is left alone */
+function chunkSig(ch) {
+  let h = (gRipe * 8 | 0) * 7 + (gWarm ? 3 : 0) + (campOn ? 5 : 0) + T0.pave * 11;
+  /* what grows and lies on the ground: the chunk's average of each, in steps of 1/24; things that are or are not there
+     (ways, fields, pits, water): tile by tile */
+  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field], sum = new Float64Array(soft.length + 1);
+  let n = 0;
+  for (let y = ch.j * CT; y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = ch.i * CT; x < Math.min(N, (ch.i + 1) * CT + 1); x++) {
+    const i = y * N + x; n++;
+    for (let f = 0; f < soft.length; f++) sum[f] += soft[f][i];
+    sum[soft.length] += cellT[i] < -3 ? 0 : cellT[i] < 0 ? 0.5 : 1;
+    for (let f = 0; f < hard.length; f++) if (hard[f][i] > 0.5) h = (h * 31 + i * 7 + f) | 0;
+    if (W.pit && W.pit[i] > 0.04) h = (h * 31 + i * 13 + Math.round(W.pit[i] * 6)) | 0;
+  }
+  for (let f = 0; f < sum.length; f++) h = (h * 31 + Math.round(sum[f] / n * 24)) | 0;
+  return h;
+}
+let chunkRepaints = 0, chunkSkips = 0;
 function startPaint() {
-  for (const ch of chunks) ch.stale = true;
   /* a pit that filled into a pond changes the water itself */
-  if ((S.stat && S.stat.ponds || 0) !== waterSeen) { waterSeen = S.stat.ponds; for (let i = 0; i < N * N; i++) waterF[i] = W.water[i]; blur(waterF, bWt); }
+  if ((S.stat && S.stat.ponds || 0) !== waterSeen) { waterSeen = S.stat.ponds; for (let i = 0; i < N * N; i++) waterF[i] = W.water[i]; }
   for (let i = 0; i < N * N; i++) roadF[i] = T0.road[i];
-  blur(roadF, bRd);
-  blur(W.grass, bG);
-  blur(W.snow, bS);
-  blur(W.soil, bM);
-  blur(W.flood, bF);
-  blur(W.tree, bT);
-  blur(trail, bTr);
-  blur(scar, bSc);
+  cbFor = null;   /* the smoothed fields are taken afresh, chunk by chunk, as each is painted */
   for (let i = 0; i < N * N; i++) cellT[i] = W.tempAt(i);
   groundState();
+  for (const ch of chunks) { const sig = chunkSig(ch); if (!ch.painted || sig !== ch.sig) { ch.stale = true; ch.sig = sig; chunkRepaints++; } else chunkSkips++; }
   paint = { ch: null, row: 0 };
   groundWanted = false;
 }
@@ -210,7 +228,7 @@ const chunkVisible = ch => { const z = cam.z, vw = cv.width / z, vh = cv.height 
 /* paint some rows of the next stale chunk, those in view first; a finished chunk crossfades from its old picture */
 function paintSome(rows, all) {
   while (rows > 0 && paint) {
-    if (!paint.ch) { paint.ch = chunks.find(c => c.stale && chunkVisible(c)) || (all ? chunks.find(c => c.stale) : null); paint.row = 0; if (!paint.ch) { if (!chunks.some(c => c.stale)) paint = null; return; } }
+    if (!paint.ch) { paint.ch = chunks.find(c => c.stale && chunkVisible(c)) || (all ? chunks.find(c => c.stale) : null); paint.row = 0; if (!paint.ch) { paint = null; return; } }   /* stale chunks out of view wait until they are seen */
     const ch = paint.ch, end = Math.min(CHT, paint.row + rows);
     paintChunkRect(ch, 0, paint.row, CW, end); rows -= end - paint.row; paint.row = end;
     if (end >= CHT) {
@@ -234,7 +252,7 @@ function drawGround(cx) {
 function repaintCells(x0, y0, x1, y1) {
   x0 = clamp(x0 | 0, 0, N - 1); y0 = clamp(y0 | 0, 0, N - 1); x1 = clamp(x1 | 0, 0, N - 1); y1 = clamp(y1 | 0, 0, N - 1);
   const bx0 = (x0 - 1) * 8, by0 = (y0 - 1) * 8, bx1 = (x1 + 2) * 8, by1 = (y1 + 2) * 8;
-  for (const [s, d] of [[W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [scar, bSc]]) blurRect(s, d, bx0, by0, bx1, by1);
+  cbFor = null;   /* every chunk this touches takes its smoothed fields afresh */
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) cellT[y * N + x] = W.tempAt(y * N + x);
   groundState();
   const pxa = clamp(Math.floor(isoX(x0, y1 + 1)), 0, WW - 1),
@@ -1646,8 +1664,9 @@ window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => {
     return tickFrac;
   }, set tickFrac(v) {
     tickFrac = v;
-  }, parts, flies, scar, bSc, colorAt, repaintCells, chunks,
+  }, parts, flies, scar, bSc, colorAt, repaintCells, chunks, paintCounts: () => ({ repaints: chunkRepaints, skips: chunkSkips }),
+  groundBytes: () => chunks.reduce((t, c) => t + (c.cv ? CW * CHT * 4 : 0), 0) + fadePool.length * CW * CHT * 4 + CW * CHT * 4 + 10 * CB * CB * 4 + 2 * NT * NT + 4 * 4 * N * N,
   /* the ground as the chunks hold it, laid into one world-sized picture, and how many pixels differ from colorAt (a test) */
-  groundCheck() { const c = mkC(WW, WH), x = c.getContext('2d'); for (const ch of chunks) if (ch.cv) x.drawImage(ch.cv, ch.ox, ch.oy); const d = new Uint32Array(x.getImageData(0, 0, WW, WH).data.buffer); let bad = 0, ex = ''; for (let py = 0; py < WH; py += 3) for (let pxx = 0; pxx < WW; pxx += 3) { const want = colorAt(pxx, py) >>> 0, got = d[py * WW + pxx] >>> 0; if (want !== got && !(want === 0 && (got >>> 24) === 0)) { bad++; if (!ex) ex = pxx + ',' + py + ' want ' + want.toString(16) + ' got ' + got.toString(16); } } return { bad, ex }; } };
+  groundCheck() { paint = null; startPaint(); paintSome(1e9, true); const c = mkC(WW, WH), x = c.getContext('2d'); for (const ch of chunks) if (ch.cv) x.drawImage(ch.cv, ch.ox, ch.oy); const d = new Uint32Array(x.getImageData(0, 0, WW, WH).data.buffer); let bad = 0, ex = ''; for (let py = 0; py < WH; py += 3) for (let pxx = 0; pxx < WW; pxx += 3) { const ck = chunkOfPixel(pxx, py); if (ck >= 0 && cbFor !== chunks[ck]) chunkFields(chunks[ck]); const want = colorAt(pxx, py) >>> 0, got = d[py * WW + pxx] >>> 0; if (want !== got && !(want === 0 && (got >>> 24) === 0)) { bad++; if (!ex) ex = pxx + ',' + py + ' want ' + want.toString(16) + ' got ' + got.toString(16); } } return { bad, ex }; } };
 requestAnimationFrame(t => { now = t; frame(t); });
 })();
