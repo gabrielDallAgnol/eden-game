@@ -1,0 +1,264 @@
+[
+ {
+  "test": "A",
+  "name": "rd_cottage",
+  "cost": 0.72,
+  "style": "rd_pro__isometric",
+  "size": [
+   96,
+   96
+  ],
+  "n": 4,
+  "prompt": "small cozy timber cottage with a teal tiled gable roof, wooden front porch with railing, green door, stone chimney, single building, isometric view, on a plain white background",
+  "files": [
+   "rd_cottage_1_raw.png",
+   "rd_cottage_2_raw.png",
+   "rd_cottage_3_raw.png",
+   "rd_cottage_4_raw.png"
+  ],
+  "time": 1795355740
+ },
+ {
+  "test": "B",
+  "name": "rd_tree_base",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   96,
+   112
+  ],
+  "n": 1,
+  "prompt": "one large leafy deciduous oak tree with a full round green summer canopy and a thick brown trunk, single tree, game asset, on a plain white background",
+  "files": [
+   "rd_tree_base_raw.png"
+  ],
+  "time": 1795355815
+ },
+ {
+  "test": "C",
+  "name": "rd_deer_base",
+  "cost": 0.18,
+  "style": "rd_pro__default",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "adult deer with small antlers standing, full body, exact side view facing right, brown fur with pale belly, four legs visible, game sprite, on a plain white background",
+  "files": [
+   "rd_deer_base_raw.png"
+  ],
+  "time": 1795355872
+ },
+ {
+  "test": "C",
+  "name": "rd_fawn_base",
+  "cost": 0.18,
+  "style": "rd_pro__default",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "small baby deer fawn standing, full body, exact side view facing right, light brown fur with white spots on its back, no antlers, four legs visible, game sprite, on a plain white background",
+  "files": [
+   "rd_fawn_base_raw.png"
+  ],
+  "time": 1795355934
+ },
+ {
+  "test": "A",
+  "name": "rd_cottage_iso",
+  "cost": 0.72,
+  "style": "rd_pro__isometric",
+  "size": [
+   96,
+   96
+  ],
+  "n": 4,
+  "prompt": "one small cozy timber cottage with a teal tiled gable roof, wooden front porch with railing, green door, stone chimney, single isolated building game asset, nothing else, no ground, no trees, on a plain white background",
+  "files": [
+   "rd_cottage_iso_1_raw.png",
+   "rd_cottage_iso_2_raw.png",
+   "rd_cottage_iso_3_raw.png",
+   "rd_cottage_iso_4_raw.png"
+  ],
+  "time": 1795356007
+ },
+ {
+  "test": "B",
+  "name": "rd_tree_summer",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   96,
+   112
+  ],
+  "n": 1,
+  "prompt": "the same large deciduous oak tree in summer, full lush green leafy canopy, thick brown trunk, on a plain white background",
+  "files": [
+   "rd_tree_summer_raw.png"
+  ],
+  "time": 1795356036
+ },
+ {
+  "test": "B",
+  "name": "rd_tree_autumn",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   96,
+   112
+  ],
+  "n": 1,
+  "prompt": "the same large deciduous oak tree in autumn, full canopy of orange and red-orange leaves, thick brown trunk, on a plain white background",
+  "files": [
+   "rd_tree_autumn_raw.png"
+  ],
+  "time": 1795356091
+ },
+ {
+  "test": "B",
+  "name": "rd_tree_winter",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   96,
+   112
+  ],
+  "n": 1,
+  "prompt": "the same large deciduous oak tree in winter, completely bare leafless branches with white snow resting on the branches, thick brown trunk, on a plain light blue background",
+  "files": [
+   "rd_tree_winter_raw.png"
+  ],
+  "time": 1795356157
+ },
+ {
+  "test": "B",
+  "name": "rd_tree_spring",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   96,
+   112
+  ],
+  "n": 1,
+  "prompt": "the same large deciduous oak tree in spring, canopy covered in pink and white blossom flowers with a few fresh light green leaves, thick brown trunk, on a plain white background",
+  "files": [
+   "rd_tree_spring_raw.png"
+  ],
+  "time": 1795356216
+ },
+ {
+  "test": "C",
+  "name": "rd_deer_walk",
+  "cost": 0.14,
+  "style": "rd_advanced_animation__walking",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "calm walking, side view",
+  "files": [
+   "rd_deer_walk_raw.png"
+  ],
+  "time": 1795356273
+ },
+ {
+  "test": "C",
+  "name": "rd_deer_graze",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "the deer lowers its head down to the ground and grazes on grass, legs stay still",
+  "files": [
+   "rd_deer_graze_raw.png"
+  ],
+  "time": 1795356295
+ },
+ {
+  "test": "C",
+  "name": "rd_deer_lie",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "the deer folds its legs and lies down on the ground to rest, body lowers to the ground",
+  "files": [
+   "rd_deer_lie_raw.png"
+  ],
+  "time": 1795356341
+ },
+ {
+  "test": "C",
+  "name": "rd_fawn_walk",
+  "cost": 0.14,
+  "style": "rd_advanced_animation__walking",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "calm walking, side view",
+  "files": [
+   "rd_fawn_walk_raw.png"
+  ],
+  "time": 1795356405
+ },
+ {
+  "test": "C",
+  "name": "rd_fawn_graze",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "the deer lowers its head down to the ground and grazes on grass, legs stay still",
+  "files": [
+   "rd_fawn_graze_raw.png"
+  ],
+  "time": 1795356439
+ },
+ {
+  "test": "C",
+  "name": "rd_fawn_lie",
+  "cost": 0.25,
+  "style": "rd_advanced_animation__custom_action",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "the deer folds its legs and lies down on the ground to rest, body lowers to the ground",
+  "files": [
+   "rd_fawn_lie_raw.png"
+  ],
+  "time": 1795356463
+ },
+ {
+  "test": "C",
+  "name": "rd_deer_walk2",
+  "cost": 0.14,
+  "style": "rd_advanced_animation__walking",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "walking forward with clear alternating leg steps, side view",
+  "files": [
+   "rd_deer_walk2_raw.png"
+  ],
+  "time": 1795356577
+ }
+]

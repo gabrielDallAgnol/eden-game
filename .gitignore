@@ -1,0 +1,6 @@
+.rd_key
+.venv/
+.tmp/
+__pycache__/
+*.blend1
+.DS_Store
