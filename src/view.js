@@ -7,7 +7,8 @@
 const TW = 64, TH = 32, CLIFF = 46, TICK_MS = 20000, DAY = 4, TS = TICK_MS / 1000;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b - a) * t, ease = k => k * k * (3 - 2 * k);
 const qs = new URLSearchParams(location.search), seed = +(qs.get('seed') || 1 + Math.floor(Math.random() * 9999));
-const landQ = qs.get('land') || 'valley';
+let landKept = ''; try { landKept = localStorage.getItem('eden.land') || ''; } catch (e) { /* no storage: the address decides */ }
+const landQ = qs.get('land') || landKept || 'valley';
 const W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
@@ -815,7 +816,7 @@ for (const [id, label] of [['hand', 'Hand'], ['rain', 'Rain'], ['sun', 'Sun'], [
   b.onclick = () => { tool = id; for (const q of tools.children) q.classList.toggle('sel', q.dataset.t === id); }; tools.appendChild(b);
 }
 const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 3, 8, 0]; bS2.onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; bS2.textContent = speed === 0 ? 'II' : speed + 'x'; };
-{ const el = document.getElementById('lands'); if (el) for (const k in W.LANDS) { const b = document.createElement('button'); b.className = 'btn land' + (k === W.land ? ' sel' : ''); b.textContent = k; b.onclick = () => { const q = new URLSearchParams(location.search); q.set('land', k); location.search = q.toString(); }; el.appendChild(b); } }
+{ const el = document.getElementById('lands'); if (el) for (const k in W.LANDS) { const b = document.createElement('button'); b.className = 'btn land' + (k === W.land ? ' sel' : ''); b.textContent = k; b.onclick = () => { try { localStorage.setItem('eden.land', k); } catch (e) { /* ignore */ } if (window.EDEN_EMBED) { location.reload(); return; } const q = new URLSearchParams(location.search); q.set('land', k); location.search = q.toString(); }; el.appendChild(b); } }
 // what the place has become and what its people know: a panel that opens from the corner
 { const el = document.getElementById('know'), btn = document.getElementById('bKnow');
   const fill = () => {
