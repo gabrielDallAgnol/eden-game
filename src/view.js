@@ -167,7 +167,10 @@ function colorAt(pxx, py) {
 }
 // a full repaint runs a strip at a time into the shared pixels, then crossfades over the old picture
 let paint = null, groundWanted = true;
+let waterSeen = 0;
 function startPaint() {
+  /* a pit that filled into a pond changes the water itself */
+  if ((S.stat && S.stat.ponds || 0) !== waterSeen) { waterSeen = S.stat.ponds; for (let i = 0; i < N * N; i++) waterF[i] = W.water[i]; blur(waterF, bWt); }
   for (let i = 0; i < N * N; i++) roadF[i] = T0.road[i];
   blur(roadF, bRd);
   blur(W.grass, bG);

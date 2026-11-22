@@ -239,3 +239,21 @@ Year 100 mean 55.6 (B4 55.4). Each quarry trip now takes stone out of the ground
 | mean |  | 10.4 | 35 | 56.3 | 65.6 | 13.7 | 45.3 | 0.3 | 13.6 |  | 6.1 | 6.7 | 7.1 | 19.4 | 26 | 0.9 | 17892.7 | 29 | 13.9 | 2.3 |  | 4 | 1.4 | 1663.8 |
 
 Year 100 mean 56.3 (B5 55.6). A dwelling taken by a flood, or pulled down to be rebuilt as something better, leaves 70% of its stone and 30% of its timber on the lot, counted toward the new stages. Over 4 seeds x 5 lands: 312 first raisings of stone dwellings took 2.18 quarry trips each; 13 raisings after a flood took 0.77 each. In this table only one run had a flooded stone house rebuilt (column 'quarry/flooded' blank elsewhere): floods that take houses are rare at 40x40. Tests: 299 passed, 0 failed, 4 warnings, 13 skipped (the new soft rubble check skips in worlds where no stone house was flooded and rebuilt). Scenarios: 21 passed, 1 warning.
+
+## B7: worked-out pits
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 17 | 48 | 69 | 83 | 17 | 55 | 0 | 14 | 1/8/0 | 5.9 | 5.2 | 8.2 | 20.2 | 22 | 1.1 | 20181 | 39 | 14.9 | 2.2 | 1 (1) | 5 | 2 | 2378 |
+| valley | 2 | 13 | 55 | 80 | 99 | 21 | 78 | 0 | 15 | 0/9/0 | 6.2 | 7.2 | 11.4 | 20.2 | 65 | 0.8 | 30434 | 53 | 16 | 2.4 | 1 (1) | 7 | 0 | 2220 |
+| plains | 1 | 7 | 26 | 47 | 47 | 9 | 33 | 1 | 12 | 0/128/0 | 5.2 | 17.2 | 9.2 | 22.5 | 1 | 0.9 | 40 | 17 | 17.4 | 2.9 |  | 2 | 3 | 1903 |
+| plains | 2 | 4 | 21 | 47 | 47 | 8 | 39 | 1 | 14 | 19/31/0 | 5.8 | 25.1 | 6.1 | 28.8 | 15 | 0.9 | 44 | 15 | 11.6 | 2.4 |  | 3 | 0 | 1497 |
+| forest | 1 | 7 | 28 | 91 | 91 | 26 | 13 | 0 | 13 | 1/16/0 | 6.5 | 0 | 7.2 | 10 | 7 | 0.9 | 322 | 53 | 11.3 | 2 |  | 6 | 2 | 1486 |
+| forest | 2 | 19 | 53 | 74 | 89 | 22 | 31 | 0 | 14 | 1/25/0 | 6.5 | 3.8 | 10.4 | 14.2 | 56 | 1.1 | 93788 | 50 | 17.3 | 2.5 |  | 7 | 1 | 2013 |
+| lakeland | 1 | 8 | 36 | 47 | 62 | 6 | 44 | 1 | 13 | 0/29/0 | 5.9 | 0 | 2.9 | 19.8 | 34 | 0.4 | 7819 | 0 |  | 2.6 | 1 (1) | 3 | 0 | 1266 |
+| lakeland | 2 | 15 | 41 | 67 | 79 | 9 | 74 | 0 | 14 | 3/15/0 | 6.3 | 0 | 6.7 | 18.3 | 30 | 1.1 | 9211 | 20 | 16.8 | 2.6 | 0.5 (2) | 4 | 6 | 1768 |
+| highland | 1 | 5 | 25 | 16 | 40 | 9 | 56 | 0 | 14 | 2/0/0 | 6.5 | 8.9 | 4.8 | 20.7 | 9 | 1 | 42 | 20 | 10.8 | 1.8 | 1 (1) | 2 | 0 | 954 |
+| highland | 2 | 9 | 17 | 26 | 26 | 9 | 37 | 0 | 13 | 1/0/0 | 6.5 | 0 | 4 | 19.9 | 3 | 1.2 | 28 | 20 | 9.6 | 1.9 |  | 2 | 0 | 885 |
+| mean |  | 10.4 | 35 | 56.4 | 66.3 | 13.6 | 46 | 0.3 | 13.6 |  | 6.1 | 6.7 | 7.1 | 19.5 | 24.2 | 0.9 | 16190.9 | 28.7 | 14 | 2.3 |  | 4.1 | 1.4 | 1637 |
+
+Year 100 mean 56.4 (B6 56.3). A pit whose stone is worked out (rock below 0.15) fills with water and becomes a pond with a few fish if it lies on wet ground (near water or waterlogged); elsewhere it is filled with spoil and settles over about 20 years into poor ground (fertility at most 0.35) that can be built on. A new pond changes the land masses and fords, and the view repaints the water. The plan's check, a pond in a 100-year lakeland run, is NOT met: 0 ponds in lakeland seeds 1 to 4, 1 in 12 runs overall (highland #3). Stone demand is low (a house takes about 3 stone, mostly cobbles from the water's edge), so few pits are ever worked out; I did not raise stone demand to force it. A unit check confirms the mechanism on a prepared pit (wet pit fills, dry pit settles, the pond counts as water). Tests: 300 passed, 0 failed, 4 warnings, 13 skipped.

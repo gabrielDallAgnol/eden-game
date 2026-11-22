@@ -480,6 +480,17 @@ UNITS.push(['across the river: a ford is a detour, closed in high water; a bridg
   if (!(bridged < low)) out.push('bridge ' + bridged + ' not shorter than ford ' + low);
   return out.join('; ');
 }]);
+UNITS.push(['a worked-out pit on wet ground becomes a pond; on dry ground it settles into poor ground (B7)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland' }), N = W.N, wet = -1, dry = -1, i, T = W.S.tribe;
+  for (i = 0; i < N * N; i++) { if (W.water[i] || W.field[i] || W.owner[i]) continue; if (wet < 0 && W.bank[i] > 0.6) wet = i; if (dry < 0 && W.bank[i] === 0 && W.soil[i] < 0.9 && Math.abs(i % N - T.x) > 6) dry = i; }
+  W.pit[wet] = 0.6; W.rock[wet] = 0.05; W.pit[dry] = 0.6; W.rock[dry] = 0.05;
+  for (i = 0; i < 24 * 15; i++) W.tick();
+  var out = [];
+  if (!W.water[wet]) out.push('wet pit at ' + (wet % N) + ',' + ((wet / N) | 0) + ' did not fill');
+  if (W.water[dry]) out.push('dry pit filled with water'); else if (W.pit[dry] > 0.1) out.push('dry pit still ' + W.pit[dry].toFixed(2) + ' deep after 15 years');
+  if (W.water[wet] && W.mass[wet] !== -1) out.push('the new pond is still counted as dry land');
+  return out.join('; ');
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }

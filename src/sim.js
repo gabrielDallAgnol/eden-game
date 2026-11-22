@@ -240,7 +240,7 @@ function create(seed, opt) {
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
-      sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null };
+      sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null, pondTold: false };
     for (const k in SKILLS) T.skills[k] = SKILLS[k].known;
     for (const k in TECHS) T.skills[k] = false;
     return T;
@@ -260,7 +260,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
-    stat: { newTrips: 0, newN: 0, reTrips: 0, reN: 0, pitD: 0, pitN: 0, lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
+    stat: { ponds: 0, newTrips: 0, newN: 0, reTrips: 0, reN: 0, pitD: 0, pitN: 0, lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
     levers: { hold: {},
       banned: {} } };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
@@ -1397,6 +1397,18 @@ function create(seed, opt) {
       if (bf) { T.bridge = { key: bf.key, ax: bf.ax, ay: bf.ay, bx: bf.bx, by: bf.by, horiz: bf.horiz, tiles: bf.tiles.slice(), need: 3 * bf.w, wood: 0, done: false }; N_.cross *= 0.5; }
     }
     T.fordUse = {};
+    /* worked-out pits: on wet ground the water comes up and a pond forms, with a few fish in time; elsewhere the hole is
+       used for spoil and settles, over twenty years or so, into poor ground that can be built on */
+    let pond = false;
+    for (let j = 0; j < N * N; j++) {
+      if (pit[j] <= 0.1 || rock[j] >= 0.15 || water[j]) continue;
+      if (bank[j] > 0.4 || soil[j] > 0.95) {
+        water[j] = 1; fish[j] = 0.02; grass[j] = 0; tree[j] = 0; fruit[j] = 0; field[j] = 0; owner[j] = 0; pond = true;
+        for (const a of cells[j]) { const p = free(a.x, a.y); a.x = p[0]; a.y = p[1]; }
+        if (!T.pondTold) { T.pondTold = true; tell('The old stone pit by the water has filled. It is a pond now.'); }
+      } else { pit[j] = Math.max(0, pit[j] - 0.05); if (!pit[j] || pit[j] <= 0.1) fert[j] = Math.min(fert[j], 0.35); }
+    }
+    if (pond) { findMasses(); S.stat.ponds++; }
     for (const k in N_) if (k !== 'danger') N_[k] *= 0.85;
     for (const q of T.sites) { q.cold *= 0.85; q.hunger *= 0.85; }                                 // what is no longer felt is forgotten
     // names for what the place has become: said, never used to decide anything
@@ -1754,13 +1766,13 @@ function create(seed, opt) {
   function restore(json) {
     const o = typeof json === 'string' ? JSON.parse(json, unpack) : json;
     if (o.N !== N) throw new Error('save is for a ' + o.N + ' map, this world is ' + N);
-    for (const k in FIELDS) if (o.fields[k]) FIELDS[k].set(o.fields[k]);
+    for (const k in FIELDS) if (o.fields[k]) FIELDS[k].set(o.fields[k]); findMasses();   /* ponds dug since the world began are part of the water now */
     rs = o.rs; din = o.din; heardNow = o.heardNow;
     for (const k of Object.keys(S)) delete S[k];
     Object.assign(S, o.S); S.din = heardNow;
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
-      if (!S.stat) S.stat = {}; for (const k of ['newTrips', 'newN', 'reTrips', 'reN', 'pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
+      if (!S.stat) S.stat = {}; for (const k of ['ponds', 'newTrips', 'newN', 'reTrips', 'reN', 'pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }
     S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }
     folkList = null;
