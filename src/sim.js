@@ -381,7 +381,7 @@ function create(seed, opt) {
   function newSettlement(x, y) {
     const T = { x, y, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
       need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0, cross: 0 },
-      fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0,
+      fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0,
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
@@ -993,12 +993,13 @@ function create(seed, opt) {
   function animal(a, d, dt) {
     if (a.tame) {                                                    // raised among people: it keeps to the camp, is fed in hard times, and works
       const T = S.tribe; if (!S.popPeople) { a.tame = false; } else {
-        if (a.e < 0.75 && T.store > S.popPeople * 0.8) { T.store -= 0.12; a.e += 0.3; }
-        if (a.e < 0.6 && folk().some(b => b.job === 'herder')) a.e = 0.6;      // a herder leads them to grass and brings them in at night
+        /* F5: they keep to the pen if one stands, else to the camp; fed only by someone who herds them (the herder's work, at the pen),
+           and with a herder they are led further out to graze */
+        const pen = standing('pen'), home = pen || T, herded = !!pen && folk().some(b => b.job === 'herder');
         if (a.cart >= S.tickNo - 1 && !S.night) { a.act = { k: 'cart', j: a.cartJ }; return; }
-        if (cheb(a, T) > 3 || S.night) stepTo(a, T.x, T.y, 2);
+        if (cheb(a, home) > (herded ? 6 : 3) || S.night) stepTo(a, home.x, home.y, 2);
         if (S.night) { a.act = { k: 'sleep', x: a.x, y: a.y }; return; }
-        if (a.e < 0.95) forage(a, d, dt, { x: T.x, y: T.y, r: 3 }, true); a.act = { k: 'graze', x: a.x, y: a.y }; return;
+        if (a.e < 0.95) forage(a, d, dt, { x: home.x, y: home.y, r: herded ? 6 : 3 }, true); a.act = { k: 'graze', x: a.x, y: a.y }; return;
       }
     }
     // fear: whatever could eat it is fled from when close; from further off when it is plainly hunting and can be seen,
@@ -1125,6 +1126,12 @@ function create(seed, opt) {
   function workAt(a, d, j, kind, budget) {
     const T = S.tribe;
     /* F4: a day at the kiln, the smithy or the workshop: pieces made as far as the day and the materials go */
+    /* F5: a day at the pen: hay put by at harvest carried to the beasts that need it, or, failing hay, food from the store when there is plenty */
+    if (kind === 'craft' && T.sites.some(h => I(h.x, h.y) === j && h.kind === 'pen')) { let fed = 0;
+      for (const b of S.agents) { if (!b.alive || !b.tame || cheb(b, { x: j % N, y: (j / N) | 0 }) > 6 || b.e >= 0.85) continue;
+        const want = (0.85 - b.e) / 1.5; let got = Math.min(want, T.hay); T.hay -= got; if (got < want && T.store > S.popPeople * 0.8) { const s2 = Math.min(want - got, T.store - S.popPeople * 0.8); T.store -= s2; got += s2; }
+        b.e += got * 1.5; fed += got; }
+      a.act = { k: 'craft', j, at: 'pen' }; sound(j % N, (j / N) | 0, 2, 'work'); return 0; }
     if (kind === 'craft') { const q = T.sites.find(h => I(h.x, h.y) === j && raised(h)), K = q && BUILDINGS[q.kind]; if (!K || !K.makes) return 0;
       /* a day at the bench: what is left of it after the walk there, and the rest of the day's light */
       const day = budget + (DAY ? Math.max(0, DAY - 2 - S.tickNo % DAY) : 0);
@@ -1398,7 +1405,9 @@ function create(seed, opt) {
     /* F4: where things are made. work is the trade that works there, makes the good, from what it is made of (per piece) */
     kiln:     { lots: 1, stages: [{ wood: 2, stone: 2 }, { wood: 1, stone: 2 }], roof: 0.7, room: false, needsIdea: 'pottery', next: null, work: 'potter', makes: 'pots',  from: { wood: 0.3 } },
     smithy:   { lots: 1, stages: [{ wood: 3, stone: 2 }, { wood: 2, stone: 2 }], roof: 0.7, room: false, needsIdea: 'tools',   next: null, work: 'smith',  makes: 'tools', from: { ore: 0.25, wood: 0.3 } },
-    workshop: { lots: 1, stages: [{ wood: 4, stone: 0 }, { wood: 3, stone: 1 }], roof: 0.7, room: false, needsIdea: 'wheel',   next: null, work: 'wright', makes: 'carts', from: { wood: 4 } }
+    workshop: { lots: 1, stages: [{ wood: 4, stone: 0 }, { wood: 3, stone: 1 }], roof: 0.7, room: false, needsIdea: 'wheel',   next: null, work: 'wright', makes: 'carts', from: { wood: 4 } },
+    /* F5: a pen of stakes where tame beasts are kept, brought in at night and fed in the lean months by whoever herds them */
+    pen:      { lots: 1, stages: [{ wood: 3, stone: 0 }], roof: 0.7, room: false, needsIdea: 'herd', next: null, work: 'herder', keepsBeasts: true }
   };
   const CRAFT_AT = {}; for (const k in BUILDINGS) if (BUILDINGS[k].work) CRAFT_AT[BUILDINGS[k].work] = k;   /* trade -> where it is worked */
   /* what must lie on the plot before stage n (counted from 0) can be finished: everything up to and including it */
@@ -1512,7 +1521,7 @@ function create(seed, opt) {
     /* a place to make what is wanted and known how to make: pots while households keep food without them, tools while hands go
        without, a cart while a tame beast stands with nothing to draw */
     { const hands = folk().filter(b => b.age >= GROWN && b.age <= 46).length, beasts = S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length, roofs = T.sites.filter(q => isHome(q) && q.members > 0).length;
-      for (const [k, short] of [['kiln', T.pots < roofs], ['smithy', T.tools < hands], ['workshop', T.cartsMade < beasts]]) if (short && T.skills[BUILDINGS[k].needsIdea] && !T.sites.some(q => q.kind === k)) return choosePlot(k, null); }
+      for (const [k, short] of [['pen', S.agents.some(b => b.alive && b.tame)], ['kiln', T.pots < roofs], ['smithy', T.tools < hands], ['workshop', T.cartsMade < beasts]]) if (short && T.skills[BUILDINGS[k].needsIdea] && !T.sites.some(q => q.kind === k)) return choosePlot(k, null); }
     s = homes.filter(q => NEXT[q.kind] && T.skills[NEXT[q.kind]] && raised(q) && q.cold > 0.12 && (q.larder
         || 0) >= q.members * 0.6).sort((p, q) => q.cold - p.cold)[0];   // something better is known: the household that has felt the cold most, and can feed itself meanwhile, rebuilds first
     if (s) { s.was = s.kind; s.kind = NEXT[s.kind]; s.stage = 0; s.wood *= RUBBLE_WOOD; s.stone *= RUBBLE_STONE; s.qtrips = 0; s.lake = T.floodSeen && bank[I(s.x, s.y)] > 0.5; return s; }
@@ -1643,8 +1652,8 @@ function create(seed, opt) {
     const N_ = T.need, unroofed = Math.max(0, households() - T.sites.filter(isHome).length), work = T.sites.some(q => !raised(q)) || (T.wall && !T.wall.done) || unroofed > 0;
     // wants, strongest first, each asking for hands
     const asks = [['guard', T.threat >= 1.5 ? Math.max(1, Math.round(T.threat / 4)) : 0, T.threat], ['builder', work ? 1 + Math.round(unroofed / 2) : 0, 1 + N_.crowd + N_.cold],
-      ['woodcutter', work && n >= 5 ? 1 : 0, N_.toil], ['mason', work && T.skills.house ? 1 : 0, N_.toil * 0.8], ['herder', S.agents.some(b => b.alive
-          && b.tame) ? 1 : 0, 0.5],
+      ['woodcutter', work && n >= 5 ? 1 : 0, N_.toil], ['mason', work && T.skills.house ? 1 : 0, N_.toil * 0.8], ['herder', standing('pen') && S.agents.some(b => b.alive
+          && b.tame) ? 1 : 0, 0.5 + (T.hay > 0 ? 0.5 : 0)],
       /* F4: a trade is wanted where its place stands, something it makes is short and there is something to make it from */
       ['smith', standing('smithy') && T.tools < n && T.ore >= 0.25 ? 1 : 0, N_.toil * 0.9 + 2 * (1 - T.tools / Math.max(1, n))], ['potter', standing('kiln') && T.pots < T.sites.filter(q => isHome(q) && q.members > 0).length && T.wood >= 1 ? 1 : 0, N_.spoil * 0.5 + 1.5 * (1 - T.pots / Math.max(1, T.sites.filter(q => isHome(q) && q.members > 0).length))],
       ['wright', standing('workshop') && T.cartsMade < S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length && T.wood >= 4 ? 1 : 0, N_.toil * 0.7 + 1.2]].sort((p, q) => q[2] - p[2]);
@@ -1674,7 +1683,7 @@ function create(seed, opt) {
             builder: ' has become a builder: there are families without a roof.',
             woodcutter: ' fells timber for the whole place now.',
             mason: ' has taken up stone: the first mason.',
-            herder: ' minds the tame deer.',
+            herder: ' keeps the pen now, and feeds the tame deer through the lean months.',
             smith: ' works at the smithy now: tools for every hand that needs one.',
             potter: ' fires pots at the kiln, for every household\'s larder.',
             wright: ' builds carts in the workshop.',
@@ -1840,7 +1849,7 @@ function create(seed, opt) {
             if (h.farmer) y *= 1.3;
             addFood(h, 'larder', 'grain', y);
           } else addFood(T, 'store', 'grain', y);
-          got += y;
+          got += y; T.hay += y * 0.3;   /* the straw is put by for the beasts (F5) */
         }
         if (nf && dry / nf > 0.3) T.need.water += 1.5;
         T.lastHarvest = got; T.got.farm += got; T.eff.farm += Math.max(4, P.filter(b => b.job === 'farmer').length * TPY * 0.5); T.sown = false; T.resting = true;
@@ -1878,7 +1887,7 @@ function create(seed, opt) {
       let lost = rot(T, 'store', 1, keeps);
       for (const q of T.sites) lost += rot(q, 'larder', ((q.was || q.kind) === 'tent' ? 1 : 0.75) * (hasPots(q) ? 0.7 : 1));   /* fired pots in the house keep it longer (F4) */
       /* what is made wears out with use: tools in about four years, pots break, carts give way */
-      T.tools = Math.max(0, T.tools - T.tools * 0.25 * dt); T.pots = Math.max(0, T.pots - T.pots * 0.1 * dt); T.cartsMade = Math.max(0, T.cartsMade - T.cartsMade * 0.08 * dt);
+      T.tools = Math.max(0, T.tools - T.tools * 0.25 * dt); T.pots = Math.max(0, T.pots - T.pots * 0.1 * dt); T.cartsMade = Math.max(0, T.cartsMade - T.cartsMade * 0.08 * dt); T.hay = Math.max(0, T.hay - T.hay * 0.3 * dt);
       T.rotYear = (T.rotYear || 0) * (1 - dt) + lost;   /* what has rotted over about the last year, seen by everyone */
       if (S.popPeople) T.need.spoil += lost / S.popPeople;
     }

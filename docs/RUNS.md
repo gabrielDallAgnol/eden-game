@@ -668,3 +668,11 @@ Size 96, seeds 1 and 2:
 | mean |  | 15 | 66.3 | 155.9 | 179.1 | 49.8 | 158.5 | 0.2 | 13.2 |  | 2.7 | 8.7 | 19.3 | 5.6 | 87.9 | 1 | 1017.4 | 100.3 | 27.4 | 4.9 |  |  | 48.3 | 6.6 | 19.4 | 0.5 | 0 | 15918.3 |
 
 Year 100 mean 155.9 (146.3 before), year 25 15.0 (15.9), dwellings 49.8 (49.4), hunger deaths 158.5 (165.7), 2 resettles (plains 2).
+
+## F5: the pen
+
+A `pen` row in `BUILDINGS` (3 timber; needs herding, which is learned by raising an orphaned fawn). It is raised once there are tame beasts. Tame beasts keep to the pen if one stands (else to the camp, as before), sleep there, and graze within 3 tiles of it, or 6 when someone herds them. The two old rules are gone: the store no longer feeds tame beasts by itself whenever it holds plenty, and a herder no longer sets a deer's energy to 0.6. Feeding is now the herder's work: the herder walks to the pen and gives the hungry beasts hay (0.3 of every harvest is put by as straw, and it rots by 0.3 a year), or, with no hay, food from the store when it holds more than 0.8 a head. A herder is only asked for while a pen stands and there are tame beasts. Code-drawn sprite: a square of stakes and rails with a gate and a trough of hay.
+
+Check (unit, the plan's): the same world twice from autumn with six grown deer tamed by the camp, run through 14 steps of winter; once with no pen and no herder, once with a pen beside the camp, 8 hay and a herder. Valley 1: 0 of 3 survive without, 3 of 3 with. Forest 3: 2 of 4 without, 4 of 4 with. (Highland 2, not in the test: 2 of 3 without, 3 of 3 with.)
+
+The 100-year table is identical to F4's in every column but run time (year 100 mean 155.9): none of the ten standard worlds tames an animal in 100 years, so neither pens nor hay change anything there. Tests 445 passed, 0 failed.

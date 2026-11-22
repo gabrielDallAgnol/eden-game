@@ -462,6 +462,18 @@ function workshopSprite(snow) {
   x.fillStyle = '#7a5a3a'; for (let k = 0; k < 4; k++) { const a = k * 0.785; for (let r = 0; r < 6; r++) x.fillRect(Math.round(48 + Math.cos(a) * (r - 3) * 2), Math.round(34 + Math.sin(a) * (r - 3) * 2), 1, 1); }
   return outlineCanvas(c, OUT);
 }
+// a pen: a square of stakes and rails seen corner-on, a gap for the gate, a trough of hay inside (F5)
+function penSprite(snow) {
+  const W = 64, H = 40, c = mk(W, H), x = c.getContext('2d');
+  const pt = (u, v) => [Math.round(32 + (u - v) * 26), Math.round(8 + (u + v) * 13)];   /* u, v in 0..1 over the pen's square */
+  const rail = (a, b, y0) => { const n = 40; for (let k = 0; k <= n; k++) { const t = k / n, X = Math.round(a[0] + (b[0] - a[0]) * t), Y = Math.round(a[1] + (b[1] - a[1]) * t); x.fillStyle = '#8a6a48'; x.fillRect(X, Y - y0, 1, 2); } };
+  const corners = [pt(0, 0), pt(1, 0), pt(1, 1), pt(0, 1)];
+  for (let s2 = 0; s2 < 4; s2++) { const a = corners[s2], b = corners[(s2 + 1) % 4]; if (s2 === 2) { const m = [Math.round((a[0] + b[0]) / 2), Math.round((a[1] + b[1]) / 2)]; rail(a, [Math.round(a[0] + (m[0] - a[0]) * 0.7), Math.round(a[1] + (m[1] - a[1]) * 0.7)], 6); rail(a, [Math.round(a[0] + (m[0] - a[0]) * 0.7), Math.round(a[1] + (m[1] - a[1]) * 0.7)], 10); continue; }
+    rail(a, b, 6); rail(a, b, 10); }
+  x.fillStyle = '#5e4430'; for (const [X, Y] of corners.concat([pt(0.5, 0), pt(1, 0.5), pt(0, 0.5)])) x.fillRect(X - 1, Y - 13, 3, 14);   /* stakes */
+  const tr = pt(0.5, 0.45); x.fillStyle = '#7a5a3a'; x.fillRect(tr[0] - 7, tr[1] - 3, 14, 5); x.fillStyle = snow ? '#f6f9fc' : '#e2c779'; x.fillRect(tr[0] - 6, tr[1] - 4, 12, 2);   /* the trough and its hay */
+  return outlineCanvas(c, OUT);
+}
 // a dwelling at the water's edge stands on posts with a landing in front, and the flood passes under it
 function onStilts(img) {
   const lift = 12, c = mk(img.width + 8, img.height + lift), x = c.getContext('2d'), w = img.width, base = img.height + lift;
@@ -687,7 +699,7 @@ function build() {
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
   A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
-  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.granary = granarySprite(false); A.granarySnow = granarySprite(true); A.storehouse = storehouseSprite(false); A.storehouseSnow = storehouseSprite(true); A.kiln = kilnSprite(false); A.kilnSnow = kilnSprite(true); A.smithy = smithySprite(false); A.smithySnow = smithySprite(true); A.workshop = workshopSprite(false); A.workshopSnow = workshopSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.garden = [1, 2, 3].map(gardenSprite); A.bench = benchSprite(false); A.benchCarved = benchSprite(true); A.woodpile = [1, 2, 3].map(woodpileSprite); A.logSeat = logSeatSprite(); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.bridgePilesX = bridgeSprite(true, true); A.bridgePilesY = bridgeSprite(false, true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
+  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.granary = granarySprite(false); A.granarySnow = granarySprite(true); A.storehouse = storehouseSprite(false); A.storehouseSnow = storehouseSprite(true); A.kiln = kilnSprite(false); A.kilnSnow = kilnSprite(true); A.smithy = smithySprite(false); A.smithySnow = smithySprite(true); A.workshop = workshopSprite(false); A.workshopSnow = workshopSprite(true); A.pen = penSprite(false); A.penSnow = penSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.garden = [1, 2, 3].map(gardenSprite); A.bench = benchSprite(false); A.benchCarved = benchSprite(true); A.woodpile = [1, 2, 3].map(woodpileSprite); A.logSeat = logSeatSprite(); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.bridgePilesX = bridgeSprite(true, true); A.bridgePilesY = bridgeSprite(false, true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
   A.fire = fire.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.flame = flame.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.basket = sprite(basket, BASK, { x2: true }); A.bones = sprite(bones, BONE, { x2: true });
   A.bubble = {}; for (const k in ICON) A.bubble[k] = bubble(ICON[k]);
   A.item = {}; for (const k in ITEMS) A.item[k] = sprite(ITEMS[k][0], ITEMS[k][1]); A.item.basket = sprite(basket, BASK);

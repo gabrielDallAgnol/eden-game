@@ -484,7 +484,7 @@ UNITS.push(['every BUILDINGS row is whole: stages with finite wood and stone, a 
     if (!Array.isArray(K.stages) || !K.stages.length) bad.push(k + ' has no stages');
     else K.stages.forEach(function (st, i) { if (!(isFinite(st.wood) && st.wood >= 0 && isFinite(st.stone) && st.stone >= 0)) bad.push(k + ' stage ' + i + ' needs ' + JSON.stringify(st)); });
     if (!(K.roof > 0 && K.roof <= 1)) bad.push(k + ' roof ' + K.roof);
-    if (K.needsIdea && ideas && ideas.indexOf(K.needsIdea) < 0) bad.push(k + ' needs an idea that is not in IDEAS: ' + K.needsIdea);
+    if (K.needsIdea && ideas && ideas.indexOf(K.needsIdea) < 0 && K.needsIdea !== 'herd' /* learned by raising a fawn, not an idea */) bad.push(k + ' needs an idea that is not in IDEAS: ' + K.needsIdea);
     if (K.next && !B[K.next]) bad.push(k + ' is rebuilt into an unknown kind ' + K.next); });
   return bad.slice(0, 4).join('; ');
 }]);
@@ -515,6 +515,25 @@ UNITS.push(['tools are made at a smithy: with no smithy, none are made and those
   T.skills.tools = true; T.tools = 10; T.ore = 50; W.G.ruin('smithy'); last = T.tools;
   for (i = 0; i < 24 * 2; i++) { W.G.ruin('smithy'); W.tick(); if (T.tools > last + 1e-9) return 'tools rose from ' + last.toFixed(3) + ' to ' + T.tools.toFixed(3) + ' at step ' + i + ' with no smithy standing'; last = T.tools; }
   return T.tools < 10 * 0.7 ? '' : 'tools only wore from 10 to ' + T.tools.toFixed(2) + ' in two years';
+}]);
+UNITS.push(['tame deer come through a winter with a pen and a herder, and fewer of them without (F5)', function () {
+  var run = function (withPen, seed, land) {
+    var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: land, size: 96 }), S = W.S, T = S.tribe, i, n = 0;
+    for (i = 0; i < 24 * 6; i++) W.tick(); while (!(S.t % 1 > 0.6 && S.t % 1 < 0.7)) W.tick();   /* autumn */
+    T.skills.herd = true; T.hay = 0;
+    S.agents.forEach(function (a) { if (a.alive && a.sp === 'deer' && a.age >= a.d.mature && n < 6) { a.tame = true; a.fear = 0; W.moveTo(a, T.x, T.y); n++; } });
+    if (withPen) { var px = T.x, py = T.y, r, k, D;
+      for (r = 2; r <= 4 && px === T.x; r++) { D = [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, -r]]; for (k = 0; k < D.length; k++) { var x = T.x + D[k][0], y = T.y + D[k][1], rt = W.route(T.x, T.y, x, y); if (px === T.x && rt.reached && rt.tiles.length <= r + 2) { px = x; py = y; } } }
+      T.hay = 8; T.sites.push({ id: 777777, x: px, y: py, kind: 'pen', stage: 1, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, fuel: 0, lit: -1, was: '', lake: false }); }
+    for (i = 0; i < 14; i++) {
+      if (withPen) { var h = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 16 && a.age <= 46; }).sort(function (p, q) { return (q.job === 'herder') - (p.job === 'herder'); })[0]; if (h) h.job = 'herder'; }
+      else S.agents.forEach(function (a) { if (a.job === 'herder') a.job = ''; });
+      W.tick(); }
+    return [n, S.agents.filter(function (a) { return a.alive && a.tame; }).length];
+  };
+  var out = [], without = 0, withP = 0, tamed = 0;
+  [[1, 'valley'], [3, 'forest']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); tamed += a[0]; without += a[1]; withP += b[1]; out.push(w[1] + ' ' + w[0] + ': ' + a[1] + ' of ' + a[0] + ' without, ' + b[1] + ' of ' + b[0] + ' with'); });
+  return withP === tamed && withP > without ? '' : out.join('; ');
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
