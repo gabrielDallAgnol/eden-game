@@ -5,9 +5,10 @@
 const S = { ready: false, img: {}, meta: {} };
 
 S.load = async function (base) {
-  const meta = await (await fetch(base + 'manifest.json')).json();
+  const emb = root.EDEN_EMBED;                                        // a single-file build carries the sprites inside it
+  const meta = emb ? emb.meta : await (await fetch(base + 'manifest.json')).json();
   await Promise.all(Object.keys(meta).map(k => new Promise((ok, fail) => {
-    const im = new Image(); im.onload = () => { S.img[k] = im; ok(); }; im.onerror = () => fail(new Error('missing ' + meta[k].file)); im.src = base + meta[k].file;
+    const im = new Image(); im.onload = () => { S.img[k] = im; ok(); }; im.onerror = () => fail(new Error('missing ' + meta[k].file)); im.src = emb ? emb.img[k] : base + meta[k].file;
   })));
   S.meta = meta; S.ready = true;
 };
