@@ -110,6 +110,7 @@ Each step is useful on its own and unlocks the next. "Check" is how to know it w
 - `docs/PLAN.md`: the ordered implementation plan (phases A to L), with steps, checks and traps. Start there when building.
 - `docs/LAND-AND-DENSITY.md`: how sprawl, upper storeys, flats, quarries, prices and rent come from land being finite and distance costing time. This is the design for roadmap step 6.
 - `docs/WORLD-GROWTH.md`: a 128x128 world that becomes known as people have reason to go further, and the chunked ground drawing it needs.
+- `docs/ENVIRONMENT.md`: how the land grows and reacts: wet and dry years, runoff and ground water, soil that is spent and fed, plant succession with seed, fire from fuel, animals and people as forces on the ground. Phase M.
 - `docs/AGES.md`: what drove each historical age and which buildings to draw for it.
 
 ## Planned on purpose
