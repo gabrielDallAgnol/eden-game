@@ -82,7 +82,9 @@ def strip_backdrop(a):
     h, w = a.shape[:2]
     near = (a[..., 3] > 0) & (a[..., :3].min(-1) > 235)
     seen = np.zeros((h, w), bool)
-    stack = [(y, x) for y in range(h) for x in (0, w - 1) if near[y, x]] + [(y, x) for x in range(w) for y in (0, h - 1) if near[y, x]]
+    clear = np.pad(a[..., 3] == 0, 1, constant_values=True)
+    edge = clear[:-2, 1:-1] | clear[2:, 1:-1] | clear[1:-1, :-2] | clear[1:-1, 2:]      # touching the border or empty space
+    stack = [(int(y), int(x)) for y, x in zip(*np.nonzero(near & edge))]
     for y, x in stack:
         seen[y, x] = True
     while stack:

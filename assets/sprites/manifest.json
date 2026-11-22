@@ -128,8 +128,8 @@
  "hut": {
   "file": "hut.png",
   "frames": 1,
-  "w": 80,
-  "h": 80
+  "w": 66,
+  "h": 62
  },
  "lakehouse": {
   "file": "lakehouse.png",

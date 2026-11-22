@@ -97,7 +97,7 @@ function colorAt(pxx, py) {
   // made streets: a beaten track while it is a hamlet, gravel when it is a village, stone setts when it is a town
   const rd = bRd[b] + jn * 0.1;
   if (rd > 0.4) {
-    const lv = T0.level;
+    const lv = T0.pave;
     if (rd < 0.48) col = lv >= 2 ? C.kerb : C.pathEdge;
     else if (lv >= 3) { const v6 = fy * 5 + fx * 5, u6 = fx * 5 - fy * 5, row = Math.floor(v6), uu = u6 + (row & 1) * 0.5, pick = (hash(Math.floor(uu), row) * 3) | 0; col = (uu - Math.floor(uu) < 0.16 || v6 - row < 0.2) ? C.mortar : pick === 0 ? C.cob1 : pick === 1 ? C.cob2 : C.cob3; }
     else if (lv >= 2) col = n2 > 200 ? C.grav2 : n2 > 90 ? C.grav1 : C.grav3;
@@ -813,13 +813,16 @@ const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 3, 8, 0]; bS2.onclic
 { const el = document.getElementById('know'), btn = document.getElementById('bKnow');
   const fill = () => {
     const names = ['A camp', 'A hamlet', 'A village', 'A town'], jobs = {}; let grown = 0; for (const a of S.agents) if (a.alive && a.d.people) { if (a.age >= 13) grown++; if (a.job) jobs[a.job] = (jobs[a.job] || 0) + 1; }
-    const known = Object.keys(W.TECHS).filter(k => T0.skills[k]), basics = ['fire', 'farm', 'hut', 'house', 'well', 'herd', 'wheel'].filter(k => T0.skills[k]);
-    const next = Object.keys(W.TECHS).filter(k => !T0.skills[k] && W.TECHS[k].needs.every(q => T0.skills[q]));
+    const ideas = W.ideas(), known = ideas.filter(q => q.known).map(q => q.k).concat(['herd'].filter(k => T0.skills[k]));
+    const WANT = { cold: 'cold', hunger: 'hunger', spoil: 'food rotting', water: 'water far off', danger: 'wolves', flood: 'floods', toil: 'heavy loads', crowd: 'no roof', loss: 'deaths', reckon: 'too much to keep track of' };
+    const felt = Object.keys(T0.need).filter(k => T0.need[k] > 0.15).sort((p, q) => T0.need[q] - T0.need[p]);
+    const bar = v => '<span style="display:inline-block;height:6px;width:' + Math.round(Math.min(1, v / 3) * 70 + 4) + 'px;background:#b8453a;border-radius:2px;vertical-align:middle"></span>';
+    const near = ideas.filter(q => q.can).sort((p, q) => (T0.need[q.need] / q.at) - (T0.need[p.need] / p.at)).slice(0, 4);
     el.innerHTML = '<b>' + names[T0.level] + ' of ' + S.popPeople + '</b>, year ' + Math.floor(S.t) + '<br>' + T0.huts + ' roofs' + (T0.wall ? (T0.wall.done ? ', fenced' : ', fence going up') : '') + (T0.carts ? ', ' + T0.carts + ' cart' + (T0.carts > 1 ? 's' : '') : '')
-      + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none yet: everyone does everything') + '</p>'
-      + '<p><b>Known</b><br>' + (basics.concat(known).join(', ') || 'only what they came with') + '</p>'
-      + '<p><b>Working out</b><br>' + (T0.study ? T0.study + ' (' + Math.min(99, Math.round(100 * T0.know / W.TECHS[T0.study].cost)) + '%)' : 'nothing they have a use for yet') + '</p>'
-      + (next.length ? '<p><b>Within reach</b><br>' + next.join(', ') + '</p>' : '');
+      + '<p><b>What weighs on them</b><br>' + (felt.length ? felt.map(k => bar(T0.need[k]) + ' ' + WANT[k]).join('<br>') : 'nothing much: a good season') + '</p>'
+      + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
+      + '<p><b>Worked out so far</b><br>' + (known.join(', ') || 'only what they came with') + '</p>'
+      + (near.length ? '<p><b>Would come, if the want grew</b><br>' + near.map(q => q.k + ' (from ' + WANT[q.need] + ', ' + Math.min(99, Math.round(100 * T0.need[q.need] / q.at)) + '%)').join('<br>') + '</p>' : '');
   };
   if (el && btn) { btn.onclick = () => { const open = el.style.display !== 'block'; el.style.display = open ? 'block' : 'none'; if (open) fill(); }; setInterval(() => { if (el.style.display === 'block') fill(); }, 1500); } }
 document.getElementById('begin').onclick = () => { document.getElementById('intro').style.display = 'none'; paused = false; };
