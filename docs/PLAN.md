@@ -103,6 +103,8 @@ To exercise the view's planning code without frames: `for (...) { EdenGame.W.tic
 
 The owner set a hard cap of $8.00 on Retro Diffusion sprite generation; $7.48 is spent (`art/out/cost_log.json`). Do not generate sprites without asking first and showing the cost. Prefer recolours and code-drawn art (`art.js` has `tentSprite`, `wellSprite`, `fenceSprite`, `onStilts` as models). `docs/AGES.md` lists which sprites each age needs and which can be recolours.
 
+Free third-party art may be used when its license allows (CC0, or CC-BY with credit on the opening card) and it is listed in `art/third_party/CREDITS.md`. Bring it into Eden's look by gradient-mapping onto Eden's own ramps (`gradientMap` in `src/sprites.js`) rather than using its colours; one drawing then gives every season. Rocks, bushes and tall grass come from Yar's CC-BY 3.0 tileset this way.
+
 ## 2. Order of work
 
 ```

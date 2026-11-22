@@ -139,7 +139,55 @@ S.apply = function (A, h) {
   A.prop = {};
   for (const k in S.meta) if (k.startsWith('prop_')) { const n = k.slice(5), c = one(k); A.prop[n] = sized(c, (PROP_H[n] || 24) / c.height); }
   if (S.meta.cart) { A.cart = sized(one('cart'), 0.66); A.cartL = flip(A.cart); }
+  yarProps(A, one, sized, mk, snowOn, hash);
 };
+
+// ---------------------------------------------------------------- rocks, bushes and tall grass from Yar's tileset (CC-BY 3.0, art/third_party)
+// Only the drawing is borrowed: each pixel keeps how light or dark it is and takes the matching shade from one of Eden's
+// own ramps (the LEAF colours in art.js), then gets Eden's 1 px outline. One drawing so gives every season.
+const RAMP = {
+  spring: ['#b8d86e', '#8cbf52', '#62983f', '#3c6b33', '#1f3a26'], plain: ['#a4c964', '#78a84a', '#55863c', '#356030', '#1f3a26'],
+  dry: ['#c2c063', '#9a9a48', '#74783a', '#4f552c', '#2c3020'], gold: ['#f2cf5e', '#dba23a', '#b3742b', '#7c4b22', '#4a2a1c'],
+  red: ['#ee9a50', '#cf6a34', '#a2452a', '#6f2c22', '#4a2a1c'], frost: ['#c9d6c0', '#a3b39a', '#7d8f78', '#56665a', '#2c3530'],
+  rock: ['#c9c6b8', '#a39f90', '#7d796d', '#56534c', '#2c2a28'], wet: ['#b4b8b0', '#8e938c', '#6c716c', '#4a4f4c', '#26292a']
+};
+const hexRGB = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
+function gradientMap(src, ramp, mk) {
+  const w = src.width, h = src.height, sx = src.getContext('2d').getImageData(0, 0, w, h).data, c = mk(w + 2, h + 2), x = c.getContext('2d'), d = x.createImageData(w + 2, h + 2), p = d.data;
+  const lum = new Float32Array(w * h), on = new Uint8Array((w + 2) * (h + 2)), seen = [];
+  for (let i = 0; i < w * h; i++) if (sx[i * 4 + 3] > 0) { lum[i] = sx[i * 4] * 0.299 + sx[i * 4 + 1] * 0.587 + sx[i * 4 + 2] * 0.114; seen.push(lum[i]); }
+  if (!seen.length) return c;
+  seen.sort((a, b) => a - b);
+  /* the sprite's own light range, ignoring the few lightest and darkest pixels */
+  const lo = seen[Math.floor(seen.length * 0.03)], hi = seen[Math.floor(seen.length * 0.97)], stops = ramp.slice(0, 4).map(hexRGB), out = hexRGB(ramp[4]);
+  for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+    const i = y * w + xx; if (!sx[i * 4 + 3]) continue;
+    let t = Math.min(1, Math.max(0, (hi - lum[i]) / Math.max(1, hi - lo))); t = Math.round(t * 5) / 5;
+    const k = t * 3, j = Math.min(2, k | 0), f = k - j, o = ((y + 1) * (w + 2) + xx + 1) * 4;
+    for (let ch = 0; ch < 3; ch++) p[o + ch] = stops[j][ch] * (1 - f) + stops[j + 1][ch] * f;
+    p[o + 3] = 255; on[(y + 1) * (w + 2) + xx + 1] = 1;
+  }
+  /* Eden's outline: one dark pixel just outside the shape */
+  for (let y = 0; y < h + 2; y++) for (let xx = 0; xx < w + 2; xx++) {
+    const i = y * (w + 2) + xx; if (on[i]) continue;
+    if ((xx > 0 && on[i - 1]) || (xx < w + 1 && on[i + 1]) || (y > 0 && on[i - w - 2]) || (y < h + 1 && on[i + w + 2])) { p[i * 4] = out[0]; p[i * 4 + 1] = out[1]; p[i * 4 + 2] = out[2]; p[i * 4 + 3] = 255; }
+  }
+  x.putImageData(d, 0, 0); return c;
+}
+function yarProps(A, one, sized, mk, snowOn, hash) {
+  if (!S.meta.yar_bush_a) return;
+  const raw = (k, f) => sized(one(k), f), g = (src, r) => gradientMap(src, RAMP[r], mk);
+  /* berries: a few red pixels on the upper leaves */
+  const berries = src => { const c = mk(src.width, src.height), x = c.getContext('2d'); x.drawImage(src, 0, 0); const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+    for (let y = 2; y < c.height * 0.75; y++) for (let xx = 1; xx < c.width - 1; xx++) { const i = (y * c.width + xx) * 4; if (p[i + 3] && p[i + 1] > 90 && hash(xx * 7, y * 13) < 0.05) { p[i] = 200; p[i + 1] = 58; p[i + 2] = 44; } }
+    x.putImageData(d, 0, 0); return c; };
+  /* the leafy things: every state the valley can put them in */
+  const leafy = src => { const o = { spring: g(src, 'spring'), plain: g(src, 'plain'), dry: g(src, 'dry'), gold: g(src, 'gold'), red: g(src, 'red'), frost: g(src, 'frost') }; o.berry = berries(o.plain); o.goldBerry = berries(o.gold); o.redBerry = berries(o.red); o.snow = snowOn(o.frost); return o; };
+  A.bush = [leafy(raw('yar_bush_a', 0.62)), leafy(raw('yar_bush_b', 1)), leafy(raw('yar_bush_c', 1))];
+  A.tuft = [leafy(raw('yar_grass_a', 0.8)), leafy(raw('yar_grass_b', 0.8))];
+  const stone = src => { const plain = g(src, 'rock'); return { plain, wet: g(src, 'wet'), snow: snowOn(plain) }; };
+  A.rock = [stone(raw('yar_rock_a', 1)), stone(raw('yar_rock_b', 1)), stone(raw('yar_rock_c', 0.66))];
+}
 
 root.EdenSprites = S;
 })(typeof window !== 'undefined' ? window : globalThis);

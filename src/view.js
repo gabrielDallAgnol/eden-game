@@ -343,6 +343,13 @@ function treeLook(i, T, awake, snowy, falling) {
   else st = snowy ? 'bareSnow' : 'bare';
   return { base: 'l' + ((h1 * 4) | 0), state: st, img: L[st] };
 }
+/* the season of a leafy plant that is not a tree (bush, tall grass), read from the same causes as treeLook: awake after warmth, dry
+   soil, cold with the days shortening, frost */
+function leafState(i, T, falling) {
+  if (W.warmSum[i] > 0) return W.soil[i] < 0.26 ? 'dry' : W.warmSum[i] < 1.2 ? 'spring' : 'plain';
+  if (T > 2.5) return falling ? (hash(i, 13) < 0.4 ? 'red' : 'gold') : 'plain';
+  return 'frost';
+}
 const props = new Map();
 function wantProps() {
   const want = new Map(), falling = !W.daysLengthen(), cR = campR();
@@ -357,14 +364,21 @@ function wantProps() {
     }
     if (inCamp || W.field[i] || T0.road[i]) continue;   /* no bush or rock drawn on a field or a made road */
     if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) {
-      const B = A.bush[(hash(i, 4) * 3) | 0], st = snowy ? 'snow' : W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4) ? 'berry' : 'plain';
-      want.set('b' + i, { kind: 'bush', i, x: px, y: py, base: 'b' + st, img: B[st], dy: 4 });
+      const B = A.bush[(hash(i, 4) * A.bush.length) | 0], ls = snowy ? 'snow' : leafState(i, T, falling), berry = !snowy && ls !== 'frost' && (W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4));
+      /* berries sit on whatever colour the leaves have turned */
+      const st = berry ? (ls === 'gold' || ls === 'red' ? ls + 'Berry' : 'berry') : ls;
+      want.set('b' + i, { kind: 'bush', i, x: px, y: py, base: 'b' + st, img: B[st] || (berry ? B.berry : B.plain), dy: 4 });
     }
     else if ((W.rock[i] > 0.2 && hash(i, 7) < 0.25 + W.rock[i] * 0.5) || (h0 < 0.02 && W.fert[i] < 0.75)) {
-      const Rk = A.rock[(hash(i, 6) * 3) | 0];
-      want.set('r' + i, { kind: 'rock', i, x: px, y: py, base: 'r' + snowy, img: snowy ? Rk.snow : Rk.plain, dy: 4 });
+      const Rk = A.rock[(hash(i, 6) * A.rock.length) | 0], st = snowy ? 'snow' : (nearWater[i] || W.soil[i] > 0.9) && Rk.wet ? 'wet' : 'plain';
+      want.set('r' + i, { kind: 'rock', i, x: px, y: py, base: 'r' + st, img: Rk[st], dy: 4 });
     }
     else if (nearWater[i] && h0 > 0.4 && h0 < 0.62 && T > -3) want.set('d' + i, { kind: 'reeds', i, x: x + 0.5 + jx * 0.6, y: y + 0.5, base: 'd', img: A.reeds, dy: 2 });
+    /* tall grass where the grass has grown long and nothing has grazed it down */
+    else if (A.tuft && W.grass[i] > 0.6 && hash(i, 8) < (W.grass[i] - 0.6) * 0.8) {
+      const G = A.tuft[(hash(i, 10) * A.tuft.length) | 0], st = snowy ? 'snow' : leafState(i, T, falling);
+      want.set('g' + i, { kind: 'grass', i, x: px, y: py, base: 'g' + st, img: G[st] || G.plain, dy: 4 });
+    }
   }
   for (const h of S.homes.values()) {
     const snowy = W.snow[h.y * N + h.x] > 0.08;

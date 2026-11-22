@@ -334,5 +334,53 @@
   "frames": 1,
   "w": 35,
   "h": 32
+ },
+ "yar_bush_a": {
+  "file": "yar_bush_a.png",
+  "frames": 1,
+  "w": 57,
+  "h": 40
+ },
+ "yar_bush_b": {
+  "file": "yar_bush_b.png",
+  "frames": 1,
+  "w": 33,
+  "h": 24
+ },
+ "yar_bush_c": {
+  "file": "yar_bush_c.png",
+  "frames": 1,
+  "w": 33,
+  "h": 27
+ },
+ "yar_grass_a": {
+  "file": "yar_grass_a.png",
+  "frames": 1,
+  "w": 52,
+  "h": 41
+ },
+ "yar_grass_b": {
+  "file": "yar_grass_b.png",
+  "frames": 1,
+  "w": 52,
+  "h": 38
+ },
+ "yar_rock_a": {
+  "file": "yar_rock_a.png",
+  "frames": 1,
+  "w": 18,
+  "h": 15
+ },
+ "yar_rock_b": {
+  "file": "yar_rock_b.png",
+  "frames": 1,
+  "w": 17,
+  "h": 19
+ },
+ "yar_rock_c": {
+  "file": "yar_rock_c.png",
+  "frames": 1,
+  "w": 50,
+  "h": 24
  }
 }
