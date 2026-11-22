@@ -179,6 +179,13 @@ function create(seed, opt) {
   // Quarries leave holes. rock is the stone still in the ground (about STONE_PER_TILE stone at 1); pit is how deep it has
   // been dug (0 to 1). A pit is neither a lot nor a field.
   const pit = new Float32Array(N * N), STONE_PER_TILE = 50;
+  // What the settlement knows of the land: every tile one of its people has stood within sight of (less far under trees).
+  // It is only a record of what was seen. Nothing in the simulation reads it to decide anything.
+  const known = new Uint8Array(N * N), SIGHT = 5, SIGHT_WOOD = 3;
+  function see(a) {
+    const r = tree[I(a.x, a.y)] > 0.5 ? SIGHT_WOOD : SIGHT;
+    for (let y = Math.max(0, a.y - r); y <= Math.min(N - 1, a.y + r); y++) for (let x = Math.max(0, a.x - r); x <= Math.min(N - 1, a.x + r); x++) if ((x - a.x) * (x - a.x) + (y - a.y) * (y - a.y) <= r * r + r) known[I(x, y)] = 1;
+  }
   // what is left on a lot when a dwelling is pulled down to be rebuilt, or taken by a flood
   const RUBBLE_STONE = 0.7, RUBBLE_WOOD = 0.3;                                // whose field a tile is (the id of the roof it belongs to)
   // Sound. Work, play, a crying child, a kill, a howl: each is a noise at a place, as loud as the thing that made it. It
@@ -254,11 +261,19 @@ function create(seed, opt) {
   // something better was seen across the water, out of reach: it is remembered at the narrow place it would be crossed,
   // and felt as the want of a way over (the want a bridge answers)
   function wishCross(f, k) { const T = S.tribe; T.fordUse[f.key] = (T.fordUse[f.key] || 0) + (k || 1); T.need.cross += 0.01 * (k || 1); S.stat.wishes++; }
+  // Reach: how far a person is minded to go. It grows when a search comes back empty while the want is still felt, and
+  // shrinks again once they are supplied. Its limit is physical: out and back before night, further on made roads or
+  // with a cart.
+  const REACH0 = 3;
+  const reachOf = a => { if (a.reach === undefined) a.reach = WALK; return a.reach; };   /* a newcomer starts out looking as far as a day of walking makes worthwhile */
+  const reachCap = () => { const T = S.tribe; return 12 * (T.pave > 1 ? 1.3 : 1) * (T.carts ? 1.5 : 1); };
+  const stretch = a => { a.reach = Math.min(reachCap(), reachOf(a) * 1.25 + 0.5); };
+  const settleBack = a => { a.reach = Math.max(REACH0, reachOf(a) * 0.96); };
   // where a person's working day starts and ends: the door of their own roof, or the fire for those without one
   const doorOf = a => { const h = homeSite(a); return h ? h : S.tribe; };
   // the nearest tile, along the ways, that answers a want; jitter adds a little chance so not everyone goes to the same one
-  function nearestWay(x0, y0, ok, jitter) {
-    let bj = -1, bd = 1e9;
+  function nearestWay(x0, y0, ok, jitter, maxR) {
+    let bj = -1, bd = maxR === undefined ? 1e9 : maxR + 0.01;
     const m0 = mass[I(x0, y0)];
     /* outward in rings from the start; a ring further out than the best found so far cannot hold anything nearer */
     for (let r = 0; r < N && r < bd; r++) for (let dy = -r; dy <= r; dy++) {
@@ -282,7 +297,7 @@ function create(seed, opt) {
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
-      sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null, pondTold: false, lotAcross: null };
+      sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null, pondTold: false, lotAcross: null, lotReach: 8 };
     for (const k in SKILLS) T.skills[k] = SKILLS[k].known;
     for (const k in TECHS) T.skills[k] = false;
     return T;
@@ -1015,7 +1030,8 @@ function create(seed, opt) {
     // wood gets less for a day's walking and burns low.
     { const hearth = doorOf(a);
       if (T.skills.fire && tempAt(I(hearth.x, hearth.y)) < d.comfort - 3 && (hearth.fuel || 0) < FUEL_KEEP && rnd() < dt * 8) {
-        const j = nearestWay(hearth.x, hearth.y, q => tree[q] > 0.1, 1.5);
+        const j = nearestWay(hearth.x, hearth.y, q => tree[q] > 0.1, 1.5, reachOf(a) * 2);
+        if (j < 0) stretch(a);
         if (j >= 0) {
           tree[j] -= Math.min(tree[j], 0.03);
           const w = wayDist(hearth.x, hearth.y, j % N, (j / N) | 0);
@@ -1033,7 +1049,7 @@ function create(seed, opt) {
     // bounds, but a far place has to be worth the walk. What is found is carried home.
     const door = doorOf(a); let wishV = 0, wishF = null, bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
     for (let k = 0; k < 10; k++) {
-      const far = -WALK * Math.log(1 - rnd() * 0.999), ang = rnd() * 6.2832;
+      const far = -reachOf(a) * Math.log(1 - rnd() * 0.999), ang = rnd() * 6.2832;
       const x = clamp(Math.round(door.x + Math.cos(ang) * far), 0, N - 1),
         y = clamp(Math.round(door.y + Math.sin(ang) * far), 0, N - 1),
         j = I(x, y),
@@ -1045,6 +1061,8 @@ function create(seed, opt) {
       v *= dd; if (v > bestV) { bestV = v; bx = x; by = y; kind = kd; bestE = dd; }
     }
     if (wishF && wishV > bestV * 1.3) wishCross(wishF);
+    /* nothing worth the walk near enough, and still hungry: next time they look further. Fed, they keep closer to home */
+    if (a.e < 0.6 && bestV < 0.06) stretch(a); else if (a.e > 0.8) settleBack(a);
     // the hunt: when the stores run low, the able go out together in the morning after the nearest big game.
     // One walks straight at it; the others swing wide and get beyond it, so that what runs from the first runs onto them.
     if (able && T.skills.hunt) {
@@ -1164,7 +1182,8 @@ function create(seed, opt) {
     const kinHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && kin(b, who))) : [];
     /* ground a household may take: common ground, or what is already its own or its kin's */
     const mayUse = new Set(kinHomes.map(q => q.id)); if (who && who.house) mayUse.add(who.house); { const pt = who && S.byId.get(who.partner); if (pt && pt.house) mayUse.add(pt.house); }
-    const homes = T.sites.filter(q => q.kind !== 'well'), r = Math.min(5, 1 + Math.ceil(Math.sqrt(T.sites.length + 1) * 0.6));
+    /* how far out a lot is looked for: as far as the place has had to look before (it grows when no lot was found) */
+    const homes = T.sites.filter(q => q.kind !== 'well'), r = Math.min(Math.ceil(N / PITCH), Math.ceil(T.lotReach / PITCH));
     let bestI = -1, bs = -1e9, across = null;
     for (let m = -r; m < r; m++) for (let k = -r; k < r; k++) {
       const x = T.x + k * PITCH + 2, y = T.y + m * PITCH + 2; if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) continue;   // the middle of each lot
@@ -1223,6 +1242,7 @@ function create(seed, opt) {
     if (homes.length < households()) {                                                  // a household without a roof
       const who = folk().find(a => a.age >= WED && !a.house && (!a.partner || a.fem));
       const lot = choosePlot(best(), who); if (lot) return lot;
+      T.lotReach = Math.min(N, T.lotReach + PITCH / 4);   /* no lot in reach: look further next time */
       /* no lot to be had on this side: if there is free ground over the water, the want of a way across is felt where it would be crossed */
       if (T.lotAcross && S.tickNo % 4 === 0) wishCross(T.lotAcross, 2);
     }
@@ -1246,7 +1266,7 @@ function create(seed, opt) {
     if (s === T.bridge) {                                             // timber carried to the ford and laid across it, a few planks at a time
       if (T.wood >= 1) { const c = Math.min(T.wood, s.need - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'bridgework', x: s.ax, y: s.ay }; walk(T.x, T.y, s.ax, s.ay, 0.12); sound(s.ax, s.ay, 3, 'work'); }
       else {
-        const bj = nearestWay(s.ax, s.ay, j => tree[j] >= 0.3, 1.5); if (bj < 0) return false;
+        const bj = nearestWay(s.ax, s.ay, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2); if (bj < 0) { stretch(a); return false; }
         tree[bj] -= Math.min(tree[bj], 0.16); const w = wayDist(s.ax, s.ay, bj % N, (bj / N) | 0);
         T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) / (1 + w.d / WALK); a.act = { k: 'chop', j: bj, site: 0 }; return true;
       }
@@ -1255,8 +1275,8 @@ function create(seed, opt) {
     }
     if (s === T.wall) {                                               // stakes cut, carried and driven, a few paces of fence at a time
       if (T.wood < 1) {
-        const bj = nearestWay(T.x, T.y, j => tree[j] >= 0.3, 1.5);
-        if (bj < 0) return false;
+        const bj = nearestWay(T.x, T.y, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2);
+        if (bj < 0) { stretch(a); return false; }
         tree[bj] -= Math.min(tree[bj], 0.16);
         const ld = cartload(bj), ef = walkEff(T.x, T.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
         T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
@@ -1284,8 +1304,8 @@ function create(seed, opt) {
       if (T.wood >= 1) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; walk(T.x, T.y, s.x, s.y, 0.12); return true; }
       /* fell the nearest standing timber along the ways; saplings are left to grow. The further it stands, the less is
          brought back in a day */
-      const bj = nearestWay(s.x, s.y, j => tree[j] >= 0.3, 1.5);
-      if (bj < 0) return false;
+      const bj = nearestWay(s.x, s.y, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2);
+      if (bj < 0) { stretch(a); return false; }
       tree[bj] -= Math.min(tree[bj], 0.16);
       const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
       { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.timberD += w.d; S.stat.timberN++; crossed(w); a.tripD = w.d; }
@@ -1302,9 +1322,9 @@ function create(seed, opt) {
       /* the quarry: of all the stone showing on common ground, the one that gives most for a day's walk; a deep pit is harder
          to work (deeper and farther both make stone dearer) */
       let bq = -1, vq = 0;
-      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || (owner[j] && !field[j] && T.sites.some(q => q.id === owner[j] && q.kind !== 'well'))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
-      const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
-      if (bq < 0 && bc < 0) return false;
+      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || Math.hypot(j % N - s.x, ((j / N) | 0) - s.y) > reachOf(a) * 2 || (owner[j] && !field[j] && T.sites.some(q => q.id === owner[j] && q.kind !== 'well'))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
+      const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0, reachOf(a) * 2), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
+      if (bq < 0 && bc < 0) { stretch(a); return false; }
       const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
       const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
       { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.stoneD += w.d; S.stat.stoneN++; crossed(w); a.tripD = w.d; }
@@ -1561,7 +1581,7 @@ function create(seed, opt) {
     const [x, y] = campSite(), fresh = newSettlement(x, y);
     for (const k of Object.keys(T)) delete T[k];
     Object.assign(T, fresh);
-    tread.fill(0); owner.fill(0); field.fill(0);
+    tread.fill(0); owner.fill(0); field.fill(0); known.fill(0);   /* newcomers know nothing of the place */
   }
   // ---------------------------------------------------------------- one step of time
   function tick() {
@@ -1651,7 +1671,7 @@ function create(seed, opt) {
       if (flood[i]) { a.e -= 1.2 * dt; if (rnd() < 0.6 * dt) { die(a, 'drowned'); continue; } roam(a, 3, 2); }
       if (burn[i] > 0) { if (rnd() < 0.5) { die(a, 'burned'); continue; } a.e -= 0.1; roam(a, 3, 3); }
       const e0 = a.e;
-      if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) { person(a, d, dt); tally(a); } else animal(a, d, dt);
+      if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) { person(a, d, dt); tally(a); if (a.alive) see(a); } else animal(a, d, dt);
       if (!a.mood) a.mood = a.e < 0.3 ? 'hungry' : a.e > e0 + 0.02 ? 'fed' : '';
       if (a.alive && a.e <= 0) { die(a, Tc < d.comfort ? 'cold and hunger' : 'hunger'); continue; }
       // --- young are born to a well-fed mother when the air is warm enough for them
@@ -1813,7 +1833,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- save and load
   // The world is plain data: the land arrays, S, the random stream and the noises still in the air. Typed arrays travel as
   // base64, Maps as their entries, and a creature names its species row instead of holding it.
-  const FIELDS = { pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
+  const FIELDS = { known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
   const b64 = ta => {
     const u = new Uint8Array(ta.buffer, ta.byteOffset, ta.byteLength);
     let str = '';
@@ -1861,6 +1881,7 @@ function create(seed, opt) {
     save,
     restore,
     pit,
+    known,
     mass,
     fords: () => fords,
     wayDist,
@@ -2773,7 +2794,9 @@ const BN = N * 8, CB = 16 * 8,
   bTr = mkB(),
   bSc = mkB(),
   bRd = mkB(),
+  bKn = mkB(),
   roadF = new Float32Array(N * N);
+const knownF = new Float32Array(N * N);
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
 let cbx = 0, cby = 0, cbFor = null;
@@ -2795,11 +2818,31 @@ const blur = (src, dst) => blurRect(src, dst, cbx, cby, cbx + CB - 1, cby + CB -
 /* make the smoothed fields those of one chunk (as the land is now) */
 function chunkFields(ch) {
   cbx = ch.i * CB; cby = ch.j * CB; cbFor = ch;
-  for (const [src, dst] of [[waterF, bWt], [W.fert, bFe], [roadF, bRd], [W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [trail, bTr], [scar, bSc]]) blur(src, dst);
+  for (let i = 0; i < N * N; i++) knownF[i] = W.known[i];
+  for (const [src, dst] of [[knownF, bKn], [waterF, bWt], [W.fert, bFe], [roadF, bRd], [W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [trail, bTr], [scar, bSc]]) blur(src, dst);
 }
 let gRipe = 0, gWarm = false, campOn = true;
 function groundState() { gRipe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0; gWarm = S.air > 9; campOn = S.popPeople > 0 || T0.huts > 0; }
+// Land nobody of the place has seen is not drawn: it thins out, pixel by pixel, into the dark round the world.
 function colorAt(pxx, py) {
+  const c = colorAt0(pxx, py); if (!c) return 0;
+  const v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
+  let k;
+  if (fx >= N || fy >= N) k = W.known[Math.min(N - 1, fy | 0) * N + Math.min(N - 1, fx | 0)];
+  else k = bKn[(((fy * 8) | 0) - cby) * CB + (((fx * 8) | 0) - cbx)];
+  if (k >= 0.98) return c;
+  const t = clamp(k * 1.4 - 0.2, 0, 1), n = noise2[((py & (NT - 1)) * NT) | (pxx & (NT - 1))];
+  if (t * 255 <= n) return 0;
+  /* the last of the seen land is a little dimmer, as if in mist */
+  const dim = 0.72 + 0.28 * t, r = (c & 255) * dim, g = ((c >>> 8) & 255) * dim, b = ((c >>> 16) & 255) * dim;
+  return (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
+}
+/* how much of a point on the ground has been seen, smoothly between tiles (for things standing on it) */
+function knownAt(x, y) {
+  const fx = clamp(x - 0.5, 0, N - 1), fy = clamp(y - 0.5, 0, N - 1), x0 = fx | 0, y0 = fy | 0, x1 = Math.min(N - 1, x0 + 1), y1 = Math.min(N - 1, y0 + 1), u = fx - x0, v = fy - y0, K = W.known;
+  return (K[y0 * N + x0] * (1 - u) + K[y0 * N + x1] * u) * (1 - v) + (K[y1 * N + x0] * (1 - u) + K[y1 * N + x1] * u) * v;
+}
+function colorAt0(pxx, py) {
   const p = ((py & (NT - 1)) * NT) | (pxx & (NT - 1)), v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
   if (fx < 0 || fy < 0) return 0;
   if (fx >= N || fy >= N) {                                                    // the cut edge of the land
@@ -2864,7 +2907,7 @@ function chunkSig(ch) {
   let h = (gRipe * 8 | 0) * 7 + (gWarm ? 3 : 0) + (campOn ? 5 : 0) + T0.pave * 11;
   /* what grows and lies on the ground: the chunk's average of each, in steps of 1/24; things that are or are not there
      (ways, fields, pits, water): tile by tile */
-  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field], sum = new Float64Array(soft.length + 1);
+  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field, W.known], sum = new Float64Array(soft.length + 1);
   let n = 0;
   for (let y = ch.j * CT; y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = ch.i * CT; x < Math.min(N, (ch.i + 1) * CT + 1); x++) {
     const i = y * N + x; n++;
@@ -2888,10 +2931,13 @@ function startPaint() {
   paint = { ch: null, row: 0 };
   groundWanted = false;
 }
+const chunkKnown = ch => { for (let y = Math.max(0, ch.j * CT - 1); y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = Math.max(0, ch.i * CT - 1); x < Math.min(N, (ch.i + 1) * CT + 1); x++) if (W.known[y * N + x]) return true; return false; };
 const chunkVisible = ch => { const z = cam.z, vw = cv.width / z, vh = cv.height / z; return ch.ox < cam.x + vw && ch.ox + CW > cam.x && ch.oy < cam.y + vh && ch.oy + CHT > cam.y; };
 /* paint some rows of the next stale chunk, those in view first; a finished chunk crossfades from its old picture */
 function paintSome(rows, all) {
   while (rows > 0 && paint) {
+    /* a chunk where nothing has been seen has no picture at all */
+    for (const c of chunks) if (c.stale && !chunkKnown(c)) { c.stale = false; if (c.cv) { c.cv = null; c.ctx = null; c.painted = false; if (c.fade) { fadePool.push(c.fade.from); c.fade = null; } } }
     if (!paint.ch) { paint.ch = chunks.find(c => c.stale && chunkVisible(c)) || (all ? chunks.find(c => c.stale) : null); paint.row = 0; if (!paint.ch) { paint = null; return; } }   /* stale chunks out of view wait until they are seen */
     const ch = paint.ch, end = Math.min(CHT, paint.row + rows);
     paintChunkRect(ch, 0, paint.row, CW, end); rows -= end - paint.row; paint.row = end;
@@ -3561,11 +3607,20 @@ function stepAt(r, u, dts) {
 // ================================================================== camera and touch
 function resize() { dpr = Math.min(3, window.devicePixelRatio || 1); cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); clampCam(); }
 const minZ = () => Math.min(cv.width / WW, cv.height / WH) * 0.96, maxZ = () => 5 * dpr;
+let kBox = null, kBoxT = -1;
+function knownBox() {
+  if (kBox && kBoxT === S.tickNo) return kBox;
+  let x0 = N, y0 = N, x1 = -1, y1 = -1; for (let i = 0; i < N * N; i++) if (W.known[i]) { const x = i % N, y = (i / N) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) { x0 = x1 = T0.x; y0 = y1 = T0.y; }
+  kBoxT = S.tickNo; return (kBox = { x0, y0, x1, y1 });
+}
 function clampCam() {
   cam.z = clamp(cam.z, minZ(), maxZ());
   const vw = cv.width / cam.z, vh = cv.height / cam.z;
-  cam.x = vw >= WW ? (WW - vw) / 2 : clamp(cam.x, -vw * 0.3, WW - vw * 0.7);
-  cam.y = vh >= WH ? (WH - vh) / 2 : clamp(cam.y, -vh * 0.3, WH - vh * 0.7);
+  /* the camera keeps to the land that has been seen */
+  const kb = knownBox(), x0 = isoX(kb.x0, kb.y1 + 1), x1 = isoX(kb.x1 + 1, kb.y0), y0 = isoY(kb.x0, kb.y0) - 60, y1 = isoY(kb.x1 + 1, kb.y1 + 1) + CLIFF;
+  cam.x = vw >= x1 - x0 ? (x0 + x1 - vw) / 2 : clamp(cam.x, x0 - vw * 0.3, x1 - vw * 0.7);
+  cam.y = vh >= y1 - y0 ? (y0 + y1 - vh) / 2 : clamp(cam.y, y0 - vh * 0.3, y1 - vh * 0.7);
 }
 const toWorld = (sx, sy) => ({ x: cam.x + sx * dpr / cam.z, y: cam.y + sy * dpr / cam.z });
 const toCell = (sx, sy) => { const w = toWorld(sx, sy), c = cellAt(w.x, w.y); return { x: clamp(c.x, 0, N - 0.01), y: clamp(c.y, 0, N - 0.01), wx: w.x, wy: w.y }; };
@@ -3757,6 +3812,7 @@ function frame(t) {
   for (const [key, p] of props) {
     const wx = isoX(p.x, p.y), wy = isoY(p.x, p.y) + (p.dy || 0); if (!vis(wx, wy)) continue;
     let al = clamp((now - p.born) / 1100, 0, 1); if (p.die) { al = Math.min(al, 1 - (now - p.die) / 1600); if (al <= 0) { props.delete(key); continue; } }
+    al *= knownAt(p.x, p.y); if (al < 0.02) continue;
     const d = put(p.img, wx, wy, { alpha: al < 1 ? al : undefined,
       sway: p.kind === 'tree' ? p.i : -1,
       tree: p.kind === 'tree',
@@ -3921,6 +3977,7 @@ function frame(t) {
     /* children grow a little every year, not only when they move up to the next size of sprite */
     { const ag = r.a.age, dd = r.a.d; if (dd.people && ag >= 2 && ag < dd.mature) extra.grow = (extra.grow || 1) * (ag < 6 ? 0.8 + 0.2 * (ag - 2) / 4 : 0.8 + 0.2 * (ag - 6) / (dd.mature - 6)); }
     if (extra.alpha !== undefined) al = Math.min(al, extra.alpha);
+    al *= knownAt(r.x, r.y); if (al < 0.02) continue;
     if (s && s.cart && A.cart) extra.cart = face;
     const d = put(im, wx, wy - lift, Object.assign(extra, { y: wy,
       shadow: { x: wx,
