@@ -479,3 +479,28 @@ Year 100 mean 153.6 (E2 160), year 25 22.5, year 50 101.7, dwellings 55.1 (47.5)
 | mean |  | 28.1 | 111.2 | 168.5 | 198.5 | 64.2 | 200.1 | 0 | 13.2 |  | 3 | 5.1 | 5.9 | 9.9 | 128.3 | 1 | 1596.2 | 90.6 | 22.5 | 2.1 |  |  | 56.5 | 6.9 | 20.6 | 0.3 | 0 | 14254.7 |
 
 Year 100 mean 168.5 (previous 153.6), year 25 28.1, year 50 111.2, dwellings 64.2 (55.1), hunger deaths 200.1 (171.9), no resettles in this table; over 30 worlds at 96: year 100 mean 195.8 against 176.6 before hobbies, with 3 worlds emptying once or twice (6 resettles) against 1 (2). Each person loves one to three things (music, singing, tales, dancing, gardening, carving, weaving), taken from a parent more often than not or learned from daily work; free evenings (fed, with food put by at home) go to them, and gladness (joy) follows from them, food, warmth and a partner and helps grief pass. 31 objects generated with Retro Diffusion's Lite isometric style at $0.05 each ($1.55; all art so far $9.03 of the owner's $10), cleaned, scaled to Eden's proportions and placed by cause at fixed places in each yard (never on a street or field), plus stalls, spit, music corner, signpost, trough, lanterns, scarecrows and stumps by the fire and fields. Code-drawn: gardens, benches, woodpiles, log seats. Tests: 402 passed, 0 failed, 3 warnings, 17 skipped. Scenarios: 23 passed, 1 warning.
+
+
+## E2 (the rest): timber, stone and firewood as trips
+
+Felling, fetching firewood and quarrying now walk the real route out, work there, and carry the load home (logs, stones, sticks). Timber reaches the store when the carrier arrives, not when the axe falls. Two fixes came with it:
+- `wayDist` measured straight across a river bend when both ends were on the same land. When open water lies on the straight line it now uses the real walk around (or over a bridge), cached until water, bridges or roads change.
+- Nobody sets out on a haul they cannot walk there and back before dark. Before this, a builder who slept by the fire with their house site across a river (95 tiles' walk) set out every morning and was turned home by night empty-handed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 41 | 199 | 213 | 277 | 103 | 319 | 0 | 15 | 8/76/5 | 2.7 | 27.4 | 18.3 | 6.1 | 273 | 1 | 3530 | 197 | 42.1 | 8.8 | 33.5 (2) | 79/0/2/0/17 | 72 | 7.7 | 29 | 3 | 0 | 27194 |
+| valley | 2 | 30 | 74 | 107 | 116 | 39 | 154 | 0 | 12 | 6/254/5 | 2.8 | 0 | 16.1 | 4.4 | 109 | 1.1 | 320 | 100 | 21.1 | 4.1 | 0 (1) | 85/2/2/0/10 | 51 | 4.4 | 13 | 0 | 0 | 14108 |
+| plains | 1 | 9 | 51 | 178 | 235 | 60 | 184 | 0 | 12 | 3/198/5 | 2.5 | 22.4 | 21.5 | 5.7 | 57 | 0.9 | 1628 | 47 | 34.8 | 5.1 |  | 87/0/1/0/10 | 46 | 6 | 21 | 0 | 0 | 14441 |
+| plains | 2 | 29 | 148 | 253 | 276 | 77 | 344 | 0 | 12 | 0/138/2 | 2.6 | 3.6 | 21.2 | 6.4 | 144 | 0.9 | 2903 | 121 | 25.8 | 5.1 |  | 80/0/1/0/17 | 53 | 6.7 | 29 | 0 | 0 | 16848 |
+| forest | 1 | 8 | 50 | 212 | 266 | 80 | 181 | 2 | 13 | 3/131/5 | 2.4 | 14.3 | 15.8 | 3.5 | 132 | 1.1 | 701 | 81 | 89.3 | 27.2 | 12 (1) | 83/1/3/0/12 | 60 | 4.5 | 25 | 2 | 0 | 30363 |
+| forest | 2 | 32 | 98 | 91 | 126 | 44 | 188 | 0 | 12 | 14/260/0 | 2.3 | 2 | 13.6 | 3.7 | 37 | 1.1 | 353 | 21 | 20.2 | 4.4 | 0 (1) | 83/1/2/0/13 | 34 | 5.1 | 13 | 0 | 0 | 13111 |
+| lakeland | 1 | 20 | 103 | 236 | 249 | 94 | 226 | 0 | 14 | 34/135/0 | 2.7 | 0 | 18.9 | 5.8 | 97 | 1 | 2410 | 89 | 28.5 | 5.3 | 5 (1) | 80/1/2/1/15 | 69 | 6.8 | 25 | 0 | 0 | 20617 |
+| lakeland | 2 | 19 | 104 | 143 | 150 | 59 | 143 | 0 | 13 | 18/190/5 | 2.4 | 4 | 14.6 | 5.2 | 60 | 1.1 | 1015 | 76 | 27.6 | 4.9 | 0 (1) | 87/0/4/2/7 | 43 | 5.1 | 25 | 0 | 0 | 13630 |
+| highland | 1 | 10 | 57 | 77 | 81 | 28 | 105 | 0 | 14 | 5/65/5 | 2.9 | 0 | 16.4 | 6.7 | 76 | 1.1 | 193 | 67 | 15 | 2.7 | 0 (1) | 76/0/3/0/19 | 53 | 6.5 | 13 | 0 | 0 | 8753 |
+| highland | 2 | 2 | 24 | 23 | 52 | 18 | 52 | 2 | 13 | 10/70/0 | 2.8 | 9.8 | 14.2 | 6 | 51 | 1.1 | 76 | 42 | 17.3 | 2.8 | 1 (1) | 80/2/2/0/16 | 34 | 9.5 | 9 | 0 | 0 | 5993 |
+| mean |  | 20 | 90.8 | 153.3 | 182.8 | 60.2 | 189.6 | 0.4 | 13 |  | 2.6 | 8.4 | 17.1 | 5.4 | 103.6 | 1 | 1312.9 | 84.1 | 32.2 | 7 |  |  | 51.5 | 6.2 | 20.2 | 0.5 | 0 | 16505.8 |
+
+Year 100 mean 153.3 (before this step 168.5 in the table; 172.5 in a direct run with the same options), year 25 20.0 (28.1), dwellings 60.2 (64.2), hunger deaths 189.6 (200.1), 2 resettles (forest 1, highland 2). Stone trips are now measured as the real route walked from where the person stands: 17.1 tiles against 5.9 straight-line from the site before; timber trips 8.4, firewood 5.4. Without the before-dark check, year 100 was 112.6. Speed: 16.5 s per world (14.3). Tests 413 passed, 0 failed; scenarios 22 passed.

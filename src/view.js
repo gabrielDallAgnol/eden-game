@@ -743,7 +743,8 @@ function planPerson(r, phase, pi) {
       P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
     }
     case 'walkto': P.go(act.x + 0.5, act.y + 0.5, sp); break;                               // on the way out: as far as the simulation has them
-    case 'carryhome': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item === 'fish' ? 'fish' : 'basket' }); break;   // on the way home with a load
+    case 'carryhome': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item || 'basket' }); break;   // on the way back with a load: fish, a basket, logs, stone, sticks
+    case 'drop': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item || 'log' }); P.wait(0.05, 'work', { drop: 1 }); break;   // the load set down at the plot or the hearth
     case 'home': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house); const to = mine ? door(mine) : store; P.go(to.x, to.y, sp); P.wait(0.04, 'work', { drop: 1 }); break; }
     case 'fetch': {                                                   // out to what lies on the ground, and back with it
       const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), to = act.item === 'meat' || act.item === 'sticks' ? (mine ? door(mine) : store) : store;

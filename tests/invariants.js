@@ -78,6 +78,7 @@ function WorldRun(land, seed, years, size) {
   add('dryAlways', 'no living creature is on a water tile after any tick');
   add('problems', 'the sim reports no defects in S.problems');
   add('pitFree', 'no lot or field on a quarry pit (B5)');
+  add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
   add('chopped', 'timber is only ever gained by someone chopping a tree');
@@ -188,9 +189,11 @@ WorldRun.prototype.popCheck = function (before) {
 };
 
 WorldRun.prototype.woodTick = function (before) {
-  var S = this.W.S, T = S.tribe, c = this.C.chopped; if (!T || !(T.wood > before + 1e-9)) return;
+  var S = this.W.S, T = S.tribe, c = this.C.chopped;
+  var back = (S.stat.woodBack || 0) - (this.woodBack || 0); this.woodBack = S.stat.woodBack || 0;   /* E2: logs carried home from a felling trip */
+  if (!T || !(T.wood > before + 1e-9)) return;
   var chop = S.agents.some(function (a) { return a.act && a.act.k === 'chop' && (a.alive || a.d.people); });   /* a chopper may die later in the same step */
-  if (chop) c.ok(); else c.fail('tick ' + this.ticks + ': timber went from ' + show(before) + ' to ' + show(T.wood) + ' and nobody chopped');
+  if (chop || back >= T.wood - before - 1e-6) c.ok(); else c.fail('tick ' + this.ticks + ': timber went from ' + show(before) + ' to ' + show(T.wood) + ' and nobody chopped');
 };
 WorldRun.prototype.dryTick = function () {
   var W = this.W, S = W.S, N = W.N, water = W.water, c = this.C.dryAlways;
@@ -284,6 +287,13 @@ WorldRun.prototype.yearly = function () {
     if (!sites) return c.skip('no sites'); var bad = [], seen = 0;
     sites.forEach(function (q) { if (!q.tripsLast) return; seen++; var sum = 0; for (var k in q.tripsLast) sum += q.tripsLast[k]; if (sum !== q.workDaysLast) bad.push(q.kind + ' at ' + q.x + ',' + q.y + ': trips ' + sum + ', work days ' + q.workDaysLast); });
     if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else if (seen) c.ok(); else c.skip('no household has a year of trips yet');
+  });
+  this.guard('haul', function (c) {
+    var bad = [], seen = 0;
+    S.agents.forEach(function (a) { var tr = a.trip; if (!a.alive || !tr || !(tr.kind === 'timber' || tr.kind === 'stone' || tr.kind === 'fuel')) return; seen++;
+      if (!(isFinite(tr.load) && tr.load >= 0 && tr.load < 50)) bad.push(a.name + ' carries ' + tr.load + ' ' + tr.kind);
+      else if (!Array.isArray(tr.back) || !tr.back.length) bad.push(a.name + ' has no way home from a ' + tr.kind + ' trip'); });
+    if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else if (seen) c.ok(); else c.skip('nobody hauling at this check');
   });
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');
