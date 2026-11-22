@@ -364,6 +364,47 @@ const TOOL = {
 
 // ------------------------------------------------------------------ painted-by-rule sprites: trees, bushes, rocks, homes
 const rngOf = s => { let v = (s * 2654435761) >>> 0 || 1; return () => { v ^= v << 13; v >>>= 0; v ^= v >> 17; v ^= v << 5; v >>>= 0; return v / 4294967296; }; };
+// a tent: hides drawn over a ridge pole, open at the lit end, pegged at the corners. The first roof people know how to make.
+function tentSprite(snow) {
+  const W = 66, H = 50, c = mk(W, H), x = c.getContext('2d'), HIDE = ['#d9bd8c', '#c4a273', '#a8855c', '#86694a'];
+  const ax = 22, ay = 6, bx = 48, by = 14, base = 44;                // ridge runs from the front peak (ax, ay) back to (bx, by)
+  for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
+    // front face: a triangle under the front peak; side: the long slope down to the right
+    const fk = (yy - ay) / (base - ay), fh = fk * 15;                 // half-width of the front triangle at this height
+    const inFront = fk >= 0 && fk <= 1 && Math.abs(xx - ax) <= fh;
+    const t = (xx - ax) / (bx - ax), ry = ay + (by - ay) * t, sk = (yy - ry) / (base - 4 + t * -2 - ry), inSide = t > 0 && t <= 1.55 && sk >= 0 && sk <= 1 && xx <= bx + sk * 14 && xx >= ax + fh * 0.9;
+    if (!inFront && !inSide) continue;
+    let col = inFront ? (xx < ax - fh * 0.2 ? HIDE[0] : HIDE[1]) : (sk < 0.25 ? HIDE[1] : sk < 0.7 ? HIDE[2] : HIDE[3]);
+    if (inSide && ((xx * 3 + yy) % 13 === 0)) col = HIDE[3];          // seams in the hides
+    if (inFront && Math.abs(xx - ax) < fh * 0.42 && fk > 0.3) col = fk > 0.45 && Math.abs(xx - ax) < fh * 0.3 ? '#22160f' : '#5a3f2a';   // the way in
+    if (snow && ((inSide && sk < 0.32) || (inFront && fk < 0.2))) col = (xx + yy) % 5 ? '#f6f9fc' : '#dfe7f1';
+    x.fillStyle = col; x.fillRect(xx, yy, 1, 1);
+  }
+  x.fillStyle = '#6e5137'; x.fillRect(ax - 3, 1, 2, 7); x.fillRect(ax + 2, 1, 2, 7); x.fillRect(ax - 1, 4, 3, 2);   // crossed poles at the peak
+  x.fillStyle = '#5a3f2a'; for (const px of [6, 38, 60]) x.fillRect(px, base - 1, 2, 4);                              // pegs
+  return outlineCanvas(c, OUT);
+}
+// a well: a ring of stone, two posts, a little roof and a bucket
+function wellSprite(snow) {
+  const W = 34, H = 40, c = mk(W, H), x = c.getContext('2d'), ST = ['#b9b5aa', '#9a968c', '#77736a', '#5d5a53'];
+  for (let yy = 22; yy < 38; yy++) for (let xx = 4; xx < 30; xx++) {
+    const u = (xx - 17) / 13, top = 26 + (1 - Math.sqrt(Math.max(0, 1 - u * u))) * -4 + 0, bot = 33 + Math.sqrt(Math.max(0, 1 - u * u)) * 4; if (Math.abs(u) > 1 || yy < 24 - Math.sqrt(1 - u * u) * 2 || yy > bot) continue;
+    const inner = ((xx - 17) / 9) ** 2 + ((yy - 26) / 3) ** 2 < 1;
+    x.fillStyle = inner ? '#2c3f4a' : ((xx >> 2) + (yy >> 2)) % 2 ? (u < -0.2 ? ST[0] : u < 0.4 ? ST[1] : ST[2]) : (u < -0.2 ? ST[1] : u < 0.4 ? ST[2] : ST[3]); x.fillRect(xx, yy, 1, 1);
+  }
+  x.fillStyle = '#6e5137'; x.fillRect(6, 9, 2, 17); x.fillRect(26, 9, 2, 17); x.fillStyle = '#8a6a48'; x.fillRect(7, 12, 20, 2);     // posts and windlass
+  for (let yy = 2; yy < 10; yy++) { const half = 3 + (yy - 2) * 1.9; for (let xx = Math.round(17 - half); xx <= Math.round(17 + half); xx++) { x.fillStyle = snow && yy < 6 ? '#f6f9fc' : xx < 15 ? '#a8855c' : '#86694a'; x.fillRect(xx, yy, 1, 1); } }
+  x.fillStyle = '#4a3222'; x.fillRect(16, 14, 1, 6); x.fillStyle = '#8a6a48'; x.fillRect(14, 20, 5, 4);                            // rope and bucket
+  return outlineCanvas(c, OUT);
+}
+// a dwelling at the water's edge stands on posts with a landing in front, and the flood passes under it
+function onStilts(img) {
+  const lift = 12, c = mk(img.width + 8, img.height + lift), x = c.getContext('2d'), w = img.width, base = img.height + lift;
+  x.fillStyle = '#5a3f2a'; for (const f of [0.14, 0.34, 0.52, 0.7, 0.88]) x.fillRect(Math.round(w * f) + 2, img.height - 14, 2, lift + 12);
+  x.fillStyle = '#8a6a48'; x.fillRect(4, img.height - 4, w, 3); x.fillStyle = '#6e5137'; x.fillRect(4, img.height - 1, w, 1);          // the deck
+  x.fillStyle = '#a8855c'; x.fillRect(0, base - 9, Math.round(w * 0.3), 2); x.fillStyle = '#5a3f2a'; x.fillRect(1, base - 7, 2, 7); x.fillRect(Math.round(w * 0.3) - 3, base - 7, 2, 7);   // a landing for the boat
+  x.drawImage(img, 4, 0); return c;
+}
 function outlineCanvas(c, col) {
   const w = c.width, h = c.height, x = c.getContext('2d'), d = x.getImageData(0, 0, w, h), a = d.data, on = (xx, yy) => xx >= 0 && yy >= 0 && xx < w && yy < h && a[(yy * w + xx) * 4 + 3] > 0, add = [];
   for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) if (!on(xx, yy) && (on(xx - 1, yy) || on(xx + 1, yy) || on(xx, yy - 1) || on(xx, yy + 1))) add.push(xx, yy);
@@ -473,6 +514,7 @@ const babyMap = ['..hh...', '.ssss..', 'cskskcc', 'cssssc.', 'ccccccc', '.ccccc.
 const ITEMS = {
   fish: [['.bbb...b', 'bbwbbbbb', '.bbb...b'], { b: '#6f9db8', w: '#1a2530' }],
   log: [['.wwwwwwwwk', 'wkwwwwwwkk', '.wwwwwwwwk'], { w: '#8a6a48', k: '#5a3f2a' }],
+  stone: [['.ggh..', 'gghhk.', 'ghhkkk', '.kkk..'], { g: '#b9b5aa', h: '#9a968c', k: '#6d6a62' }],
   sticks: [['k...k..k', '.k.k..k.', 'kkkkkkkk', '.k..k.k.'], { k: '#7a5a3a' }],
   meat: [['..rrr.', '.rrwrr', 'rrrrr.', '.rr...'], { r: '#b8453a', w: '#efe2d0' }],
   grain: [['y.y.y', 'yyyyy', '.ggg.', '.ggg.'], { y: '#e6c453', g: '#8a9a4a' }]
@@ -510,7 +552,8 @@ function build() {
   const rot = c => { const d = mk(c.height, c.width), g = d.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return d; };
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
-  A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
+  A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
+  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
   A.fire = fire.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.flame = flame.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.basket = sprite(basket, BASK, { x2: true }); A.bones = sprite(bones, BONE, { x2: true });
   A.bubble = {}; for (const k in ICON) A.bubble[k] = bubble(ICON[k]);
   A.item = {}; for (const k in ITEMS) A.item[k] = sprite(ITEMS[k][0], ITEMS[k][1]); A.item.basket = sprite(basket, BASK);
@@ -526,6 +569,7 @@ function build() {
   };
   // art made outside the game replaces the built-in look wherever a sprite sheet exists (src/sprites.js)
   if (root.EdenSprites && root.EdenSprites.ready) root.EdenSprites.apply(A, { mk, flip, shrink });
+  for (const k of ['hut', 'house']) { A[k + 'Lake'] = onStilts(A[k]); A[k + 'LakeSnow'] = onStilts(A[k + 'Snow']); }
   return A;
 }
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;

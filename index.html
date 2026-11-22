@@ -16,6 +16,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#27412a;font-family:ui
 #card{background:var(--paper);border:3px solid var(--line);border-radius:9px;max-width:400px;width:100%;padding:18px 18px 16px;box-shadow:0 5px 0 rgba(59,43,31,.5)}
 #card h1{margin:0 0 4px;font-size:28px;letter-spacing:.04em}#card p{margin:8px 0;font-size:14px;line-height:1.35}
 #card ul{margin:8px 0;padding-left:18px;font-size:13.5px;line-height:1.4}#card li{margin:3px 0}
+#lands{display:flex;flex-wrap:wrap;gap:6px}.land{text-transform:capitalize}.land.sel{background:var(--gold)}
 #begin{font:inherit;font-weight:600;font-size:15px;margin-top:8px;padding:9px 18px;background:var(--gold);border:2px solid var(--line);border-radius:7px;color:var(--ink);width:100%}
 </style></head><body>
 <canvas id="cv"></canvas>
@@ -29,6 +30,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#27412a;font-family:ui
 <li><b>Grow</b>: hold and watch plants rise. Weak on frozen or parched ground.</li>
 <li><b>Strike</b>: kills, and sets dry things alight.</li></ul>
 <p>Days pass slowly and nights fall; a year takes about eight minutes. The button at the top right speeds time up (1x, 3x, 8x) or pauses it.</p>
+<p style="margin-bottom:4px"><b>The land</b> (choosing one starts a new valley):</p><div id="lands"></div>
 <button id="begin">Begin</button></div></div>
 <script src="src/sim.js"></script>
 <script src="src/art.js"></script>

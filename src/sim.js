@@ -31,7 +31,8 @@ const SPECIES = {
 };
 // What people can do. Each skill is a small module; later eras add entries here.
 const SKILLS = {
-  gather: { known: true }, hunt: { known: true }, fish: { known: true }, hut: { known: true }, store: { known: true },
+  gather: { known: true }, hunt: { known: true }, fish: { known: true }, tent: { known: true }, store: { known: true },
+  hut: { known: false, learn: 'a winter spent under hides' }, house: { known: false, learn: 'a camp of huts, grown large' }, well: { known: false, learn: 'two roofs and many mouths' },
   fire: { known: false, learn: 'sees a tree burn' }, farm: { known: false, learn: 'sees plants made to grow beside the camp' },
   herd: { known: false, learn: 'is given a living animal' }
 };
@@ -51,14 +52,24 @@ function create(seed, opt) {
   const soil = F(), snow = F(), heat = F(), burn = F(), flood = new Uint8Array(N * N);
   const grass = F(), tree = F(), fruit = F(), fish = F(), warmSum = F(), field = new Uint8Array(N * N);
 
+  // The kind of country. Same rules everywhere; only the lie of the land differs: how much water, how much wood, how much stone, how cold.
+  const LANDS = {
+    valley:   { river: 1.1, pond: [4.2, 3],   treeAt: 0.56, rockAt: 0.82, warm: 0,  fert: 0 },
+    plains:   { river: 0.8, pond: [2.4, 1.7], treeAt: 0.72, rockAt: 0.9,  warm: 1,  fert: 0.08 },
+    forest:   { river: 1.1, pond: [3, 2.2],   treeAt: 0.42, rockAt: 0.86, warm: 0,  fert: 0.05 },
+    lakeland: { river: 1.2, pond: [9, 6.5],   treeAt: 0.58, rockAt: 0.86, warm: 0,  fert: 0 },
+    highland: { river: 0.9, pond: [2.6, 1.9], treeAt: 0.6,  rockAt: 0.56, warm: -3, fert: -0.12 }
+  };
+  const landKind = LANDS[opt.land] ? opt.land : 'valley', LAND = LANDS[landKind], rock = F();
   const noise = (x, y, s) => { const h = (a, b) => { let n = (Math.imul(a, 374761393) + Math.imul(b, 668265263) + Math.imul(s, 982451653)) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); n ^= n >>> 16; return (n >>> 0) / 4294967296; }; const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy); return h(xi, yi) + (h(xi + 1, yi) - h(xi, yi)) * u + (h(xi, yi + 1) - h(xi, yi)) * v + (h(xi, yi) - h(xi + 1, yi) - h(xi, yi + 1) + h(xi + 1, yi + 1)) * u * v; };
   const sd = (seed || 1) * 7 + 3;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const i = I(x, y), rx = N * 0.62 + Math.sin(y * 0.22 + sd) * 4;
-    if (Math.abs(x - rx) < 1.1 || ((x - N * 0.3) / 4.2) ** 2 + ((y - N * 0.7) / 3) ** 2 < 1) water[i] = 1;
-    fert[i] = clamp(0.45 + 0.75 * noise(x / 7, y / 7, sd), 0.25, 1);
+    if (Math.abs(x - rx) < LAND.river || ((x - N * 0.3) / LAND.pond[0]) ** 2 + ((y - N * 0.7) / LAND.pond[1]) ** 2 < 1) water[i] = 1;
+    const rn = noise(x / 5, y / 5, sd + 21); rock[i] = !water[i] && rn > LAND.rockAt ? clamp((rn - LAND.rockAt) * 5, 0.2, 1) : 0;   // bare stone showing through
+    fert[i] = clamp((0.45 + 0.75 * noise(x / 7, y / 7, sd) + LAND.fert) * (1 - 0.45 * rock[i]), 0.25, 1);
     const tn = noise(x / 6, y / 6, sd + 9);
-    tree[i] = water[i] ? 0 : tn > 0.56 ? clamp((tn - 0.5) * 3, 0, 0.95) : 0;
+    tree[i] = water[i] || rock[i] > 0.5 ? 0 : tn > LAND.treeAt ? clamp((tn - LAND.treeAt + 0.06) * 3, 0, 0.95) : 0;
     grass[i] = water[i] ? 0 : 0.5 * fert[i]; fish[i] = water[i] ? 1 : 0; cells.push([]);
   }
   // how close each piece of ground lies to open water: it decides seepage and what floods first
@@ -68,8 +79,8 @@ function create(seed, opt) {
     bank[i] = clamp(1 - d / 5, 0, 1); soil[i] = 0.45 + 0.55 * bank[i];
   }
 
-  const S = { t: opt.startT || 0, agents: [], pop: {}, tribe: { x: 0, y: 0, store: 5, huts: 0, wood: 0, sites: [], skills: {}, dead: 0, born: 0 }, log: [], deaths: {}, nextId: 1,
-    rainY: 1, warmOff: 0, river: 1, air: 0, precip: 0, sky: 'clear', fx: [], emptyT: 0, homes: new Map(), tickNo: 0, night: false, dayK: 1, byId: new Map() };
+  const S = { t: opt.startT || 0, agents: [], pop: {}, tribe: { x: 0, y: 0, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, sites: [], skills: {}, dead: 0, born: 0 }, log: [], deaths: {}, nextId: 1,
+    rainY: 1, warmOff: LAND.warm, river: 1, air: 0, precip: 0, sky: 'clear', fx: [], emptyT: 0, homes: new Map(), tickNo: 0, night: false, dayK: 1, byId: new Map() };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
   for (const k in SKILLS) S.tribe.skills[k] = SKILLS[k].known;
 
@@ -232,9 +243,9 @@ function create(seed, opt) {
     // a roof for every household: a couple, or one alone with children, claims a finished house that nobody has
     for (const a of P) {
       if (a.age < WED) { const par = S.byId.get(a.mom) || S.byId.get(a.dad); const live = [a.mom, a.dad].map(id => S.byId.get(id)).find(q => q && q.alive && q.house); a.house = live ? live.house : a.house; continue; }
-      if (a.house && !T.sites.some(q => q.id === a.house && q.stage >= STAGES_HUT)) a.house = 0;
+      if (a.house && !T.sites.some(q => q.id === a.house && live(q))) a.house = 0;
       const q = S.byId.get(a.partner); if (!a.house && q && q.house) a.house = q.house;
-      if (!a.house) { const free = T.sites.find(st => st.stage >= STAGES_HUT && !P.some(b => b.house === st.id)); if (free) { a.house = free.id; if (q) q.house = free.id; tell((q ? a.name + ' and ' + q.name : a.name) + ' moved into a house of their own.'); } }
+      if (!a.house) { const free = T.sites.find(st => live(st) && !P.some(b => b.house === st.id)); if (free) { a.house = free.id; if (q) q.house = free.id; tell((q ? a.name + ' and ' + q.name : a.name) + ' moved into a ' + (free.was || free.kind) + ' of their own.'); } }
     }
     // no one to choose: when the grown and free have only kin around them, in time someone comes over the hills
     if (!opt.closed && S.tickNo % TPY === 0) {
@@ -460,7 +471,7 @@ function create(seed, opt) {
     const adults = S.agents.filter(b => b.alive && b.sp === a.sp && b.age >= d.mature).length, campT = tempAt(I(T.x, T.y));
     // huts and firewood come out of the nearest trees
     // houses: a plot is chosen, timber is felled and carried to it, and the house goes up a stage at a time
-    if (T.skills.hut && able && rnd() < dt * 12 * a.skill.build && construct(a)) practise(a, 'build');
+    if (able && rnd() < dt * 12 * a.skill.build && construct(a)) practise(a, 'build');
     if (T.skills.fire && campT < d.comfort - 3 && rnd() < dt * 8) { for (let k = 0; k < 20; k++) { const j = I(clamp(T.x + ((rnd() * 11) | 0) - 5, 0, N - 1), clamp(T.y + ((rnd() * 11) | 0) - 5, 0, N - 1)); if (tree[j] > 0.1) { tree[j] -= 0.03; T.fireT = S.t; a.wood = j; break; } } }
     // look for food: plants, fish, game. What is found is carried home and shared.
     const range = able ? 7 : old ? 5 : 4; let bestV = 0, bx = a.x, by = a.y, kind = '';
@@ -512,38 +523,84 @@ function create(seed, opt) {
     const w = a.e < 0.9 ? null : nearest(a, 2, b => !b.hidden && canTake(b, a));
     if (w && adults >= 3 && rnd() < 0.25 * TPY * dt) { die(w, 'killed by people', a.id); a.act = { k: 'guard', id: w.id }; }
   }
-  // ---- building. A house needs a plot, timber and work; nothing appears from nowhere.
-  // The plot: close to the middle of the camp but not in it (the fire and the stores keep that), off the river's edge
-  // where the first flood would take it, on dry open ground for choice, and with room left between it and the next house.
-  const STAGE_WOOD = 2, STAGES_HUT = 3;                            // timber each stage takes; frame, walls, roof
-  function plotFor() {
-    const T = S.tribe; let s = T.sites.find(q => q.stage < STAGES_HUT); if (s) return s;
-    if (T.sites.length >= households()) return null;                // every household has a roof
-    const r = Math.min(8, 2 + Math.ceil(Math.sqrt(T.sites.length + 1))); let best = -1, bs = -1e9;
+  // ---- building. A roof needs a plot, materials and work; nothing appears from nowhere.
+  // What people can raise depends on what they have learned: hides over poles first, then a hut of timber and thatch, then a
+  // house of timber on a stone footing. Each goes up a stage at a time, and each stage waits for its timber and stone to be
+  // carried to the plot. A dwelling already lived in is rebuilt in place, around the people in it, when something better is known.
+  const DWELL = {
+    tent:  { stages: 1, wood: 2, stone: 0, roof: 0.52 },            // wood and stone are per stage; roof is how much cold still gets in
+    hut:   { stages: 2, wood: 2, stone: 0, roof: 0.4 },
+    house: { stages: 3, wood: 2, stone: 1, roof: 0.3 },
+    well:  { stages: 2, wood: 1, stone: 2 }
+  };
+  const raised = q => q.stage >= DWELL[q.kind].stages;
+  const live = q => q.kind !== 'well' && (!!q.was || raised(q));     // someone can sleep in it
+  const best = () => S.tribe.skills.house ? 'house' : S.tribe.skills.hut ? 'hut' : 'tent';
+  const NEXT = { tent: 'hut', hut: 'house' };
+  // The plot. Close to the middle of the camp but not in it (the fire and the stores keep that), with room between it and the
+  // next roof, on dry open ground for choice. The bank, where the first flood comes, is left alone, except by those who live
+  // off the water: a fisher's household builds right at the edge, on posts, and the flood passes under.
+  function choosePlot(kind, fisher) {
+    const T = S.tribe, well = kind === 'well', n = T.sites.length, r = well ? 2 : Math.min(10, 3 + Math.ceil(Math.sqrt(n + 1) * 1.5)); let bestI = -1, bs = -1e9;
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = T.x + dx, y = T.y + dy; if (x < 1 || y < 1 || x >= N - 1 || y >= N - 1) continue;
-      const i = I(x, y), dc = Math.max(Math.abs(dx), Math.abs(dy)); if (water[i] || field[i] || dc < 2 || bank[i] > 0.62) continue;
-      if (T.sites.some(q => Math.max(Math.abs(q.x - x), Math.abs(q.y - y)) < 2)) continue;
-      const sc = -dc - tree[i] * 1.5 - bank[i] * 2 - Math.max(0, soil[i] - 0.9) * 3 + rnd() * 0.3; if (sc > bs) { bs = sc; best = i; }
+      const i = I(x, y), dc = Math.max(Math.abs(dx), Math.abs(dy)); if (water[i] || field[i] || dc < (well ? 1 : 2)) continue;
+      if (bank[i] > 0.62 && (kind === 'tent' || well || !fisher)) continue;   // hides and wells keep to dry ground; only fishers build at the very edge
+      if (T.sites.some(q => Math.max(Math.abs(q.x - x), Math.abs(q.y - y)) < (well || q.kind === 'well' ? 2 : 3))) continue;
+      const sc = -dc - tree[i] * 1.5 - rock[i] * 2 + (fisher ? bank[i] * 3 : -bank[i] * 2) - Math.max(0, soil[i] - 0.9) * 3 + rnd() * 0.3; if (sc > bs) { bs = sc; bestI = i; }
     }
-    if (best < 0) return null;
-    s = { id: S.nextId++, x: best % N, y: (best / N) | 0, stage: 0, wood: 0 }; T.sites.push(s);
-    if (tree[best] > 0.05) { T.wood += tree[best] * 4; tree[best] = 0; } grass[best] = Math.min(grass[best], 0.08); fruit[best] = 0;   // the plot is cleared; what stood on it is the first timber
+    if (bestI < 0) return null;
+    const s = { id: S.nextId++, x: bestI % N, y: (bestI / N) | 0, kind, stage: 0, wood: 0, stone: 0, was: '', lake: bank[bestI] > 0.5 }; /* near the water it is raised on posts */ T.sites.push(s);
+    if (tree[bestI] > 0.05) { T.wood += tree[bestI] * 4; tree[bestI] = 0; } grass[bestI] = Math.min(grass[bestI], 0.08); fruit[bestI] = 0;   // the plot is cleared; what stood on it is the first timber
     return s;
+  }
+  function plotFor() {
+    const T = S.tribe; let s = T.sites.find(q => !raised(q)); if (s) return s;          // finish what is begun
+    const homes = T.sites.filter(q => q.kind !== 'well');
+    if (homes.length < households()) {                                                  // a household without a roof
+      const who = folk().find(a => a.age >= WED && !a.house && (!a.partner || a.fem));
+      return choosePlot(best(), !!who && craftOf(who) === 'fish' && S.popPeople > 4);
+    }
+    if (T.store < S.popPeople * 1.0) return null;                                       // the rest is for when there is food enough to spare the hands
+    if (T.skills.well && !T.sites.some(q => q.kind === 'well')) return choosePlot('well', false);
+    s = homes.find(q => NEXT[q.kind] && T.skills[NEXT[q.kind]]);                        // something better is known: rebuild, oldest first
+    if (s) { s.was = s.kind; s.kind = NEXT[s.kind]; s.stage = 0; s.wood = 0; s.stone = 0; s.lake = bank[I(s.x, s.y)] > 0.5; return s; }
+    return null;
   }
   function construct(a) {
     const T = S.tribe, s = plotFor(); if (!s) return false;
-    const need = (s.stage + 1) * STAGE_WOOD;                        // timber that must lie on the plot before the next stage can go up
-    if (s.wood < need) {
-      if (T.wood >= 1) { const c = Math.min(T.wood, need - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id }; return true; }
+    const K = DWELL[s.kind], needW = (s.stage + 1) * K.wood + (s.lake ? 2 : 0), needS = (s.stage + 1) * K.stone;   // what must lie on the plot before the next stage; posts for a house over water
+    if (s.wood < needW) {
+      if (T.wood >= 1) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; return true; }
       let bj = -1, bd = 1e9;                                        // fell the nearest standing timber; saplings are left to grow
       for (let dy = -9; dy <= 9; dy++) for (let dx = -9; dx <= 9; dx++) { const x = s.x + dx, y = s.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y); if (tree[j] < 0.3) continue; const dd = Math.hypot(dx, dy) + rnd() * 1.5; if (dd < bd) { bd = dd; bj = j; } }
       if (bj < 0) return false;
       tree[bj] -= Math.min(tree[bj], 0.16); T.wood += 2; a.act = { k: 'chop', j: bj, site: s.id }; return true;
     }
+    if (s.stone < needS) {
+      if (T.stone >= 1) { const c = Math.min(T.stone, needS - s.stone); T.stone -= c; s.stone += c; a.act = { k: 'haul', site: s.id, item: 'stone' }; return true; }
+      let bj = -1, bd = 1e9, got = 2;                               // break stone where it shows; failing that, carry cobbles up from the water's edge
+      for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const x = s.x + dx, y = s.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y); if (rock[j] < 0.15) continue; const dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; bj = j; } }
+      if (bj < 0) { got = 1; for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const x = s.x + dx, y = s.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y); if (water[j] || bank[j] < 0.75) continue; const dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; bj = j; } } }
+      if (bj < 0) return false;
+      T.stone += got; a.act = { k: 'quarry', j: bj, site: s.id }; return true;
+    }
     s.stage++; a.act = { k: 'build', site: s.id, stage: s.stage };
-    if (s.stage >= STAGES_HUT) { T.huts++; S.fx.push({ kind: 'hut', by: a.id, n: T.huts }); }
+    if (raised(s)) {
+      const first = !T.sites.some(q => q !== s && q.kind === s.kind && raised(q)), rebuilt = s.was; s.was = '';
+      if (s.kind === 'well') { T.well = true; tell('The people have dug a well. The fields need not wait for rain.'); }
+      else if (first) tell({ tent: 'A tent of hides is up: the first roof in the valley.', hut: 'The first hut stands, timber and thatch.', house: 'The first true house stands, timber on a footing of stone.' }[s.kind] + (s.lake ? ' It stands on posts at the water\'s edge.' : ''));
+      S.fx.push({ kind: 'hut', by: a.id, n: T.huts + (rebuilt ? 0 : 1) });
+    }
     return true;
+  }
+  // what the camp has learned about building, looked over once a year
+  function learnBuilding() {
+    const T = S.tribe, homes = T.sites.filter(live); if (!S.popPeople) return;
+    if (homes.length && !T.roofT) T.roofT = S.t;
+    if (!T.skills.hut && T.roofT && (S.t - T.roofT > 0.9 || S.popPeople >= 6)) { T.skills.hut = true; tell('After a winter under hides, the people have learned to build huts.'); }
+    if (!T.skills.well && homes.length >= 2 && S.popPeople >= 6) { T.skills.well = true; tell('So many mouths, so far to carry water: the people mean to dig a well.'); }
+    if (!T.skills.house && S.popPeople >= 9 && homes.filter(q => q.kind === 'hut' && raised(q)).length >= 2) { T.skills.house = true; tell('The people have learned to build in timber and stone.'); }
   }
   // Fields: sown once the ground is warm, reaped when the crop has had its warmth, or in a hurry when frost comes.
   function farm(dt) {
@@ -574,15 +631,17 @@ function create(seed, opt) {
     for (const q of S.homes.values()) { if (q.n) q.emptyT = 0; else if ((q.emptyT += dt) > 2 || flood[I(q.x, q.y)]) S.homes.delete(q.id); }
     const T = S.tribe, born = [], campI = I(T.x, T.y), lengthening = daysLengthen(), sunH = sunHeight();
     T.store = Math.max(0, T.store - T.store * 0.35 * dt);
-    if (flood[campI]) { T.store *= 1 - Math.min(1, 2.5 * dt); if (T.huts > 0 && rnd() < 3 * dt) { T.huts--; const w = T.sites.filter(q => q.stage >= STAGES_HUT).pop(); if (w) { w.stage = 0; w.wood = 0; } } }
+    if (flood[campI]) { T.store *= 1 - Math.min(1, 2.5 * dt); if (rnd() < 3 * dt) { const w = T.sites.filter(q => live(q) && !q.lake).pop(); if (w) { tell('The flood has taken a ' + (w.was || w.kind) + '.'); w.was = ''; w.stage = 0; w.wood = 0; w.stone = 0; } } }
     if (!T.skills.fire && S.popPeople) { for (let dy = -6; dy <= 6 && !T.skills.fire; dy++) for (let dx = -6; dx <= 6; dx++) { const x = T.x + dx, y = T.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && burn[I(x, y)] > 0) { T.skills.fire = true; S.log.push({ t: S.t, text: 'The people have taken fire for themselves.' }); break; } } }
     farm(dt); society(dt);
+    { const lv = T.sites.filter(live); T.huts = lv.length; T.roof = lv.length ? lv.reduce((q, w) => q + DWELL[w.was || w.kind].roof, 0) / lv.length : 0.7; if (S.tickNo % TPY === 3) learnBuilding(); }
+    if (T.well && S.popPeople) for (let i = 0; i < N * N; i++) if (field[i] && soil[i] < 0.45) soil[i] = 0.45;   // carried from the well, a bucket at a time
     for (const a of S.agents) {
       if (!a.alive) continue; const d = a.d, i = I(a.x, a.y), Tc = tempAt(i); if (a.fear > 0) a.fear -= dt * 1.4; a.age += dt; a.cd -= dt; a.mood = ''; a.act = null; const wasHidden = a.hidden; a.hidden = false;
       // --- warmth: a body loses heat to cold air, faster when wet, slower under cover
       let shelter = tree[i] > 0.4 ? 0.6 : 1;
       if (wasHidden) shelter *= 0.4;
-      if (d.people) { const home = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= 2; shelter = home ? (T.huts * 4 >= S.pop[a.sp] ? 0.35 : 0.7) * (T.skills.fire && S.t - (T.fireT || -9) < 0.1 ? 0.5 : 1) : 1; }
+      if (d.people) { const home = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= 2; shelter = home ? (T.huts * 4 >= S.pop[a.sp] ? T.roof : 0.7) * (T.skills.fire && S.t - (T.fireT || -9) < 0.1 ? 0.5 : 1) : 1; }
       const soaked = S.precip > 0 && Tc >= 0 && shelter > 0.5 ? 1.5 : 1;         // cold rain is worse than dry cold
       const cold = Math.max(0, d.comfort - Tc) * d.chill * shelter * soaked, hot = Tc > 32 ? (Tc - 32) * 0.08 : 0;
       const asleep = d.sleepsBelow !== undefined && Tc < d.sleepsBelow;                    // some bodies sleep the cold away
@@ -609,7 +668,7 @@ function create(seed, opt) {
     for (const b of born) { const c = add(b[0], b[1], b[2], 0, 0.55); c.mom = b[4]; if (c.d.people) { const m = S.byId.get(b[4]), f = m && S.byId.get(m.partner); c.dad = f ? f.id : 0; if (m) { c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin; c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair; } for (const k of CRAFTS) c.skill[k] = clamp(((m ? m.skill[k] : 1) + (f ? f.skill[k] : 1)) / 2 * 0.3 + R(0.6, 0.8), 0.6, 1.2); if (m) tell(m.name + (f ? ' and ' + f.name : '') + ' have a ' + (c.fem ? 'daughter' : 'son') + ', ' + c.name + '.'); } if (b[3] && S.homes.has(b[3])) c.home = b[3]; S.fx.push({ kind: 'birth', sp: b[0], x: c.x, y: c.y, id: c.id, mom: b[4] }); if (SP[b[0]].people) T.born++; }
     if (S.fx.length > 200) S.fx.splice(0, S.fx.length - 200);
     // an empty valley does not stay empty of people for ever: after a few years, strangers find it
-    if (opt.resettle) { if (S.popPeople) S.emptyT = 0; else { S.emptyT += dt; if (S.emptyT > 3) { S.emptyT = 0; T.store = 5; T.huts = 0; T.wood = 0; T.sites = []; T.sown = false; T.resting = false; for (const sp in SP) if (SP[sp].people) for (let k = 0; k < 2; k++) { const c = add(sp, T.x, T.y, 18 + k * 2, 1); S.fx.push({ kind: 'arrive', id: c.id, x: c.x, y: c.y }); } S.fx.push({ kind: 'settlers', x: T.x, y: T.y }); S.log.push({ t: S.t, text: 'Two strangers have come over the hills.' }); } } }
+    if (opt.resettle) { if (S.popPeople) S.emptyT = 0; else { S.emptyT += dt; if (S.emptyT > 3) { S.emptyT = 0; T.store = 5; T.huts = 0; T.wood = 0; T.stone = 0; T.sites = []; T.well = false; T.roofT = 0; for (const k in SKILLS) T.skills[k] = SKILLS[k].known; T.sown = false; T.resting = false; for (const sp in SP) if (SP[sp].people) for (let k = 0; k < 2; k++) { const c = add(sp, T.x, T.y, 18 + k * 2, 1); S.fx.push({ kind: 'arrive', id: c.id, x: c.x, y: c.y }); } S.fx.push({ kind: 'settlers', x: T.x, y: T.y }); S.log.push({ t: S.t, text: 'Two strangers have come over the hills.' }); } } }
     if (S.agents.length > 400 && Math.floor(S.t * TPY) % 12 === 0) { S.agents = S.agents.filter(a => a.alive); S.byId.clear(); for (const a of S.agents) S.byId.set(a.id, a); }
     // the valley is not the whole world: now and then animals wander in over the hills.
     // Plant eaters come when their kind is nearly gone; hunters come when there is plenty to hunt.
@@ -647,7 +706,7 @@ function create(seed, opt) {
   };
   const stats = () => { let g = 0, t = 0, n = 0, sn = 0, so = 0, fl = 0; for (let i = 0; i < N * N; i++) if (!water[i]) { g += grass[i]; t += tree[i]; sn += snow[i]; so += soil[i]; fl += flood[i]; n++; } return { grass: g / n, tree: t / n, snow: sn / n, soil: so / n, flood: fl / n, store: S.tribe.store, huts: S.tribe.huts, air: S.air, river: S.river }; };
   tick();
-  return { S, N, TPY, tick, G, stats, describe, craftOf, households, SPECIES: SP, SKILLS, tempAt, sunHeight, daysLengthen, warmSum, fert, cells, moveTo(a, x, y) { const p = free(x, y); a.x = p[0]; a.y = p[1]; }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
+  return { S, N, TPY, tick, G, stats, describe, craftOf, households, rock, land: landKind, LANDS, DWELL, SPECIES: SP, SKILLS, tempAt, sunHeight, daysLengthen, warmSum, fert, cells, moveTo(a, x, y) { const p = free(x, y); a.x = p[0]; a.y = p[1]; }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
 }
 root.Eden = { create, SPECIES, SKILLS };
 })(typeof window !== 'undefined' ? window : globalThis);

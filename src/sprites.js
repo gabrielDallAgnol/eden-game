@@ -119,8 +119,8 @@ S.apply = function (A, h) {
 
   // ---------------------------------------------------------------- the home: a timber cottage, with a snowed-over roof for winter
   const cottage = sized(one('cottage'), SCALE.cottage);
-  A.hut = cottage;
-  A.hutSnow = recolour(cottage, (r, g, b, x, y) => b > r + 8 && g > r && !dark(r, g, b) ? (y % 4 === 3 ? [205, 218, 234] : hash(x >> 1, y) < 0.85 ? [246, 249, 252] : [227, 235, 245]) : null);
+  A.house = cottage;
+  A.houseSnow = recolour(cottage, (r, g, b, x, y) => b > r + 8 && g > r && !dark(r, g, b) ? (y % 4 === 3 ? [205, 218, 234] : hash(x >> 1, y) < 0.85 ? [246, 249, 252] : [227, 235, 245]) : null);
 };
 
 root.EdenSprites = S;

@@ -7,7 +7,8 @@
 const TW = 64, TH = 32, CLIFF = 46, TICK_MS = 20000, DAY = 4, TS = TICK_MS / 1000;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b - a) * t, ease = k => k * k * (3 - 2 * k);
 const qs = new URLSearchParams(location.search), seed = +(qs.get('seed') || 1 + Math.floor(Math.random() * 9999));
-const W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true }), N = W.N, S = W.S, A = EdenArt.build();
+const landQ = qs.get('land') || 'valley';
+const W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -148,7 +149,7 @@ function wantProps() {
     }
     if (inCamp || W.field[i]) continue;
     if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) { const B = A.bush[(hash(i, 4) * 3) | 0], st = snowy ? 'snow' : W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4) ? 'berry' : 'plain'; want.set('b' + i, { kind: 'bush', i, x: px, y: py, base: 'b' + st, img: B[st], dy: 4 }); }
-    else if (h0 < 0.02 && W.fert[i] < 0.75) { const Rk = A.rock[(hash(i, 6) * 3) | 0]; want.set('r' + i, { kind: 'rock', i, x: px, y: py, base: 'r' + snowy, img: snowy ? Rk.snow : Rk.plain, dy: 4 }); }
+    else if ((W.rock[i] > 0.2 && hash(i, 7) < 0.25 + W.rock[i] * 0.5) || (h0 < 0.02 && W.fert[i] < 0.75)) { const Rk = A.rock[(hash(i, 6) * 3) | 0]; want.set('r' + i, { kind: 'rock', i, x: px, y: py, base: 'r' + snowy, img: snowy ? Rk.snow : Rk.plain, dy: 4 }); }
     else if (nearWater[i] && h0 > 0.4 && h0 < 0.62 && T > -3) want.set('d' + i, { kind: 'reeds', i, x: x + 0.5 + jx * 0.6, y: y + 0.5, base: 'd', img: A.reeds, dy: 2 });
   }
   for (const h of S.homes.values()) { const snowy = W.snow[h.y * N + h.x] > 0.08; want.set('h' + h.id, { kind: h.kind, home: h, x: h.x + 0.5, y: h.y + 0.5, base: h.kind + snowy, img: h.kind === 'den' ? (snowy ? A.denSnow : A.den) : (snowy ? A.burrowSnow : A.burrow), dy: h.kind === 'den' ? 10 : 6 }); }
@@ -173,18 +174,30 @@ function reconcile() {
   for (const [k, p] of props) if (!want.has(k) && !p.die) p.die = now;
 }
 
-// houses go up in front of you, a stage at a time: a cleared plot with pegs, a timber frame, then walls and roof.
-// Where they stand and how far along they are is the engine's business (tribe.sites); this only shows it.
-const huts = [], STAGE_P = [0.05, 0.36, 0.68, 1];
+// dwellings go up in front of you, a stage at a time: a cleared plot with pegs, a frame, then walls and roof.
+// What stands where, of what kind and how far along is the engine's business (tribe.sites); this only shows it.
+const huts = [];
 function syncHuts() {
   const sites = campOn ? T0.sites : [];
   for (let k = 0; k < sites.length; k++) {
-    const st = sites[k], tp = STAGE_P[Math.min(3, st.stage)]; let h = huts[k];
-    if (!h || h.die || h.id !== st.id) h = huts[k] = { k, id: st.id, x: st.x + 0.5, y: st.y + 0.5, p: S.tickNo < 3 ? tp : 0, born: now, die: 0 };
-    if (tp < h.p - 0.02) { burst(h.x, h.y, 'debris', 16); h.p = tp; }       // washed out: back to a bare plot
-    h.target = tp; h.wood = st.wood - st.stage * 2;                         // timber lying on the plot, not yet built in
+    const st = sites[k], n = W.DWELL[st.kind].stages, tp = 0.05 + 0.95 * Math.min(1, st.stage / n); let h = huts[k];
+    if (!h || h.die || h.id !== st.id) h = huts[k] = { k, id: st.id, x: st.x + 0.5, y: st.y + 0.5, p: S.tickNo < 3 ? tp : 0, born: now, die: 0, kind: st.kind };
+    if (h.kind !== st.kind || tp < h.p - 0.02) { if (!st.was && tp < h.p - 0.02) burst(h.x, h.y, 'debris', 16); h.p = Math.min(h.p, tp); if (h.kind !== st.kind) h.p = 0.05; }   // washed out, or being rebuilt as something better
+    h.kind = st.kind; h.was = st.was; h.lake = st.lake; h.target = tp; h.live = st.kind !== 'well' && (!!st.was || st.stage >= n);
+    const K = W.DWELL[st.kind]; h.wood = st.wood - st.stage * K.wood; h.stone = st.stone - st.stage * K.stone;   // lying on the plot, not yet built in
   }
   for (let k = sites.length; k < huts.length; k++) if (huts[k] && !huts[k].die) { huts[k].die = now; burst(huts[k].x, huts[k].y, 'debris', 16); }
+}
+const dwellImg = (kind, lake, snowy) => A[kind + (lake && (kind === 'hut' || kind === 'house') ? 'Lake' : '') + (snowy ? 'Snow' : '')] || A.hut;
+// well-trodden ways: from the fire to every door, to the well, and down to the nearest water
+let waterSpot = null;
+function wearPaths() {
+  if (!campOn) return;
+  const tread = (x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 3); for (let k = 0; k <= n; k++) { const x = lerp(x0, x1, k / n) | 0, y = lerp(y0, y1, k / n) | 0; if (x >= 0 && y >= 0 && x < N && y < N && !W.water[y * N + x]) trail[y * N + x] = Math.max(trail[y * N + x], 0.95); } };
+  for (const h of huts) if (h && !h.die && h.p > 0.3) { const d = door(h); tread(fire.x, fire.y, d.x, d.y); }
+  if (!waterSpot) { let bd = 1e9; for (let i = 0; i < N * N; i++) if (nearWater[i]) { const d = Math.hypot((i % N) + 0.5 - camp.x, ((i / N) | 0) + 0.5 - camp.y); if (d < bd) { bd = d; waterSpot = { x: (i % N) + 0.5, y: ((i / N) | 0) + 0.5 }; } } }
+  const well = huts.find(h => h && h.kind === 'well' && h.p >= 1);
+  if (waterSpot && !well && huts.some(h => h && h.live)) tread(fire.x, fire.y, waterSpot.x, waterSpot.y);   // once there is a well, the long walk to the water is given up
 }
 const graves = [], relics = [];
 
@@ -225,10 +238,10 @@ function clear(x0, y0, x1, y1) { const d = Math.hypot(x1 - x0, y1 - y0), n = Mat
 const prevA = new Int16Array(N * N);
 function route(x0, y0, x1, y1) {
   if (clear(x0, y0, x1, y1)) return [{ x: x1, y: y1 }];
-  const s = (y0 | 0) * N + (x0 | 0), e = (y1 | 0) * N + (x1 | 0); prevA.fill(-1); prevA[s] = s; const q = [s];
+  const cl = v => clamp(v | 0, 0, N - 1), s = cl(y0) * N + cl(x0), e = cl(y1) * N + cl(x1); prevA.fill(-1); /* someone walking in from beyond the edge starts at the edge */ prevA[s] = s; const q = [s];
   for (let h = 0; h < q.length && prevA[e] < 0; h++) { const c = q[h], cx0 = c % N, cy0 = (c / N) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const nx = cx0 + dx, ny = cy0 + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; const j = ny * N + nx; if (prevA[j] >= 0 || W.water[j] || (dx && dy && (W.water[cy0 * N + nx] || W.water[ny * N + cx0]))) continue; prevA[j] = c; q.push(j); } }
   if (prevA[e] < 0) return [{ x: x1, y: y1 }];
-  const cellsP = []; for (let c = e; c !== s; c = prevA[c]) cellsP.push(c); cellsP.reverse();
+  const cellsP = []; for (let c = e, g = 0; c !== s && g < N * N; c = prevA[c], g++) cellsP.push(c); cellsP.reverse();
   const pts = []; let ax = x0, ay = y0;
   for (let k = 0; k < cellsP.length; k++) { const c = cellsP[k], px = (c % N) + 0.5, py = ((c / N) | 0) + 0.5, nx = k + 1 < cellsP.length ? (cellsP[k + 1] % N) + 0.5 : x1, ny = k + 1 < cellsP.length ? ((cellsP[k + 1] / N) | 0) + 0.5 : y1; if (!clear(ax, ay, nx, ny)) { pts.push({ x: px, y: py }); ax = px; ay = py; } }
   pts.push({ x: x1, y: y1 }); return pts;
@@ -262,7 +275,7 @@ function planPerson(r, phase, pi) {
     if (act.k === 'sleep') { P.done('hidden', r.step && r.step.hut ? { hut: r.step.hut } : {}); return; }
     P.wait(R(0.01, 0.12), 'hidden'); P.wait(0.03, 'emerge');
   }
-  const home = () => { const h = huts.filter(q => q && q.p >= 1 && !q.die), q = h.find(x => x.id === a.house) || (h.length ? h[(r.id * 7) % h.length] : null); /* their own house if they have one */ if (q) { P.go(door(q).x, door(q).y, sp); P.wait(0.03, 'enter', { hut: q.k + 1 }); P.done('hidden', { hut: q.k + 1 }); } else { const s = seat(pi); P.go(s.x, s.y, sp); P.done('lie', { zz: 1 }); } };
+  const home = () => { const h = huts.filter(q => q && q.live && !q.die), q = h.find(x => x.id === a.house) || (h.length ? h[(r.id * 7) % h.length] : null); /* their own house if they have one */ if (q) { P.go(door(q).x, door(q).y, sp); P.wait(0.03, 'enter', { hut: q.k + 1 }); P.done('hidden', { hut: q.k + 1 }); } else { const s = seat(pi); P.go(s.x, s.y, sp); P.done('lie', { zz: 1 }); } };
   switch (act.k) {
     case 'sleep': return home();
     case 'baby': {
@@ -300,9 +313,14 @@ function planPerson(r, phase, pi) {
       P.go(st.x, st.y, sp); P.wait(0.2, 'work', { fx: 'chips', lx: st.lx, ly: st.ly, shake: act.j });
       P.go(to.x, to.y, sp * 0.8, 'carry', { item: 'log' }); P.wait(0.04, 'work', { drop: 1 }); break;
     }
-    case 'haul': {                                                    // timber from the camp's pile to the plot
+    case 'quarry': {                                                  // break stone where it shows, or pick cobbles at the water's edge
+      const tx = act.j % N, ty = (act.j / N) | 0, st = standBy(tx, ty, r), h = huts.find(q => q && q.id === act.site), to = h ? { x: h.x + 0.55, y: h.y + 0.3 } : store;
+      P.go(st.x, st.y, sp); P.wait(0.22, 'work', { fx: 'dust', lx: st.lx, ly: st.ly });
+      P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
+    }
+    case 'haul': {                                                    // timber or stone from the camp's pile to the plot
       const h = huts.find(q => q && q.id === act.site); P.go(store.x - 0.3, store.y + 0.45, sp); P.wait(0.03, 'work');
-      if (h) { P.go(h.x + 0.55, h.y + 0.3, sp * 0.8, 'carry', { item: 'log' }); P.wait(0.04, 'work', { drop: 1 }); } break;
+      if (h) { P.go(h.x + 0.55, h.y + 0.3, sp * 0.8, 'carry', { item: act.item || 'log' }); P.wait(0.04, 'work', { drop: 1 }); } break;
     }
     case 'build': {
       const h = huts.find(q => q && q.id === act.site);
@@ -410,6 +428,7 @@ function onTick() {
     if (r.a.d.people) planPerson(r, phase, pi++); else planAnimal(r);
   }
   preyReacts();
+  wearPaths();
   for (let i = 0; i < N * N; i++) { trail[i] *= 0.992; if (W.burn[i] > 0) scar[i] = 1; else if (scar[i] > 0) scar[i] = Math.max(0, scar[i] - 0.012 - W.grass[i] * 0.02); }
   reconcile(); chronicle(); groundWanted = true;
 }
@@ -552,7 +571,9 @@ function frame(t) {
     let al = 1; if (h.die) { al = 1 - (now - h.die) / 2500; if (al <= 0) { huts[k] = null; continue; } }
     const working = [...actors.values()].some(r => r.step && r.step.site === h.k && r.step.pose === 'work');
     if (h.p < h.target && dts > 0) h.p = Math.min(h.target, h.p + dts * (working ? 1 / 10 : 1 / 45));
-    const snowy = W.snow[(h.y | 0) * N + (h.x | 0)] > 0.08; put(snowy ? A.hutSnow : A.hut, wx, wy, { build: h.p < 1 ? h.p : undefined, alpha: al < 1 ? al : undefined, hut: h });
+    const snowy = W.snow[(h.y | 0) * N + (h.x | 0)] > 0.08;
+    if (h.was && h.p < 1) put(dwellImg(h.was, h.lake, snowy), wx, wy, { scaf: h.p, alpha: al < 1 ? al : undefined, hut: h });   // lived in while it is rebuilt around them
+    else put(dwellImg(h.kind, h.lake, snowy), wx, wy, { build: h.p < 1 ? h.p : undefined, alpha: al < 1 ? al : undefined, hut: h });
   }
   for (let k = huts.length - 1; k >= 0 && !huts[k]; k--) huts.pop();
   for (const g of graves) { const wx = isoX(g.x, g.y), wy = isoY(g.x, g.y); if (vis(wx, wy)) put(A.grave, wx, wy + 4, { alpha: clamp((now - g.born) / 3000, 0, 1) }); }
@@ -635,6 +656,7 @@ function frame(t) {
     const al = d.alpha === undefined ? 1 : d.alpha, im = d.img, w = im.width, h = im.height;
     if (d.prev) { cx.globalAlpha = al; drawSway(d.prev, d, wind); cx.globalAlpha = al * ease(d.swapK); drawSway(im, d, wind); cx.globalAlpha = 1; }
     else if (d.build !== undefined) drawBuilding(d);
+    else if (d.scaf !== undefined) { cx.globalAlpha = al; cx.drawImage(d.img, d.x, d.top); drawScaffold(d); cx.globalAlpha = 1; }
     else {
       cx.globalAlpha = al;
       if (d.dead) d.img = greyOf(im);
@@ -733,10 +755,21 @@ function drawBuilding(d) {
   }
   // walls, then the roof, rise from the ground
   const sh = Math.round(h * k2); if (sh > 0) cx.drawImage(im, 0, h - sh, w, sh, d.x, d.top + h - sh, w, sh);
-  // timber waiting on the plot
-  const logs = d.hut ? Math.min(4, Math.ceil(d.hut.wood || 0)) : 0;
-  for (let q = 0; q < logs; q++) cx.drawImage(A.item.log, cxp + fw - 6 + (q % 2) * 4, cy0 + fh - 4 - (q >> 1) * 3);
+  drawPiles(d, cxp + fw - 6, cy0 + fh - 4);
   cx.globalAlpha = 1;
+}
+// timber and stone waiting on the plot
+function drawPiles(d, px, py) {
+  const logs = d.hut ? Math.min(4, Math.ceil(d.hut.wood || 0)) : 0, stones = d.hut ? Math.min(4, Math.ceil(d.hut.stone || 0)) : 0;
+  for (let q = 0; q < logs; q++) cx.drawImage(A.item.log, px + (q % 2) * 4, py - (q >> 1) * 3);
+  for (let q = 0; q < stones; q++) cx.drawImage(A.item.stone, px - 12 - (q % 2) * 5, py + 1 - (q >> 1) * 3);
+}
+// a dwelling being rebuilt around the people in it: poles up the sides, planks rising with the work
+function drawScaffold(d) {
+  const w = d.img.width, h = d.img.height, base = d.top + h - 3, top = Math.round(base - h * 0.85 * Math.max(0.15, d.scaf));
+  cx.fillStyle = '#6e5137'; for (const px of [d.x + 3, d.x + w - 5]) cx.fillRect(px, top, 2, base - top);
+  cx.fillStyle = '#a8855c'; for (let yy = base - 10; yy > top; yy -= 12) cx.fillRect(d.x + 3, yy, w - 6, 2);
+  drawPiles(d, d.x + w - 8, base - 2);
 }
 // a fishing rod and line out to a bobbing float; now and then a fish comes up on it
 function drawRod(d) {
@@ -754,6 +787,7 @@ for (const [id, label] of [['hand', 'Hand'], ['rain', 'Rain'], ['sun', 'Sun'], [
   b.onclick = () => { tool = id; for (const q of tools.children) q.classList.toggle('sel', q.dataset.t === id); }; tools.appendChild(b);
 }
 const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 3, 8, 0]; bS2.onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; bS2.textContent = speed === 0 ? 'II' : speed + 'x'; };
+{ const el = document.getElementById('lands'); if (el) for (const k in W.LANDS) { const b = document.createElement('button'); b.className = 'btn land' + (k === W.land ? ' sel' : ''); b.textContent = k; b.onclick = () => { const q = new URLSearchParams(location.search); q.set('land', k); location.search = q.toString(); }; el.appendChild(b); } }
 document.getElementById('begin').onclick = () => { document.getElementById('intro').style.display = 'none'; paused = false; };
 document.getElementById('bHelp').onclick = () => { document.getElementById('intro').style.display = 'flex'; paused = true; };
 addEventListener('resize', resize); resize();

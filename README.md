@@ -17,6 +17,12 @@ No build step and no dependencies: it is plain JavaScript served as static files
 
 Then open http://localhost:8765 (add `?seed=7` for a fixed valley). It has to be served, not opened as a file, because the sprites are fetched.
 
+## What is in it
+
+- **Lands:** valley, plains, forest, lakeland, highland. Pick one on the opening card or with `?land=forest`. Same rules everywhere; only water, timber, stone and cold differ.
+- **People:** named individuals with parents, partners, children, households and crafts they improve at (see `src/sim.js`, "people are someone").
+- **Village:** a tent of hides first, then huts once a winter has been spent under hides, then timber-and-stone houses when the camp is large. Each goes up in stages that wait for timber and stone carried to the plot. Dwellings near water stand on posts; a well is dug once there are several roofs; paths wear between the fire, the doors and the water.
+
 ## Layout
 
 - `index.html` — page, styles and the loader
