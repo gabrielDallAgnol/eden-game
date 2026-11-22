@@ -203,6 +203,15 @@ function create(seed, opt) {
   const cut = new Uint8Array(N * N), CHOP = 0.3;   /* how much of a stand one day's felling takes (the owner asked for felling to clear ground sooner) */
   function fell(j, amt) { const t = Math.min(tree[j], amt); tree[j] -= t; cut[j] = 1; if (tree[j] < 0.08) { tree[j] = 0; cut[j] = 0; } return t; }
   /* where the next wood comes from: a begun stand in reach, else the nearest new one big enough to be worth starting */
+  // Piles: what lies on the ground ready to be taken (meat from a body, logs, loose stone). People take from a pile in reach
+  // before they hunt, fell or quarry for the same thing; meat rots and logs burn.
+  function dropPile(x, y, kind, amt) { if (amt <= 0.01) return; const p = S.piles.find(q => q.x === x && q.y === y && q.kind === kind); if (p) p.amt += amt; else S.piles.push({ x, y, kind, amt }); }
+  function pileFor(x, y, kind, a) {
+    let best = null, bd = reachOf(a) * 2 + 0.01;
+    for (const p of S.piles) { if (p.kind !== kind || p.amt <= 0.05) continue; const d = wayDist(x, y, p.x, p.y).d; if (d < bd) { bd = d; best = p; } }
+    return best ? { p: best, d: bd } : null;
+  }
+  function takePile(pl, max) { const t = Math.min(pl.p.amt, max); pl.p.amt -= t; if (pl.p.amt <= 0.05) S.piles.splice(S.piles.indexOf(pl.p), 1); return t; }
   function standFor(x, y, a, minNew) { const r = reachOf(a) * 2; let j = nearestWay(x, y, q => cut[q] && tree[q] > 0, 0, r); if (j < 0) j = nearestWay(x, y, q => tree[q] >= minNew, 1.5, r); return j; }
   // What the settlement knows of the land: every tile one of its people has stood within sight of (less far under trees).
   // It is only a record of what was seen. Nothing in the simulation reads it to decide anything.
@@ -342,6 +351,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
+    piles: [],
     stat: { wishes: 0, ponds: 0, newTrips: 0, newN: 0, reTrips: 0, reN: 0, pitD: 0, pitN: 0, lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
     levers: { hold: {},
       banned: {} } };
@@ -1059,6 +1069,8 @@ function create(seed, opt) {
     // wood gets less for a day's walking and burns low.
     { const hearth = doorOf(a);
       if (T.skills.fire && tempAt(I(hearth.x, hearth.y)) < d.comfort - 3 && (hearth.fuel || 0) < FUEL_KEEP && rnd() < dt * 8) {
+        const lp = pileFor(hearth.x, hearth.y, 'wood', a);
+        if (lp) { const ef = 1 / (1 + lp.d / (WALK * pace)); hearth.fuel = (hearth.fuel || 0) + takePile(lp, 1) * ef; a.act = { k: 'fetch', x: lp.p.x, y: lp.p.y, item: 'sticks' }; walk(hearth.x, hearth.y, lp.p.x, lp.p.y, 0.02); a.tripD = lp.d; return; }
         const j = standFor(hearth.x, hearth.y, a, 0.1);
         if (j < 0) stretch(a);
         if (j >= 0) {
@@ -1074,6 +1086,9 @@ function create(seed, opt) {
         }
       }
     }
+    /* meat lying out in reach is fetched home first, by a grown member of a household short of food */
+    if (grown && !S.night && allFood() < pop * 2) { const door0 = doorOf(a), pl = pileFor(door0.x, door0.y, 'meat', a);
+      if (pl) { const ef = 1 / (1 + pl.d / (WALK * pace)), got = takePile(pl, 1.5 * ef + 0.2); bring(a, got); walk(door0.x, door0.y, pl.p.x, pl.p.y, 0.03); a.tripD = pl.d; a.act = { k: 'fetch', x: pl.p.x, y: pl.p.y, item: 'meat' }; T.got.hunt += got; return; } }
     // look for food: plants, fish, game, from their own door. Places near the door are looked at most; nothing is out of
     // bounds, but a far place has to be worth the walk. What is found is carried home.
     const door = doorOf(a); let wishV = 0, wishF = null, bestV = 0, bx = a.x, by = a.y, kind = '', bestE = 1;
@@ -1290,11 +1305,18 @@ function create(seed, opt) {
     const dr = S.agents.find(b => b.alive && b.tame && b.age >= b.d.mature * 0.75 && !(b.cart >= S.tickNo)); if (!dr) return 1;
     dr.cart = S.tickNo; dr.cartJ = j; return 2;
   }
+  /* logs or loose stone lying in reach are carried in before anyone fells or quarries */
+  function fromPile(a, x, y, kind) {
+    const lp = pileFor(x, y, kind, a); if (!lp) return false; const T = S.tribe, ef = 1 / (1 + lp.d / WALK), got = takePile(lp, 3 * ef + 0.5);
+    if (kind === 'wood') T.wood += got; else T.stone += got;
+    a.act = { k: 'fetch', x: lp.p.x, y: lp.p.y, item: kind === 'wood' ? 'log' : 'stone' }; walk(x, y, lp.p.x, lp.p.y, 0.05); a.tripD = lp.d; return true;
+  }
   function construct(a) {
     const T = S.tribe, s = plotFor(); if (!s) return false;
     if (s === T.bridge) {                                             // timber carried to the ford and laid across it, a few planks at a time
       if (T.wood >= 1) { const c = Math.min(T.wood, s.need - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'bridgework', x: s.ax, y: s.ay }; walk(T.x, T.y, s.ax, s.ay, 0.12); sound(s.ax, s.ay, 3, 'work'); }
       else {
+        if (fromPile(a, s.ax, s.ay, 'wood')) return true;
         const bj = standFor(s.ax, s.ay, a, 0.3); if (bj < 0) { stretch(a); return false; }
         fell(bj, CHOP); const w = wayDist(s.ax, s.ay, bj % N, (bj / N) | 0);
         T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) / (1 + w.d / WALK); a.act = { k: 'chop', j: bj, site: 0 }; return true;
@@ -1304,6 +1326,7 @@ function create(seed, opt) {
     }
     if (s === T.wall) {                                               // stakes cut, carried and driven, a few paces of fence at a time
       if (T.wood < 1) {
+        if (fromPile(a, T.x, T.y, 'wood')) return true;
         const bj = standFor(T.x, T.y, a, 0.3);
         if (bj < 0) { stretch(a); return false; }
         fell(bj, CHOP);
@@ -1333,6 +1356,7 @@ function create(seed, opt) {
       if (T.wood >= 1) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; walk(T.x, T.y, s.x, s.y, 0.12); return true; }
       /* fell the nearest standing timber along the ways; saplings are left to grow. The further it stands, the less is
          brought back in a day */
+      if (fromPile(a, s.x, s.y, 'wood')) return true;
       const bj = standFor(s.x, s.y, a, 0.3);
       if (bj < 0) { stretch(a); return false; }
       fell(bj, CHOP);
@@ -1348,6 +1372,7 @@ function create(seed, opt) {
     if (s.stone < needS) {
       if (T.stone >= 1) { const c = Math.min(T.stone, needS - s.stone); T.stone -= c; s.stone += c; a.act = { k: 'haul', site: s.id, item: 'stone' }; return true; }
       /* break stone where it shows, or carry cobbles up from the water's edge: whichever costs the less walking for what it gives */
+      if (fromPile(a, s.x, s.y, 'stone')) return true;
       /* the quarry: of all the stone showing on common ground, the one that gives most for a day's walk; a deep pit is harder
          to work (deeper and farther both make stone dearer) */
       let bq = -1, vq = 0;
@@ -1621,6 +1646,7 @@ function create(seed, opt) {
   function tick() {
     heardNow = din; din = []; S.din = heardNow;
     const dt = 1 / TPY; S.t += dt; S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
+    for (let k = S.piles.length - 1; k >= 0; k--) { const p = S.piles[k], i = I(p.x, p.y); if (p.kind === 'meat') p.amt *= 1 - Math.min(1, 2.5 * dt); if (p.kind === 'wood' && burn[i] > 0) p.amt = 0; if (p.amt <= 0.05 || water[i]) S.piles.splice(k, 1); }   /* meat rots in a few months; logs burn */
     for (const q of S.homes.values()) q.n = 0;
     for (const L of cells) L.length = 0; S.pop = {}; for (const sp in SP) S.pop[sp] = 0; S.popPeople = 0;
     S.adults = {};
@@ -1838,7 +1864,14 @@ function create(seed, opt) {
       });
     },
     // fire and force on one spot: kills what stands there, and sets light to anything dry enough to burn
-    strike(x, y) { const i = I(x, y); for (const a of cells[i]) die(a, 'struck'); if (!water[i] && snow[i] < 0.05 && soil[i] < 0.9 && (tree[i] > 0.15 || grass[i] > 0.5)) burn[i] = 1; heat[i] += 4; },
+    // what it breaks is left lying there: an animal's body as meat, a tree as logs, bare rock as loose stone; only dry grass
+    // with nothing standing on it catches fire
+    strike(x, y) {
+      const i = I(x, y); for (const a of cells[i]) { if (a.alive && !a.d.people) dropPile(a.x, a.y, 'meat', bodyOf(a) * 0.9); die(a, 'struck'); }
+      if (!water[i] && tree[i] > 0.1) { dropPile(x, y, 'wood', tree[i] * 12); tree[i] = 0; fruit[i] = 0; cut[i] = 0; }
+      else if (!water[i] && rock[i] >= 0.15) { const dug = Math.min(rock[i], 0.06); rock[i] -= dug; pit[i] = Math.min(1, pit[i] + dug); dropPile(x, y, 'stone', dug * STONE_PER_TILE); }
+      else if (!water[i] && snow[i] < 0.05 && soil[i] < 0.9 && grass[i] > 0.5) burn[i] = 1;
+      heat[i] += 4; },
     // test levers
     cull(sp, frac) { for (const a of S.agents) if (a.alive && a.sp === sp && rnd() < frac) die(a, 'struck'); },
     feed(sp, amt) { for (const a of S.agents) if (a.alive && a.sp === sp) a.e = Math.min(1.2, a.e + amt); },
@@ -1900,6 +1933,7 @@ function create(seed, opt) {
     Object.assign(S, o.S); S.din = heardNow;
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
+      if (!S.piles) S.piles = [];
       if (!S.stat) S.stat = {}; for (const k of ['wishes', 'ponds', 'newTrips', 'newN', 'reTrips', 'reN', 'pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }
     S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }

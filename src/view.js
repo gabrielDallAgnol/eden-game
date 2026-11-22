@@ -387,6 +387,8 @@ function wantProps() {
     for (const key in T0.bridged) { const f = byKey.get(key); if (f) lay(f, f.tiles.length); }
     const b = T0.bridge; if (b && !b.done && b.wood > 0) { const f = byKey.get(b.key); if (f) lay(f, Math.floor(f.tiles.length * b.wood / b.need), b.ax !== f.ax || b.ay !== f.ay); }
   }
+  /* what lies on the ground to be taken: meat where an animal fell, logs where a tree came down, broken stone */
+  for (const p of S.piles || []) { const im = A.item[p.kind === 'wood' ? 'log' : p.kind], n = Math.min(6, Math.ceil(p.amt / 1.5)); for (let k = 0; k < n; k++) want.set('p' + p.kind + p.x + ',' + p.y + ':' + k, { kind: 'pile', x: p.x + 0.3 + (k % 3) * 0.16, y: p.y + 0.4 + ((k / 3) | 0) * 0.12, base: 'p' + p.kind, img: im, dy: 3 }); }
   const logs = campOn ? Math.min(6, Math.ceil(T0.wood / 2)) : 0;
   for (let k = 0; k < logs; k++) want.set('w' + k, { kind: 'logs', x: store.x - 0.3 + (k % 3) * 0.14, y: store.y + 0.45 + ((k / 3) | 0) * 0.12, base: 'w', img: A.item.log, dy: 2 });
   if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) want.set('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
@@ -699,6 +701,11 @@ function planPerson(r, phase, pi) {
       const tx = act.j % N, ty = (act.j / N) | 0, st = standBy(tx, ty, r), h = huts.find(q => q && q.id === act.site), to = h ? { x: h.x + 0.55, y: h.y + 0.3 } : store;
       P.go(st.x, st.y, sp); P.wait(0.22, 'work', { fx: 'dust', lx: st.lx, ly: st.ly });
       P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
+    }
+    case 'fetch': {                                                   // out to what lies on the ground, and back with it
+      const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), to = act.item === 'meat' || act.item === 'sticks' ? (mine ? door(mine) : store) : store;
+      P.go(act.x + 0.5, act.y + 0.5, sp); P.wait(0.08, 'work', { lx: act.x + 0.5, ly: act.y + 0.5 });
+      P.go(to.x, to.y, sp * 0.8, 'carry', { item: act.item }); P.wait(0.04, 'work', { drop: 1 }); break;
     }
     case 'bridgework': {                                              // a log from the pile carried to the bridge end, and laid
       P.go(store.x - 0.3, store.y + 0.45, sp); P.wait(0.03, 'work');

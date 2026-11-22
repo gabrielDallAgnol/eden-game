@@ -550,6 +550,21 @@ UNITS.push(['the land at 40, 96 and 128: water drains to the edge or a lake, nev
   }); });
   return out.join(' | ');
 }]);
+UNITS.push(['strike leaves meat from an animal, logs from a tree, stone from rock; logs near the village get used', function () {
+  var W = Eden.create(3, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'forest', size: 96 }), N = W.N, T = W.S.tribe, i, out = [];
+  for (i = 0; i < 24 * 8; i++) W.tick();
+  var deer = W.S.agents.filter(function (a) { return a.alive && !a.d.people && W.cells[a.y * N + a.x].indexOf(a) >= 0; })[0];
+  if (deer) { W.G.strike(deer.x, deer.y); if (!W.S.piles.some(function (p) { return p.kind === 'meat'; })) out.push('no meat where a ' + deer.sp + ' was struck'); }
+  var tj = -1; for (var r = 1; r < 6 && tj < 0; r++) for (var dy = -r; dy <= r && tj < 0; dy++) for (var dx = -r; dx <= r; dx++) { var j = (T.y + dy) * N + T.x + dx; if (W.tree[j] > 0.3) { tj = j; break; } }
+  if (tj >= 0) { W.G.strike(tj % N, (tj / N) | 0); if (W.tree[tj] > 0) out.push('the struck tree still stands'); if (!W.S.piles.some(function (p) { return p.kind === 'wood' && p.x === tj % N; })) out.push('no logs where the tree fell'); }
+  var rj = -1; for (i = 0; i < N * N && rj < 0; i++) if (W.rock[i] >= 0.15 && !W.water[i] && W.tree[i] <= 0.1) rj = i;
+  if (rj >= 0) { W.G.strike(rj % N, (rj / N) | 0); if (!W.S.piles.some(function (p) { return p.kind === 'stone'; })) out.push('no stone where rock was struck'); }
+  var before = W.S.piles.filter(function (p) { return p.kind === 'wood'; }).reduce(function (t, p) { return t + p.amt; }, 0);
+  for (i = 0; i < 24 * 2; i++) W.tick();
+  var after = W.S.piles.filter(function (p) { return p.kind === 'wood'; }).reduce(function (t, p) { return t + p.amt; }, 0);
+  if (tj >= 0 && !(after < before)) out.push('logs by the village untouched after 2 years (' + before.toFixed(1) + ')');
+  return out.join('; ');
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }
