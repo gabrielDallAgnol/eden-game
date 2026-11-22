@@ -14,6 +14,7 @@ var CONFIG = {
   seeds: [1, 2, 3],
   lands: ['valley', 'forest', 'plains'],       // any of: valley, plains, forest, lakeland, highland
   worldOptions: { resettle: true, startT: 0.3, dayCycle: 4, family: true },   // as the game creates its world; `land` is added per world
+  extraWorlds: [{ land: 'lakeland', seed: 1, years: 100 }],   // longer runs with their own length, after the grid above (?extra=0 drops them)
   determinism: true,                           // run every world a second time and compare the end state
   mustSurviveOn: ['valley', 'forest'],         // lands where people must not be gone for good
   survivalWindowYears: 5,                      // "not gone for good" = people seen at a yearly check within this many years of the end (resettling takes about 3)
@@ -35,6 +36,7 @@ var CONFIG = {
     if ((v = q.get('seeds'))) { var s = v.split(',').map(Number).filter(function (n) { return isFinite(n); }); if (s.length) CONFIG.seeds = s; }
     if ((v = q.get('lands'))) CONFIG.lands = v.split(',').filter(Boolean);
     if ((v = q.get('det')) !== null) CONFIG.determinism = v !== '0' && v !== 'false';
+    if ((v = q.get('extra')) === '0') CONFIG.extraWorlds = [];
   } catch (e) { /* no address to read: keep the defaults */ }
 })();
 
@@ -61,8 +63,8 @@ Check.prototype.row = function () {
 };
 
 // ---------------------------------------------------------------- one world
-function WorldRun(land, seed) {
-  this.land = land; this.seed = seed; this.label = land + ' #' + seed;
+function WorldRun(land, seed, years) {
+  this.land = land; this.seed = seed; this.years = years || CONFIG.years; this.label = land + ' #' + seed + (years ? ' (' + years + ' years)' : '');
   this.W = null; this.ticks = 0; this.year = 0; this.inYear = 0; this.phase = 'create'; this.aborted = '';
   this.W2 = null; this.ticks2 = 0;
   this.lastPeopleYear = -1; this.everPeople = false; this.gonePeopleYears = 0; this.firstDwellingYear = -1;
@@ -73,6 +75,8 @@ function WorldRun(land, seed) {
   add('clock', 'time moves forward: one tickNo per tick, S.t never goes back');
   add('inside', 'every living creature is on a whole tile inside the map');
   add('dry', 'no living creature stands on a water tile');
+  add('dryAlways', 'no living creature is on a water tile after any tick');
+  add('problems', 'the sim reports no defects in S.problems');
   add('agentNums', 'each creature\'s energy and age are finite, age is not negative');
   add('ids', 'no two living creatures share an id');
   add('pop', 'S.pop matches the living creatures, species by species');
@@ -123,16 +127,17 @@ WorldRun.prototype.step = function (deadline) {
   }
   if (this.phase === 'run') {
     var W = this.W, S = W.S;
-    while (this.year < CONFIG.years && now() < deadline) {
+    while (this.year < this.years && now() < deadline) {
       var lastOfYear = this.inYear === this.TPY - 1, before = lastOfYear ? this.living() : null;
       var tn = S.tickNo, tt = S.t;
       try { W.tick(); } catch (e) { this.abort('tick ' + (this.ticks + 1) + ' (year ' + this.year + ')', e); this.phase = 'finish'; break; }
       this.ticks++; this.inYear++; C.run.ok();
       if (num(tn) && num(tt)) { if (S.tickNo !== tn + 1) C.clock.fail('tick ' + this.ticks + ': tickNo went from ' + tn + ' to ' + show(S.tickNo)); else if (!(S.t >= tt)) C.clock.fail('tick ' + this.ticks + ': S.t went from ' + show(tt) + ' to ' + show(S.t)); else C.clock.ok(); }
       else C.clock.skip('S.tickNo or S.t is not a number');
+      this.dryTick();
       if (lastOfYear) { this.inYear = 0; this.year++; this.popCheck(before); this.yearly(); }
     }
-    if (this.phase === 'run' && this.year >= CONFIG.years) this.phase = CONFIG.determinism ? 'again' : 'finish';
+    if (this.phase === 'run' && this.year >= this.years) this.phase = CONFIG.determinism ? 'again' : 'finish';
   }
   if (this.phase === 'again') {
     if (!this.W2) { try { this.W2 = window.Eden.create(this.seed, this.options()); } catch (e) { C.determinism.fail('second create() threw: ' + (e && e.message || e)); this.phase = 'finish'; } }
@@ -170,6 +175,13 @@ WorldRun.prototype.popCheck = function (before) {
     if (!num(S.popPeople)) return c.skip('S.popPeople is missing');
     if (S.popPeople === before.people || S.popPeople === after.people) c.ok(); else c.fail('year ' + y + ': S.popPeople ' + S.popPeople + ', living people before the tick ' + before.people + ', after ' + after.people);
   });
+};
+
+WorldRun.prototype.dryTick = function () {
+  var W = this.W, S = W.S, N = W.N, water = W.water, c = this.C.dryAlways;
+  if (!isField(water) || !isArr(S.agents)) return c.skip('W.water or S.agents is missing');
+  for (var i = 0; i < S.agents.length; i++) { var a = S.agents[i]; if (a && a.alive && water[a.y * N + a.x]) { c.fail('tick ' + this.ticks + ': ' + who(a) + ' at ' + a.x + ',' + a.y); return; } }
+  c.ok();
 };
 
 WorldRun.prototype.yearly = function () {
@@ -234,6 +246,10 @@ WorldRun.prototype.yearly = function () {
     try { for (var i = 0; i < sites.length; i++) { var s = sites[i]; if (s.kind !== 'well' && (s.stage >= 1 || s.was)) { this.firstDwellingYear = y; break; } } } catch (e) { /* soft */ }
   }
 
+  this.guard('problems', function (c) {
+    if (!isArr(S.problems)) return c.skip('S.problems is missing');
+    if (S.problems.length) c.fail(at + S.problems.slice(0, 3).join('; ')); else c.ok();
+  });
   this.guard('stocks', function (c) {
     if (!T) return c.skip('S.tribe is missing');
     var keys = ['store', 'wood', 'stone'], bad = [], n = 0;
@@ -309,13 +325,13 @@ WorldRun.prototype.finish = function () {
     this.guard('survive', function (c) {
       if (CONFIG.mustSurviveOn.indexOf(self.land) < 0) return c.skip('not required on ' + self.land + ' land');
       if (!isArr(W.S.agents)) return c.skip('S.agents is missing');
-      if (CONFIG.years < CONFIG.survivalWindowYears) return c.skip('the run is shorter than ' + CONFIG.survivalWindowYears + ' years');
+      if (self.years < CONFIG.survivalWindowYears) return c.skip('the run is shorter than ' + CONFIG.survivalWindowYears + ' years');
       if (self.lastPeopleYear >= y - CONFIG.survivalWindowYears) c.ok();
       else c.fail('no people at any yearly check since year ' + (self.lastPeopleYear < 0 ? 'the start' : self.lastPeopleYear) + ' (the run ended at year ' + y + ')');
     });
     this.guard('softDwelling', function (c) {
       if (!W.S.tribe || !isArr(W.S.tribe.sites)) return c.skip('S.tribe.sites is missing');
-      if (CONFIG.years < CONFIG.dwellingWithinYears) return c.skip('the run is shorter than ' + CONFIG.dwellingWithinYears + ' years');
+      if (self.years < CONFIG.dwellingWithinYears) return c.skip('the run is shorter than ' + CONFIG.dwellingWithinYears + ' years');
       if (self.firstDwellingYear >= 0 && self.firstDwellingYear <= CONFIG.dwellingWithinYears) { c.ok(); c.note = 'by year ' + self.firstDwellingYear; }
       else c.fail(self.firstDwellingYear < 0 ? 'no dwelling was raised in ' + y + ' years' : 'the first dwelling stood in year ' + self.firstDwellingYear);
     });
@@ -369,13 +385,37 @@ function showWorld(run) {
     tr.appendChild(el('td', r.check + (r.kind === 'soft' ? ' (soft)' : ''))); tr.appendChild(el('td', r.detail || '', 'detail')); body.appendChild(tr); }
 }
 
+// ---------------------------------------------------------------- unit checks: short, targeted, run once before the worlds
+// Each is [name, fn]; fn returns '' when it holds, or a sentence saying what went wrong. Steps add their checks here.
+var UNITS = window.EdenUnits = window.EdenUnits || [];
+UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
+  var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
+  for (var i = 0; i < 48; i++) W.tick();
+  return W.S.problems.indexOf('unknown site kind castle') >= 0 ? '' : 'S.problems is ' + show(W.S.problems);
+}]);
+UNITS.push(['moveTo into the middle of a lake lands on dry ground', function () {
+  var W = Eden.create(1, { land: 'lakeland' }), N = W.N, a = W.S.agents[0], wet = -1;
+  for (var i = 0; i < N * N && wet < 0; i++) { var x = i % N, y = (i / N) | 0, deep = true; for (var d = -2; d <= 2 && deep; d++) for (var e = -2; e <= 2; e++) if (x + d < 0 || y + e < 0 || x + d >= N || y + e >= N || !W.water[(y + e) * N + x + d]) { deep = false; break; } if (deep) wet = i; }
+  if (wet < 0) return 'no deep water found on lakeland #1';
+  for (var k = 0; k < 20; k++) { W.moveTo(a, wet % N, (wet / N) | 0); if (W.water[a.y * N + a.x] || a.x !== Math.round(a.x)) return 'placed at ' + a.x + ',' + a.y; }
+  return '';
+}]);
+function runUnits() {
+  var rows = [];
+  for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }
+    rows.push({ world: 'units', land: '', seed: 0, check: UNITS[i][0], kind: 'hard', status: msg ? 'fail' : 'pass', detail: msg || '' }); }
+  return rows;
+}
+
 function start() {
   if (running) return;
   running = true;
   var runs = [], li, si, t0 = now(), at = 0;
   for (li = 0; li < CONFIG.lands.length; li++) for (si = 0; si < CONFIG.seeds.length; si++) runs.push(new WorldRun(CONFIG.lands[li], CONFIG.seeds[si]));
+  for (li = 0; li < CONFIG.extraWorlds.length; li++) runs.push(new WorldRun(CONFIG.extraWorlds[li].land, CONFIG.extraWorlds[li].seed, CONFIG.extraWorlds[li].years));
   window.EdenTests = { done: false, passed: 0, failed: 0, warnings: 0, skipped: 0, results: [], worlds: [], config: CONFIG, ms: 0, summary: '' };
   var body = $('results'); if (body) body.textContent = '';
+  var unitRows = runUnits(); Array.prototype.push.apply(window.EdenTests.results, unitRows); showWorld({ label: 'units', rows: unitRows, summary: '' });
   var btn = $('run'); if (btn) btn.disabled = true;
   var cfg = $('config'); if (cfg) cfg.textContent = 'Lands: ' + CONFIG.lands.join(', ') + '. Seeds: ' + CONFIG.seeds.join(', ') + '. Years: ' + CONFIG.years + '. Determinism rerun: ' + (CONFIG.determinism ? 'on' : 'off') + '.';
   function slice() {

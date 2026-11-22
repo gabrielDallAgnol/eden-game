@@ -121,7 +121,7 @@ function create(seed, opt) {
     stamp(x0, y0, vx, y0, w * 0.4); stamp(vx, y0, vx, hy, w); stamp(vx, hy, x1, hy, w); stamp(x1, hy, x1, y1, w * 0.4);
   }
   const S = { t: opt.startT || 0, agents: [], pop: {}, tribe: { x: 0, y: 0, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0, need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0 }, plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 }, rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0 }, log: [], deaths: {}, nextId: 1,
-    rainY: 1, warmOff: LAND.warm, river: 1, air: 0, precip: 0, sky: 'clear', fx: [], emptyT: 0, homes: new Map(), tickNo: 0, night: false, dayK: 1, byId: new Map() };
+    rainY: 1, warmOff: LAND.warm, river: 1, air: 0, precip: 0, sky: 'clear', fx: [], emptyT: 0, homes: new Map(), tickNo: 0, night: false, dayK: 1, byId: new Map(), problems: [] };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
   for (const k in SKILLS) S.tribe.skills[k] = SKILLS[k].known;
   for (const k in TECHS) S.tribe.skills[k] = false;
@@ -221,7 +221,16 @@ function create(seed, opt) {
   const mouth = d => clamp(0.04 + 0.036 * d.mass, 0.06, 0.25);                               // small mouths crop closer to the ground
   const gut = d => Math.max(1, d.mass * 0.9);
 
-  function free(x, y) { for (let k = 0; k < 60; k++) { const nx = clamp(Math.round(x + R(-k / 4, k / 4)), 0, N - 1), ny = clamp(Math.round(y + R(-k / 4, k / 4)), 0, N - 1); if (!water[I(nx, ny)]) return [nx, ny]; } return [x, y]; }
+  function free(x, y) {
+    for (let k = 0; k < 60; k++) { const nx = clamp(Math.round(x + R(-k / 4, k / 4)), 0, N - 1), ny = clamp(Math.round(y + R(-k / 4, k / 4)), 0, N - 1); if (!water[I(nx, ny)]) return [nx, ny]; }
+    /* deep in the water: search outward in rings until dry ground is found */
+    const cx = clamp(Math.round(x), 0, N - 1), cy = clamp(Math.round(y), 0, N - 1);
+    for (let r = 1; r < N; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const nx = cx + dx, ny = cy + dy;
+      if (nx >= 0 && ny >= 0 && nx < N && ny < N && !water[I(nx, ny)]) return [nx, ny];
+    }
+    return [cx, cy];
+  }
   function add(sp, x, y, age, e) {
     const d = SP[sp], p = free(x, y);
     const a = { id: S.nextId++, sp, d, x: p[0], y: p[1], e: e === undefined ? 0.7 : e, age: age === undefined ? R(d.mature, d.life * 0.6) : age, cd: R(0, d.interval), life: d.life * R(0.75, 1.15), alive: true, mood: '' };
@@ -640,7 +649,8 @@ function create(seed, opt) {
     house: { stages: 3, wood: 2, stone: 1, roof: 0.3 },
     well:  { stages: 2, wood: 1, stone: 2 }
   };
-  const raised = q => q.stage >= DWELL[q.kind].stages;
+  /* a site of a kind nobody knows how to build is a defect: it is reported once in S.problems and never counts as standing */
+  const raised = q => { const K = DWELL[q.kind]; if (K) return q.stage >= K.stages; if (!S.problems.includes('unknown site kind ' + q.kind)) S.problems.push('unknown site kind ' + q.kind); return false; };
   const live = q => q.kind !== 'well' && (!!q.was || raised(q));     // someone can sleep in it
   const best = () => S.tribe.skills.house ? 'house' : S.tribe.skills.hut ? 'hut' : 'tent';
   const NEXT = { tent: 'hut', hut: 'house' };
@@ -685,7 +695,7 @@ function create(seed, opt) {
     return s;
   }
   function plotFor() {
-    const T = S.tribe; let s = T.sites.find(q => !raised(q)); if (s) return s;          // finish what is begun
+    const T = S.tribe; let s = T.sites.find(q => DWELL[q.kind] && !raised(q)); if (s) return s;          // finish what is begun
     const homes = T.sites.filter(q => q.kind !== 'well');
     if (homes.length < households()) {                                                  // a household without a roof
       const who = folk().find(a => a.age >= WED && !a.house && (!a.partner || a.fem));
@@ -888,7 +898,7 @@ function create(seed, opt) {
       T.need.flood += 3; tell('The flood has taken a ' + (w.was || w.kind) + '.' + (T.floodSeen ? '' : ' Nobody will build so low again without thinking.')); T.floodSeen = true; w.was = ''; w.stage = 0; w.wood = 0; w.stone = 0; }
     if (!T.skills.fire && S.popPeople) { for (let dy = -6; dy <= 6 && !T.skills.fire; dy++) for (let dx = -6; dx <= 6; dx++) { const x = T.x + dx, y = T.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && burn[I(x, y)] > 0) { T.skills.fire = true; S.log.push({ t: S.t, text: 'The people have taken fire for themselves.' }); break; } } }
     farm(dt); society(dt);
-    { const lv = T.sites.filter(live); T.huts = lv.length; T.roof = lv.length ? lv.reduce((q, w) => q + DWELL[w.was || w.kind].roof, 0) / lv.length - (T.skills.masonry ? 0.05 : 0) : 0.7; if (S.tickNo % TPY === 3) { reckonYear(); townLife(); } }
+    { const lv = T.sites.filter(live); T.huts = lv.length; T.roof = lv.length ? lv.reduce((q, w) => q + ((DWELL[w.was || w.kind] || {}).roof || 0.7), 0) / lv.length - (T.skills.masonry ? 0.05 : 0) : 0.7; if (S.tickNo % TPY === 3) { reckonYear(); townLife(); } }
     if (T.well && S.popPeople) for (let i = 0; i < N * N; i++) if (field[i] && soil[i] < (T.skills.irrigation ? 0.7 : 0.45)) soil[i] = T.skills.irrigation ? 0.7 : 0.45;   // carried from the well, a bucket at a time
     for (const a of S.agents) {
       if (!a.alive) continue; const d = a.d, i = I(a.x, a.y), Tc = tempAt(i); if (a.fear > 0) a.fear -= dt * 1.4;
