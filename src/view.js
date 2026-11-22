@@ -262,7 +262,7 @@ function planPerson(r, phase, pi) {
     if (act.k === 'sleep') { P.done('hidden', r.step && r.step.hut ? { hut: r.step.hut } : {}); return; }
     P.wait(R(0.01, 0.12), 'hidden'); P.wait(0.03, 'emerge');
   }
-  const home = () => { const h = huts.filter(q => q && q.p >= 1 && !q.die), q = h.length ? h[(r.id * 7) % h.length] : null; if (q) { P.go(door(q).x, door(q).y, sp); P.wait(0.03, 'enter', { hut: q.k + 1 }); P.done('hidden', { hut: q.k + 1 }); } else { const s = seat(pi); P.go(s.x, s.y, sp); P.done('lie', { zz: 1 }); } };
+  const home = () => { const h = huts.filter(q => q && q.p >= 1 && !q.die), q = h.find(x => x.id === a.house) || (h.length ? h[(r.id * 7) % h.length] : null); /* their own house if they have one */ if (q) { P.go(door(q).x, door(q).y, sp); P.wait(0.03, 'enter', { hut: q.k + 1 }); P.done('hidden', { hut: q.k + 1 }); } else { const s = seat(pi); P.go(s.x, s.y, sp); P.done('lie', { zz: 1 }); } };
   switch (act.k) {
     case 'sleep': return home();
     case 'baby': {
@@ -310,7 +310,9 @@ function planPerson(r, phase, pi) {
       break;
     }
     case 'flee': { r.bub = 'afraid'; r.bubT = now; P.go(end.x, end.y, SPEED.person.run, 'run'); P.done('look', { at: act.id }); return; }
-    case 'shelter': home(); return;                                    // foul weather: indoors
+    case 'shelter': home(); return;
+    case 'watch': { const s = seat(pi); P.go(s.x, s.y, sp); P.done('sit'); return; }   // the night watch, awake by the fire
+    case 'mourn': { const s = seat(pi); r.bub = 'grief'; r.bubT = now + 800; P.go(s.x, s.y, sp * 0.7); P.done('sit'); return; }                                    // foul weather: indoors
     case 'guard': { const tg = recOf(act.id); if (tg) { P.go(tg.x, tg.y, SPEED.person.run, 'run', { killMark: 1 }); P.wait(0.1, 'work', { fx: 'blood', at: act.id }); } break; }
     default: {   // nothing worth fetching this time: firewood, the fields, a chat by the fire
       if (a.wood >= 0) { const tx = a.wood % N, ty = (a.wood / N) | 0, st = standBy(tx, ty, r); P.go(st.x, st.y, sp); P.wait(0.08, 'work', { fx: 'chips', lx: st.lx, ly: st.ly }); P.go(fire.x - 0.3, fire.y + 0.2, sp, 'carry', { item: 'sticks' }); P.wait(0.04, 'work', { drop: 1 }); }
@@ -445,7 +447,7 @@ cv.addEventListener('pointerdown', e => {
   if (paused) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 2) { const [p, q] = [...ptrs.values()]; pinch = { d: Math.hypot(p.x - q.x, p.y - q.y), mx: (p.x + q.x) / 2, my: (p.y + q.y) / 2 }; if (held) dropHeld(); act = null; return; }
   const w = toWorld(e.clientX, e.clientY);
-  if (tool === 'hand') { const r = actorAt(w); if (r) { held = r; r.held = true; r.a.held = true; r.bub = 'afraid'; r.bubT = now; } act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r }; }
+  if (tool === 'hand') { const r = actorAt(w); if (r) { held = r; r.held = true; r.a.held = true; r.bub = 'afraid'; r.bubT = now; const who = W.describe(r.a); if (who) say(who); } act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r }; }
   else if (tool === 'strike') { if (now - lastStrike > 600) { lastStrike = now; const c = toCell(e.clientX, e.clientY); W.G.strike(c.x | 0, c.y | 0); bolt = { x: w.x, y: w.y, t: now, seed: (Math.random() * 99) | 0 }; takeEvents(true); scatterFrom(c.x, c.y, 4); burst(c.x, c.y, 'smoke', 10); burst(c.x, c.y, 'ember', 12); for (let i = 0; i < N * N; i++) if (W.burn[i] > 0) scar[i] = 1; reconcile(); repaintCells(c.x - 2, c.y - 2, c.x + 2, c.y + 2); } }
   else act = { id: e.pointerId, x: e.clientX, y: e.clientY, acc: 0, t: 0 };
 });
@@ -583,7 +585,7 @@ function frame(t) {
     if (dd.people) { if (a.age < 2 && L.baby) set = null; else if (a.age < 6 && L.tot) set = L.tot; else if (a.age < dd.mature) set = L.young; else if (L.old && a.age > 46) set = L.old; }
     else if (a.age < dd.mature * 0.75) set = L.young;
     if (!set) { const b = L.baby[a.id % L.baby.length]; put(b, wx, wy, { shadow: { x: wx, y: wy, w: b.width }, alpha: r.alpha < 1 ? r.alpha : undefined }); continue; }
-    const sp = set[a.id % set.length]; let face = r.face;
+    const sp = set[(dd.people && a.fem !== undefined && (set === L.grown || set === L.old) ? ((a.id % 6) * 2 + (a.fem ? 1 : 0)) : a.id) % set.length]; let face = r.face;
     const s = r.step; let look = null;
     if (s && s.at) { const o = recOf(s.at); if (o) look = o; } else if (s && s.lx !== undefined) look = { x: s.lx, y: s.ly };
     if (Math.abs(r.vx - r.vy) > 0.0005 && (pose === 'walk' || pose === 'run' || pose === 'hop' || pose === 'carry' || pose === 'creep' || pose === 'crawl')) face = (r.vx - r.vy) > 0 ? 'r' : 'l';
