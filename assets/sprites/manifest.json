@@ -118,5 +118,35 @@
   "frames": 1,
   "w": 75,
   "h": 74
+ },
+ "tent": {
+  "file": "tent.png",
+  "frames": 1,
+  "w": 48,
+  "h": 57
+ },
+ "hut": {
+  "file": "hut.png",
+  "frames": 1,
+  "w": 80,
+  "h": 80
+ },
+ "lakehouse": {
+  "file": "lakehouse.png",
+  "frames": 1,
+  "w": 96,
+  "h": 111
+ },
+ "well": {
+  "file": "well.png",
+  "frames": 1,
+  "w": 34,
+  "h": 45
+ },
+ "cart": {
+  "file": "cart.png",
+  "frames": 1,
+  "w": 57,
+  "h": 36
  }
 }

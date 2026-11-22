@@ -77,8 +77,27 @@ def tree(key, src):
     manifest[key] = {"file": key + ".png", "frames": 1, "w": int(canvas.shape[1]), "h": int(canvas.shape[0])}
 
 
+def strip_backdrop(a):
+    """Background removal sometimes leaves the flat white backdrop: flood it away from the image border."""
+    h, w = a.shape[:2]
+    near = (a[..., 3] > 0) & (a[..., :3].min(-1) > 235)
+    seen = np.zeros((h, w), bool)
+    stack = [(y, x) for y in range(h) for x in (0, w - 1) if near[y, x]] + [(y, x) for x in range(w) for y in (0, h - 1) if near[y, x]]
+    for y, x in stack:
+        seen[y, x] = True
+    while stack:
+        y, x = stack.pop()
+        for yy, xx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+            if 0 <= yy < h and 0 <= xx < w and near[yy, xx] and not seen[yy, xx]:
+                seen[yy, xx] = True
+                stack.append((yy, xx))
+    a = a.copy()
+    a[seen] = 0
+    return a
+
+
 def still(key, src):
-    a = hard_alpha(load(src))
+    a = strip_backdrop(hard_alpha(load(src)))
     x0, y0, x1, y1 = bbox([a])
     Image.fromarray(a[y0:y1, x0:x1]).save(os.path.join(DST, key + ".png"))
     manifest[key] = {"file": key + ".png", "frames": 1, "w": int(x1 - x0), "h": int(y1 - y0)}
@@ -96,6 +115,9 @@ tree("tree_gold", "rd_tree_autumn_raw.png")
 tree("tree_bare_snow", "rd_tree_winter_raw.png")
 tree("tree_blossom", "rd_tree_spring_raw.png")
 still("cottage", "rd_cottage_iso_1_raw.png")
+for key in ("tent", "hut", "lakehouse", "well", "cart"):
+    if os.path.exists(os.path.join(OUT, f"rd_{key}_raw.png")):
+        still(key, f"rd_{key}_raw.png")
 json.dump(manifest, open(os.path.join(DST, "manifest.json"), "w"), indent=1)
 for k, v in manifest.items():
     print(k, v)

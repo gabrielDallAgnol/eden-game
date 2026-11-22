@@ -569,7 +569,7 @@ function build() {
   };
   // art made outside the game replaces the built-in look wherever a sprite sheet exists (src/sprites.js)
   if (root.EdenSprites && root.EdenSprites.ready) root.EdenSprites.apply(A, { mk, flip, shrink });
-  for (const k of ['hut', 'house']) { A[k + 'Lake'] = onStilts(A[k]); A[k + 'LakeSnow'] = onStilts(A[k + 'Snow']); }
+  for (const k of ['hut', 'house']) if (!A[k + 'Lake']) { A[k + 'Lake'] = onStilts(A[k]); A[k + 'LakeSnow'] = onStilts(A[k + 'Snow']); }
   return A;
 }
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;

@@ -41,9 +41,10 @@ const C = {
   furrow: rgb('#5f4630'), tilled: rgb('#8c6c47'), crop1: rgb('#8fbf52'), crop2: rgb('#c2c957'), crop3: rgb('#e6c453'), stubble: rgb('#cdb06c'),
   ash: rgb('#3a3432'), ash2: rgb('#5a5350'), ember: rgb('#c9552c'), floodA: rgb('#6aa3b0'), floodB: rgb('#7bb2bb'),
   path1: rgb('#b49a6c'), path2: rgb('#a3875a'), pathEdge: rgb('#9a9a55'),
+  kerb: rgb('#7d776c'), mortar: rgb('#6f6a60'), cob1: rgb('#b3aea2'), cob2: rgb('#a09b90'), cob3: rgb('#c2bdb1'), grav1: rgb('#bdb39a'), grav2: rgb('#a89e86'), grav3: rgb('#cfc6ae'),
   cl1: rgb('#8a6444'), cl2: rgb('#765338'), cl3: rgb('#5f412c'), cl4: rgb('#4a3222'), clEdge: rgb('#3a2619'), clGrass: rgb('#5f8a3c')
 };
-const BN = N * 8, mkB = () => new Float32Array(BN * BN), bG = mkB(), bS = mkB(), bM = mkB(), bWt = mkB(), bF = mkB(), bT = mkB(), bFe = mkB(), bTr = mkB(), bSc = mkB();
+const BN = N * 8, mkB = () => new Float32Array(BN * BN), bG = mkB(), bS = mkB(), bM = mkB(), bWt = mkB(), bF = mkB(), bT = mkB(), bFe = mkB(), bTr = mkB(), bSc = mkB(), bRd = mkB(), roadF = new Float32Array(N * N);
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
 function blurRect(src, dst, bx0, by0, bx1, by1) {
@@ -93,6 +94,15 @@ function colorAt(pxx, py) {
     if (campOn) { const dc = Math.hypot(fx - camp.x, fy - camp.y) / campR(); if (dc < 0.75) worn = Math.max(worn, 1.05 - dc * 0.7 + jn * 0.25); }
     if (worn > 0.62) col = n2 > 205 ? C.path2 : C.path1; else if (worn > 0.48 && n2 > 120) col = C.pathEdge;
   }
+  // made streets: a beaten track while it is a hamlet, gravel when it is a village, stone setts when it is a town
+  const rd = bRd[b] + jn * 0.1;
+  if (rd > 0.4) {
+    const lv = T0.level;
+    if (rd < 0.48) col = lv >= 2 ? C.kerb : C.pathEdge;
+    else if (lv >= 3) { const v6 = fy * 5 + fx * 5, u6 = fx * 5 - fy * 5, row = Math.floor(v6), uu = u6 + (row & 1) * 0.5, pick = (hash(Math.floor(uu), row) * 3) | 0; col = (uu - Math.floor(uu) < 0.16 || v6 - row < 0.2) ? C.mortar : pick === 0 ? C.cob1 : pick === 1 ? C.cob2 : C.cob3; }
+    else if (lv >= 2) col = n2 > 200 ? C.grav2 : n2 > 90 ? C.grav1 : C.grav3;
+    else col = n2 > 205 ? C.path2 : C.path1;
+  }
   const sc = bSc[b] * 1.3 + jn * 0.35; if (sc > 0.45 && n2 < clamp(sc, 0, 1) * 255) col = n > 242 && sc > 1 ? C.ember : n > 120 ? C.ash : C.ash2;
   const s = bS[b];
   if (s > 0.012) { if (s * 4.5 + jn * 0.5 > 0.42) col = n2 > 240 ? C.snow3 : n2 > 190 ? C.snow2 : C.snow; else if (n2 > 220) col = C.frost; }
@@ -101,7 +111,7 @@ function colorAt(pxx, py) {
 }
 // a full repaint runs a strip at a time into the shared pixels, then crossfades over the old picture
 let paint = null, groundWanted = true;
-function startPaint() { blur(W.grass, bG); blur(W.snow, bS); blur(W.soil, bM); blur(W.flood, bF); blur(W.tree, bT); blur(trail, bTr); blur(scar, bSc); for (let i = 0; i < N * N; i++) cellT[i] = W.tempAt(i); groundState(); paint = { row: 0 }; groundWanted = false; }
+function startPaint() { for (let i = 0; i < N * N; i++) roadF[i] = T0.road[i]; blur(roadF, bRd); blur(W.grass, bG); blur(W.snow, bS); blur(W.soil, bM); blur(W.flood, bF); blur(W.tree, bT); blur(trail, bTr); blur(scar, bSc); for (let i = 0; i < N * N; i++) cellT[i] = W.tempAt(i); groundState(); paint = { row: 0 }; groundWanted = false; }
 function paintSome(rows) {
   const end = Math.min(WH, paint.row + rows);
   for (let py = paint.row; py < end; py++) for (let pxx = 0; pxx < WW; pxx++) px32[py * WW + pxx] = colorAt(pxx, py);
@@ -155,6 +165,7 @@ function wantProps() {
   for (const h of S.homes.values()) { const snowy = W.snow[h.y * N + h.x] > 0.08; want.set('h' + h.id, { kind: h.kind, home: h, x: h.x + 0.5, y: h.y + 0.5, base: h.kind + snowy, img: h.kind === 'den' ? (snowy ? A.denSnow : A.den) : (snowy ? A.burrowSnow : A.burrow), dy: h.kind === 'den' ? 10 : 6 }); }
   const piles = campOn ? Math.min(6, Math.ceil(T0.store / 7)) : 0; for (let k = 0; k < piles; k++) want.set('k' + k, { kind: 'basket', x: store.x + (k % 3) * 0.22 - 0.2, y: store.y + ((k / 3) | 0) * 0.25, base: 'k', img: A.basket, dy: 6 });
   const logs = campOn ? Math.min(6, Math.ceil(T0.wood / 2)) : 0; for (let k = 0; k < logs; k++) want.set('w' + k, { kind: 'logs', x: store.x - 0.3 + (k % 3) * 0.14, y: store.y + 0.45 + ((k / 3) | 0) * 0.12, base: 'w', img: A.item.log, dy: 2 });
+  if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) want.set('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
   if (campOn && T0.skills.fire) want.set('ring', { kind: 'ring', x: fire.x, y: fire.y, base: 'ring', img: A.ring, dy: 4 });
   return want;
 }
@@ -366,6 +377,10 @@ function planAnimal(r) {
     case 'hide': case 'den': case 'home': {
       const h = homeAt(a.home) || end; P.go(h.x, h.y, act.k === 'hide' ? V.run : V.walk, act.k === 'hide' ? 'run' : hop);
       if (a.hidden) { P.wait(0.03, 'enter'); P.done('hidden'); } else P.done('idle'); return;
+    }
+    case 'cart': {                                                    // the tame beast draws the cart out to the work and back with the load
+      const tx = act.j % N, ty = (act.j / N) | 0, st = standBy(tx, ty, r);
+      P.go(st.x, st.y, V.walk * 1.4, 'walk', { cart: 1 }); P.wait(0.18, 'idle', { cart: 1 }); P.go(store.x - 0.7, store.y + 0.8, V.walk * 1.2, 'walk', { cart: 1 }); P.done('idle', { cart: 1 }); return;
     }
     case 'watch': P.go(end.x, end.y, V.walk, hop); P.done('look', { at: 0 }); return;   // head up while the herd eats
     case 'stalk': P.wait(R(0.02, 0.1), 'look', { at: act.id }); P.go(end.x, end.y, V.walk * 0.45, 'creep', { at: act.id }); P.done('look', { at: act.id }); return;
@@ -642,6 +657,7 @@ function frame(t) {
     // the newborn and the newly arrived ease into view
     let al = r.alpha; if (r.newborn) { const k2 = clamp((now - r.born) / 1400, 0, 1); if (k2 >= 1) r.newborn = 0; extra.grow = 0.45 + 0.55 * ease(k2); }
     if (extra.alpha !== undefined) al = Math.min(al, extra.alpha);
+    if (s && s.cart && A.cart) extra.cart = face;
     const d = put(im, wx, wy - lift, Object.assign(extra, { y: wy, shadow: { x: wx, y: wy, w: sp.w, lifted: lift > 4 }, alpha: al < 1 ? al : undefined, sq, bub: now - r.bubT < 4200 && now >= r.bubT ? r.bub : '', bx: wx, dead: pose === 'dead' }));
     if (babies.has(id)) { const b = L.baby ? L.baby[babies.get(id).a.id % L.baby.length] : null; if (b) d.baby = { img: b, x: wx + (face === 'r' ? -9 : 9) - b.width / 2, y: wy - im.height * 0.55 - lift - (pose === 'sit' ? -6 : 0) }; }
     if (dd.people && moving && dts > 0) { const ci = (y | 0) * N + (x | 0); if (ci >= 0 && ci < N * N) trail[ci] = Math.min(1.2, trail[ci] + dts * 0.012); }
@@ -667,6 +683,7 @@ function frame(t) {
       else cx.drawImage(d.img, d.x, d.top);
       cx.globalAlpha = 1;
     }
+    if (d.cart) { const ci = d.cart === 'r' ? A.cart : A.cartL; cx.drawImage(ci, d.cart === 'r' ? d.x - ci.width + 6 : d.x + w - 6, d.top + h - ci.height + 2); }
     if (d.item) { const it = A.item[d.item]; if (it) cx.drawImage(it, Math.round(d.x + w / 2 - it.width / 2), d.top - it.height + 3); }
     if (d.baby) cx.drawImage(d.baby.img, Math.round(d.baby.x), Math.round(d.baby.y));
     if (d.rod) drawRod(d);

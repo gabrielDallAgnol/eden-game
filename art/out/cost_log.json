@@ -452,5 +452,85 @@
    "rd_child_sit_raw.png"
   ],
   "time": 1795359765
+ },
+ {
+  "test": "V",
+  "name": "rd_tent",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "one small primitive tent made of tan animal hides stretched over wooden poles, open entrance flap, a few wooden pegs, single isolated game asset, nothing else, no ground, no trees, no people, on a plain white background",
+  "files": [
+   "rd_tent_raw.png"
+  ],
+  "time": 1795361495
+ },
+ {
+  "test": "V",
+  "name": "rd_hut",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   96,
+   96
+  ],
+  "n": 1,
+  "prompt": "one small simple round-cornered hut with rough timber walls and a thick straw thatched roof, plain wooden door, no chimney, single isolated game asset, nothing else, no ground, no trees, no people, on a plain white background",
+  "files": [
+   "rd_hut_raw.png"
+  ],
+  "time": 1795361572
+ },
+ {
+  "test": "V",
+  "name": "rd_lakehouse",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   112,
+   128
+  ],
+  "n": 1,
+  "prompt": "one small timber cottage with a teal shingle gable roof standing raised on tall wooden stilts posts, wooden deck platform with railing and a short ladder, stone chimney, single isolated game asset, nothing else, no ground, no trees, no people, on a plain white background",
+  "files": [
+   "rd_lakehouse_raw.png"
+  ],
+  "time": 1795361622
+ },
+ {
+  "test": "V",
+  "name": "rd_well",
+  "cost": 0.18,
+  "style": "rd_pro__isometric",
+  "size": [
+   48,
+   48
+  ],
+  "n": 1,
+  "prompt": "one small round stone water well with two wooden posts, a little wooden roof, a rope and a wooden bucket, single isolated game asset, nothing else, no ground, no trees, no people, on a plain white background",
+  "files": [
+   "rd_well_raw.png"
+  ],
+  "time": 1795361768
+ },
+ {
+  "test": "V",
+  "name": "rd_cart",
+  "cost": 0.18,
+  "style": "rd_pro__default",
+  "size": [
+   64,
+   48
+  ],
+  "n": 1,
+  "prompt": "one empty wooden two-wheeled farm cart with long shafts pointing right, exact side view, big spoked wooden wheel, plank sides, single isolated game asset, nothing else, no ground, no trees, no people, on a plain white background",
+  "files": [
+   "rd_cart_raw.png"
+  ],
+  "time": 1795361834
  }
 ]

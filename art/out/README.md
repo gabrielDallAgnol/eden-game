@@ -61,3 +61,7 @@ Edge pixels that are already dark are recoloured to the single outline colour; w
 ## Later: people for the game
 
 Man, woman and child were generated after the first test, drawn in key colours (red top, blue legs, brown hair, tan skin) so the game can recolour them per person: 3 base sprites ($0.54) and a walk, arms-up and sitting sheet for each ($1.92). Spend on people: $2.46. Running total: $6.58 of the $8.00 hard cap.
+
+## Later: the village
+
+Tent, hut, lake house on stilts, well and cart: 5 stills, $0.90. Running total: $7.48 of the $8.00 hard cap.

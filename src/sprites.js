@@ -121,6 +121,15 @@ S.apply = function (A, h) {
   const cottage = sized(one('cottage'), SCALE.cottage);
   A.house = cottage;
   A.houseSnow = recolour(cottage, (r, g, b, x, y) => b > r + 8 && g > r && !dark(r, g, b) ? (y % 4 === 3 ? [205, 218, 234] : hash(x >> 1, y) < 0.85 ? [246, 249, 252] : [227, 235, 245]) : null);
+
+  // ---------------------------------------------------------------- the rest of the village, where a drawing exists
+  // snow lies on whatever faces the sky: the top few pixels of every column
+  const snowOn = src => recolour(src, (r, g, b, x, y, al) => { if (dark(r, g, b)) return null; let open = false; for (let k = 1; k <= 4; k++) if (!al(x, y - k)) { open = true; break; } return open && y < src.height * 0.7 ? (hash(x >> 1, y) < 0.85 ? [246, 249, 252] : [221, 230, 241]) : null; });
+  if (S.meta.tent) { A.tent = one('tent'); A.tentSnow = snowOn(A.tent); }
+  if (S.meta.hut) { A.hut = one('hut'); A.hutSnow = snowOn(A.hut); A.hutLake = A.hutLakeSnow = null; }
+  if (S.meta.well) { A.well = one('well'); A.wellSnow = snowOn(A.well); }
+  if (S.meta.lakehouse) { A.houseLake = one('lakehouse'); A.houseLakeSnow = snowOn(A.houseLake); }
+  if (S.meta.cart) { A.cart = sized(one('cart'), 0.66); A.cartL = flip(A.cart); }
 };
 
 root.EdenSprites = S;
