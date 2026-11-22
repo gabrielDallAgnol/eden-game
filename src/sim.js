@@ -255,7 +255,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
-    stat: { fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
+    stat: { lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
     levers: { hold: {},
       banned: {} } };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
@@ -1087,6 +1087,8 @@ function create(seed, opt) {
   function choosePlot(kind, who) {
     const T = S.tribe, well = kind === 'well', P = folk(), craft = who ? (who.job || craftOf(who)) : '';
     const kinHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && kin(b, who))) : [];
+    /* ground a household may take: common ground, or what is already its own or its kin's */
+    const mayUse = new Set(kinHomes.map(q => q.id)); if (who && who.house) mayUse.add(who.house); { const pt = who && S.byId.get(who.partner); if (pt && pt.house) mayUse.add(pt.house); }
     const homes = T.sites.filter(q => q.kind !== 'well'), r = Math.min(5, 1 + Math.ceil(Math.sqrt(T.sites.length + 1) * 0.6));
     let bestI = -1, bs = -1e9;
     for (let m = -r; m < r; m++) for (let k = -r; k < r; k++) {
@@ -1096,11 +1098,12 @@ function create(seed, opt) {
       const dc = mass[i] === mass[I(T.x, T.y)] ? Math.hypot(x - T.x, y - T.y) : wayDist(T.x, T.y, x, y, true).d; if (!isFinite(dc)) continue;
       if (T.sites.some(q => q.x === x && q.y === y)) continue;                                                // one roof to a lot, for now
       if (T.wall && T.wall.cells.includes(i)) continue;
-      let wet = 0, timber = 0, crops = 0, way = 0;
-      for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) { const j = I(x + nx, y + ny); if (water[j]) wet++; timber += tree[j]; crops += field[j]; }
+      let wet = 0, timber = 0, crops = 0, way = 0, theirs = false;
+      for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) { const j = I(x + nx, y + ny); if (water[j]) wet++; timber += tree[j]; crops += field[j]; if (owner[j] && !mayUse.has(owner[j])) theirs = true; }
+      if (theirs) { S.stat.lotsRefused++; continue; }                                                                                    /* someone else's field or lot: not theirs to build on */
       if (wet > 2) continue;                                                                                  // not enough dry ground to stand a roof on
       for (const [ax, ay] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) way = Math.max(way, tread[I(clamp(x + ax, 0, N - 1), clamp(y + ay, 0, N - 1))]);
-      let sc = rnd() * 0.3 - timber * 0.25 - rock[i] * 2 - Math.max(0, soil[i] - 0.9) * 3 - crops * 0.4 - wet * 0.5;
+      let sc = rnd() * 0.3 - timber * 0.25 - rock[i] * 2 - Math.max(0, soil[i] - 0.9) * 3 - wet * 0.5;
       if (well) { let d = 0; for (const q of homes) d += Math.hypot(q.x - x, q.y - y); sc -= homes.length ? d / homes.length : dc; }   // where it is least far for everyone
       else {
         sc -= dc * 0.55; sc += Math.min(1.5, way) * 1.2;                                                      // near the fire and the others, on a way already walked
@@ -1132,7 +1135,7 @@ function create(seed, opt) {
     for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) {
       const j = I(s.x + nx, s.y + ny);
       if (water[j]) continue;
-      field[j] = 0;
+      field[j] = 0; owner[j] = well ? 0 : s.id;   /* the lot is the household's; a well stands on common ground */
       if (tree[j] > 0.05) {
         T.wood += tree[j] * 3;
         tree[j] = nx || ny ? Math.min(tree[j], 0.05) : 0;
@@ -1743,7 +1746,7 @@ function create(seed, opt) {
     Object.assign(S, o.S); S.din = heardNow;
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
-      if (!S.stat) S.stat = {}; for (const k of ['fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
+      if (!S.stat) S.stat = {}; for (const k of ['lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }
     S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }
     folkList = null;

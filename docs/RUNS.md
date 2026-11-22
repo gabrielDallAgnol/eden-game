@@ -185,3 +185,21 @@ About the same as B2 (year 100 mean 54.8 against 48.8; seeds shift because the r
 | mean |  | 10.3 | 31.8 | 48.3 | 59.6 | 13.9 | 47.2 | 0.3 | 13.4 |  | 6.2 | 9 | 6.2 | 19.9 | 19.8 | 0.9 | 2.9 | 1.4 | 1547 |
 
 Year 100 mean 48.3 against 54.8 at B3 in this table; over 4 seeds x 5 lands the year-100 means are 52.6 against 50.9 at B3, and over 6 seeds x 5 lands 52.8 against 53.3. What changed: dry ground is split into masses by water; distance to the other bank goes by a ford (3 + 3 tiles per tile of water waded) and only while the river is below 1.4 (about two thirds of the time in valley #1); a lot or field across water is as far as the way round, and fields are never sown across water. Fish are caught only from the bank, and fish now swim between water tiles (without that, shore-only fishing cut year-100 population to 31). Each wading trip is remembered at its ford and felt as the want 'cross'; once that want is felt enough (and huts are known) the idea 'bridge' comes, and a bridge is laid where the wading was worst that year: 2.9 bridges per 100-year run on average, the first by year 10 to 36 in valley seeds 1 to 8. Dwellings on another bank than the fire: 1.4 per run. Camp choice now also weighs room to range on foot (the size of the bank), and newcomers to an emptied valley choose their spot afresh: without this, valley #1 and plains #1 emptied 7 and 6 times on a small bank cut off by high water. The view walks people over fords only in low water and over bridges, and draws bridges (code-drawn logs, no generated art). Tests: 278 passed, 0 failed (new: fields on their household's bank; ford, high-water and bridge distances), 4 warnings, 4 skipped. Scenarios: 21 passed, 1 warning (deforest #2 hearths stay lit, 100% to 100%).
+
+## B4: lots have owners
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 20 | 52 | 68 | 77 | 18 | 46 | 0 | 13 | 1/43/0 | 5.8 | 5.4 | 7.8 | 20.6 | 41 | 0.9 | 51469 | 5 | 2 | 2518 |
+| valley | 2 | 16 | 20 | 83 | 83 | 21 | 32 | 0 | 14 | 6/9/0 | 6.5 | 4.3 | 6.9 | 14 | 14 | 1 | 32031 | 5 | 0 | 1914 |
+| plains | 1 | 7 | 30 | 45 | 46 | 10 | 36 | 1 | 13 | 0/17/0 | 5.4 | 14.2 | 10.3 | 22.7 | 7 | 0.9 | 65 | 2 | 3 | 1895 |
+| plains | 2 | 5 | 25 | 31 | 48 | 12 | 52 | 1 | 14 | 0/30/0 | 5.8 | 27.8 | 6.7 | 28.9 | 6 | 1.1 | 69 | 4 | 2 | 1466 |
+| forest | 1 | 6 | 29 | 90 | 93 | 21 | 26 | 0 | 13 | 1/1/0 | 7 | 0 | 6.3 | 9.5 | 14 | 0.7 | 54530 | 5 | 2 | 1434 |
+| forest | 2 | 17 | 52 | 96 | 96 | 30 | 35 | 0 | 13 | 2/31/0 | 6.1 | 4 | 8.2 | 13.3 | 36 | 0.9 | 8605 | 5 | 3 | 1514 |
+| lakeland | 1 | 8 | 36 | 47 | 62 | 6 | 44 | 1 | 13 | 0/29/0 | 5.9 | 0 | 2.8 | 19.8 | 34 | 0.4 | 7819 | 3 | 0 | 1402 |
+| lakeland | 2 | 13 | 42 | 64 | 96 | 10 | 81 | 0 | 14 | 4/66/2 | 6.3 | 0 | 5.1 | 19.3 | 17 | 1 | 5045 | 4 | 7 | 1918 |
+| highland | 1 | 5 | 30 | 14 | 42 | 11 | 69 | 0 | 13 | 1/17/0 | 6.5 | 12.9 | 4 | 21.9 | 7 | 1 | 63 | 3 | 2 | 972 |
+| highland | 2 | 9 | 14 | 16 | 22 | 9 | 44 | 0 | 13 | 4/7/0 | 6.6 | 20.4 | 3.5 | 17.3 | 8 | 1.2 | 21 | 2 | 0 | 713 |
+| mean |  | 10.6 | 33 | 55.4 | 66.5 | 14.8 | 46.5 | 0.3 | 13.3 |  | 6.2 | 8.9 | 6.2 | 18.7 | 18.4 | 0.9 | 15971.7 | 3.8 | 2.1 | 1574.6 |
+
+Year 100 mean 55.4 against 48.3 at the water step (seed-to-seed spread; same random stream). A new lot's 3x3 tiles belong to its household (a well's stay common); a household may build only where every lot tile is common, its own, its partner's or its kin's, and fields are never sown on another's lot. The old crops x 0.4 penalty in choosePlot is gone: ownership does that job. 'lots refused' counts lot evaluations passed over because another household held the ground (choosePlot looks at every lot each time it is asked, so this is a count of looks, not of decisions: about 16,000 per run). Tests: 288 passed, 0 failed (new: every lot tile belongs to its own household and is not sown by another), 4 warnings, 4 skipped. Scenarios: 21 passed, 1 warning.

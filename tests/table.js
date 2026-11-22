@@ -27,6 +27,8 @@ var COLS = [
   ['hungry by full', function (W, r) { return r.contrast || 0; }],
   ['starved out/avg', function (W) { var s = W.S.stat; return s && s.starveN ? s.starveD / Math.max(0.01, s.starveRef) : ''; }],
   /* water: bridges standing at year 100, and dwellings on another bank than the fire */
+  /* B4: lots passed over because another household held the ground */
+  ['lots refused', function (W) { return W.S.stat.lotsRefused || 0; }],
   ['bridges', function (W) { return Object.keys(W.S.tribe.bridged || {}).length; }],
   ['homes across water', function (W) { if (!W.mass) return ''; var T = W.S.tribe, m = W.mass[T.y * W.N + T.x]; return T.sites.filter(function (q) { return q.kind !== 'well' && W.mass[q.y * W.N + q.x] !== m; }).length; }]
 ];

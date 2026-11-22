@@ -77,6 +77,7 @@ function WorldRun(land, seed, years) {
   add('dry', 'no living creature stands on a water tile');
   add('dryAlways', 'no living creature is on a water tile after any tick');
   add('problems', 'the sim reports no defects in S.problems');
+  add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
   add('fieldBank', 'every field lies on the same bank as the household that sows it');
   add('agentNums', 'each creature\'s energy and age are finite, age is not negative');
   add('ids', 'no two living creatures share an id');
@@ -253,6 +254,12 @@ WorldRun.prototype.yearly = function () {
     var by = {}; sites.forEach(function (q) { by[q.id] = q; }); var bad = 0, ex = '';
     for (var i = 0; i < N * N; i++) if (W.field[i] && W.owner[i] && by[W.owner[i]]) { var h = by[W.owner[i]]; if (W.mass[i] !== W.mass[h.y * N + h.x]) { bad++; if (!ex) ex = 'field ' + (i % N) + ',' + ((i / N) | 0) + ' of the house at ' + h.x + ',' + h.y; } }
     if (bad) c.fail(at + bad + ' fields across water, e.g. ' + ex); else c.ok();
+  });
+  this.guard('lotOwner', function (c) {
+    if (!W.owner || !sites) return c.skip('W.owner is missing');
+    var bad = 0, ex = '';
+    sites.forEach(function (q) { if (q.kind === 'well') return; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var j = (q.y + dy) * N + q.x + dx; if (W.water[j]) continue; if (W.owner[j] !== q.id || W.field[j]) { bad++; if (!ex) ex = 'tile ' + (q.x + dx) + ',' + (q.y + dy) + ' of the ' + q.kind + ' at ' + q.x + ',' + q.y + ' is owned by ' + W.owner[j] + (W.field[j] ? ' and sown' : ''); } } });
+    if (bad) c.fail(at + bad + ' lot tiles not the household\'s own, e.g. ' + ex); else c.ok();
   });
   this.guard('problems', function (c) {
     if (!isArr(S.problems)) return c.skip('S.problems is missing');
