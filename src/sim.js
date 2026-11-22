@@ -120,11 +120,22 @@ function create(seed, opt) {
     const T = S.tribe, vx = snapWay(x0, T.x), hy = snapWay(y1, T.y);
     stamp(x0, y0, vx, y0, w * 0.4); stamp(vx, y0, vx, hy, w); stamp(vx, hy, x1, hy, w); stamp(x1, hy, x1, y1, w * 0.4);
   }
-  const S = { t: opt.startT || 0, agents: [], pop: {}, tribe: { x: 0, y: 0, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0, need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0 }, plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 }, rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0 }, log: [], deaths: {}, nextId: 1,
+  // A settlement as it is when the first people arrive. The one place a settlement's fields are named, so a field added
+  // here is reset wherever a settlement starts over.
+  function newSettlement(x, y) {
+    const T = { x, y, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
+      need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0 },
+      plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
+      rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
+      well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, gaveTold: false,
+      sown: false, resting: false, cropWarm: 0, lastCampT: undefined, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: undefined, waterDist: undefined };
+    for (const k in SKILLS) T.skills[k] = SKILLS[k].known;
+    for (const k in TECHS) T.skills[k] = false;
+    return T;
+  }
+  const S = { t: opt.startT || 0, agents: [], pop: {}, tribe: newSettlement(0, 0), log: [], deaths: {}, nextId: 1,
     rainY: 1, warmOff: LAND.warm, river: 1, air: 0, precip: 0, sky: 'clear', fx: [], emptyT: 0, homes: new Map(), tickNo: 0, night: false, dayK: 1, byId: new Map(), problems: [] };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
-  for (const k in SKILLS) S.tribe.skills[k] = SKILLS[k].known;
-  for (const k in TECHS) S.tribe.skills[k] = false;
 
   // ---------------------------------------------------------------- physics
   // The only thing given from outside: the height of the sun through the year.
@@ -882,6 +893,14 @@ function create(seed, opt) {
     T.lastCampT = ct;
   }
 
+  // Starting over in the same place: the settlement object is kept (the view holds it) but every field is a fresh one's,
+  // and what the old place left on the ground (ways, fields, who owned them) is gone.
+  function resettle(T) {
+    const fresh = newSettlement(T.x, T.y);
+    for (const k of Object.keys(T)) delete T[k];
+    Object.assign(T, fresh);
+    tread.fill(0); owner.fill(0); field.fill(0);
+  }
   // ---------------------------------------------------------------- one step of time
   function tick() {
     heardNow = din; din = []; S.din = heardNow;
@@ -936,7 +955,7 @@ function create(seed, opt) {
     for (const b of born) { const c = add(b[0], b[1], b[2], 0, 0.55); c.mom = b[4]; { const mm = S.byId.get(b[4]); if (mm && mm.tame) c.tame = true; } if (c.d.people) { const m = S.byId.get(b[4]), f = m && S.byId.get(m.partner); c.dad = f ? f.id : 0; if (m) { c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin; c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair; } for (const k of CRAFTS) c.skill[k] = clamp(((m ? m.skill[k] : 1) + (f ? f.skill[k] : 1)) / 2 * 0.3 + R(0.6, 0.8), 0.6, 1.2); if (m) tell(m.name + (f ? ' and ' + f.name : '') + ' have a ' + (c.fem ? 'daughter' : 'son') + ', ' + c.name + '.'); } if (b[3] && S.homes.has(b[3])) c.home = b[3]; S.fx.push({ kind: 'birth', sp: b[0], x: c.x, y: c.y, id: c.id, mom: b[4] }); if (SP[b[0]].people) T.born++; }
     if (S.fx.length > 200) S.fx.splice(0, S.fx.length - 200);
     // an empty valley does not stay empty of people for ever: after a few years, strangers find it
-    if (opt.resettle) { if (S.popPeople) S.emptyT = 0; else { S.emptyT += dt; if (S.emptyT > 3) { S.emptyT = 0; T.store = 5; T.huts = 0; T.wood = 0; T.stone = 0; T.sites = []; T.well = false; T.roofT = 0; T.level = 0; T.carts = 0; T.threat = 0; for (const k in T.need) T.need[k] = 0; T.plenty = 1; T.pave = 1; T.stoneWork = 0; T.floodSeen = false; T.rate = {}; T.gaveTold = false; tread.fill(0); owner.fill(0); field.fill(0); T.wall = null; T.fence = null; T.streets = null; T.road = new Uint8Array(N * N); for (const k in SKILLS) T.skills[k] = SKILLS[k].known; for (const k in TECHS) T.skills[k] = false; T.sown = false; T.resting = false; for (const sp in SP) if (SP[sp].people) for (let k = 0; k < 2; k++) { const c = add(sp, T.x, T.y, 18 + k * 2, 1); S.fx.push({ kind: 'arrive', id: c.id, x: c.x, y: c.y }); } S.fx.push({ kind: 'settlers', x: T.x, y: T.y }); S.log.push({ t: S.t, text: 'Two strangers have come over the hills.' }); } } }
+    if (opt.resettle) { if (S.popPeople) S.emptyT = 0; else { S.emptyT += dt; if (S.emptyT > 3) { S.emptyT = 0; resettle(T); for (const sp in SP) if (SP[sp].people) for (let k = 0; k < 2; k++) { const c = add(sp, T.x, T.y, 18 + k * 2, 1); S.fx.push({ kind: 'arrive', id: c.id, x: c.x, y: c.y }); } S.fx.push({ kind: 'settlers', x: T.x, y: T.y }); S.log.push({ t: S.t, text: 'Two strangers have come over the hills.' }); } } }
     if (S.agents.length > 400 && Math.floor(S.t * TPY) % 12 === 0) { S.agents = S.agents.filter(a => a.alive); S.byId.clear(); for (const a of S.agents) S.byId.set(a.id, a); }
     // the valley is not the whole world: now and then animals wander in over the hills.
     // Plant eaters come when their kind is nearly gone; hunters come when there is plenty to hunt.
@@ -974,7 +993,7 @@ function create(seed, opt) {
   };
   const stats = () => { let g = 0, t = 0, n = 0, sn = 0, so = 0, fl = 0; for (let i = 0; i < N * N; i++) if (!water[i]) { g += grass[i]; t += tree[i]; sn += snow[i]; so += soil[i]; fl += flood[i]; n++; } return { grass: g / n, tree: t / n, snow: sn / n, soil: so / n, flood: fl / n, store: S.tribe.store, huts: S.tribe.huts, air: S.air, river: S.river }; };
   tick();
-  return { S, N, TPY, tick, G, stats, tread, PITCH, onWay, hear, owner, allFood, TECHS, IDEAS, ideas: () => Object.keys(IDEAS).map(k => ({ k, need: IDEAS[k].need, at: IDEAS[k].at, known: !!S.tribe.skills[k], can: !S.tribe.skills[k] && !!IDEAS[k].can(S.tribe) })), describe, craftOf, households, rock, land: landKind, LANDS, DWELL, SPECIES: SP, SKILLS, tempAt, sunHeight, daysLengthen, warmSum, fert, cells, moveTo(a, x, y) { const p = free(x, y); a.x = p[0]; a.y = p[1]; }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
+  return { S, N, TPY, tick, G, newSettlement, stats, tread, PITCH, onWay, hear, owner, allFood, TECHS, IDEAS, ideas: () => Object.keys(IDEAS).map(k => ({ k, need: IDEAS[k].need, at: IDEAS[k].at, known: !!S.tribe.skills[k], can: !S.tribe.skills[k] && !!IDEAS[k].can(S.tribe) })), describe, craftOf, households, rock, land: landKind, LANDS, DWELL, SPECIES: SP, SKILLS, tempAt, sunHeight, daysLengthen, warmSum, fert, cells, moveTo(a, x, y) { const p = free(x, y); a.x = p[0]; a.y = p[1]; }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
 }
 root.Eden = { create, SPECIES, SKILLS, TECHS, JOBS };
 })(typeof window !== 'undefined' ? window : globalThis);

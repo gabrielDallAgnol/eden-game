@@ -400,6 +400,19 @@ UNITS.push(['moveTo into the middle of a lake lands on dry ground', function () 
   for (var k = 0; k < 20; k++) { W.moveTo(a, wet % N, (wet / N) | 0); if (W.water[a.y * N + a.x] || a.x !== Math.round(a.x)) return 'placed at ' + a.x + ',' + a.y; }
   return '';
 }]);
+UNITS.push(['after a wipe-out and resettle, every settlement field equals a fresh one\'s', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' });
+  for (var i = 0; i < 24 * 15; i++) W.tick();                     /* let the first place grow some state worth forgetting */
+  W.G.cull('human', 1); var seen = W.S.log.length, k = 0, T = W.S.tribe;
+  for (; k < 24 * 8; k++) { W.tick(); var hit = false; for (var j = seen; j < W.S.log.length; j++) if (/^Two strangers have come/.test(W.S.log[j].text)) hit = true; seen = W.S.log.length; if (hit) break; }
+  if (k >= 24 * 8) return 'nobody came back within 8 years';
+  if (W.S.tribe !== T) return 'the settlement object was replaced (the view holds it)';
+  var fresh = W.newSettlement(T.x, T.y), diff = [];
+  var same = function (a, b) { if (ArrayBuffer.isView(a) && ArrayBuffer.isView(b)) { if (a.length !== b.length) return false; for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; } return JSON.stringify(a) === JSON.stringify(b); };
+  var keys = {}; Object.keys(T).forEach(function (x) { keys[x] = 1; }); Object.keys(fresh).forEach(function (x) { keys[x] = 1; });
+  for (var key in keys) if (!same(T[key], fresh[key])) diff.push(key + ': ' + show(T[key]).slice(0, 40) + ' vs fresh ' + show(fresh[key]).slice(0, 40));
+  return diff.length ? diff.slice(0, 5).join('; ') : '';
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }
