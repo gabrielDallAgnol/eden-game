@@ -467,6 +467,17 @@ function showWorld(run) {
 // ---------------------------------------------------------------- unit checks: short, targeted, run once before the worlds
 // Each is [name, fn]; fn returns '' when it holds, or a sentence saying what went wrong. Steps add their checks here.
 var UNITS = window.EdenUnits = window.EdenUnits || [];
+UNITS.push(['every BUILDINGS row is whole: stages with finite wood and stone, a roof, and a known idea (F1)', function () {
+  var W = Eden.create(1, { land: 'valley' }), B = W.BUILDINGS, bad = [], ideas = W.IDEAS ? Object.keys(W.IDEAS) : null;
+  if (!B) return 'W.BUILDINGS is missing';
+  Object.keys(B).forEach(function (k) { var K = B[k];
+    if (!Array.isArray(K.stages) || !K.stages.length) bad.push(k + ' has no stages');
+    else K.stages.forEach(function (st, i) { if (!(isFinite(st.wood) && st.wood >= 0 && isFinite(st.stone) && st.stone >= 0)) bad.push(k + ' stage ' + i + ' needs ' + JSON.stringify(st)); });
+    if (!(K.roof > 0 && K.roof <= 1)) bad.push(k + ' roof ' + K.roof);
+    if (K.needsIdea && ideas && ideas.indexOf(K.needsIdea) < 0) bad.push(k + ' needs an idea that is not in IDEAS: ' + K.needsIdea);
+    if (K.next && !B[K.next]) bad.push(k + ' is rebuilt into an unknown kind ' + K.next); });
+  return bad.slice(0, 4).join('; ');
+}]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
   for (var i = 0; i < 48; i++) W.tick();

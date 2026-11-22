@@ -1351,22 +1351,32 @@ function create(seed, opt) {
   // What people can raise depends on what they have learned: hides over poles first, then a hut of timber and thatch, then a
   // house of timber on a stone footing. Each goes up a stage at a time, and each stage waits for its timber and stone to be
   // carried to the plot. A dwelling already lived in is rebuilt in place, around the people in it, when something better is known.
-  const DWELL = {
-    tent:  { stages: 1, wood: 2, stone: 0, roof: 0.52 },            // wood and stone are per stage; roof is how much cold still gets in
-    hut:   { stages: 2, wood: 2, stone: 0, roof: 0.4 },
-    house: { stages: 3, wood: 2, stone: 1, roof: 0.3 },
-    well:  { stages: 2, wood: 1, stone: 2 }
+  /* F1. Every kind of thing people build, as data: its stages and what each needs carried to it, how much cold still gets in
+     (roof), whether people sleep in it (room), the idea it needs, what it is rebuilt into once that is known, and how many
+     lattice lots it takes. Behaviour reads these rows, not the kind's name. */
+  const BUILDINGS = {
+    tent:  { lots: 1, stages: [{ wood: 2, stone: 0 }], roof: 0.52, room: true, needsIdea: null, next: 'hut' },
+    hut:   { lots: 1, stages: [{ wood: 2, stone: 0 }, { wood: 2, stone: 0 }], roof: 0.4, room: true, needsIdea: 'hut', next: 'house' },
+    house: { lots: 1, stages: [{ wood: 2, stone: 1 }, { wood: 2, stone: 1 }, { wood: 2, stone: 1 }], roof: 0.3, room: true, needsIdea: 'house', next: null },
+    well:  { lots: 1, stages: [{ wood: 1, stone: 2 }, { wood: 1, stone: 2 }], roof: 0.7, room: false, needsIdea: 'well', next: null, work: 'water' },
+    fence: { lots: 0, stages: [{ wood: 1, stone: 0 }], roof: 0.7, room: false, needsIdea: 'palisade', next: null }   /* per stake, driven where the lattice's edge runs */
   };
+  /* what must lie on the plot before stage n (counted from 0) can be finished: everything up to and including it */
+  const stageNeed = (K, n, m) => { let t = 0; for (let k = 0; k <= Math.min(n, K.stages.length - 1); k++) t += K.stages[k][m] || 0; return t; };
+  /* the older, flatter view of the same rows (per-stage wood and stone, and the stage count), for the view and the tests */
+  const DWELL = {}; for (const k in BUILDINGS) if (k !== 'fence') { const K = BUILDINGS[k]; DWELL[k] = { stages: K.stages.length, wood: K.stages[0].wood, stone: K.stages[0].stone, roof: K.roof }; }
+  /* the kinds people sleep under, best first, and the best of them this people knows how to raise */
+  const ROOMS = Object.keys(BUILDINGS).filter(k => BUILDINGS[k].room).reverse();
   /* a site of a kind nobody knows how to build is a defect: it is reported once in S.problems and never counts as standing */
   const raised = q => {
-    const K = DWELL[q.kind];
-    if (K) return q.stage >= K.stages;
+    const K = BUILDINGS[q.kind];
+    if (K && K.stages.length && q.kind !== 'fence') return q.stage >= K.stages.length;
     if (!S.problems.includes('unknown site kind ' + q.kind)) S.problems.push('unknown site kind ' + q.kind);
     return false;
   };
-  const live = q => q.kind !== 'well' && (!!q.was || raised(q));     // someone can sleep in it
-  const best = () => S.tribe.skills.house ? 'house' : S.tribe.skills.hut ? 'hut' : 'tent';
-  const NEXT = { tent: 'hut', hut: 'house' };
+  const live = q => { const K = BUILDINGS[q.kind]; if (!K) return raised(q); return !!K.room && (!!q.was || raised(q)); };     // someone can sleep in it (an unknown kind is reported by raised())
+  const best = () => ROOMS.find(k => !BUILDINGS[k].needsIdea || S.tribe.skills[BUILDINGS[k].needsIdea]);
+  const NEXT = {}; for (const k in BUILDINGS) if (BUILDINGS[k].next) NEXT[k] = BUILDINGS[k].next;
   // The plot. Close to the middle of the camp but not in it (the fire and the stores keep that), with room between it and the
   // next roof, on dry open ground for choice. The bank, where the first flood comes, is left alone, except by those who live
   // off the water: a fisher's household builds right at the edge, on posts, and the flood passes under.
@@ -1435,7 +1445,7 @@ function create(seed, opt) {
     return s;
   }
   function plotFor() {
-    const T = S.tribe; let s = T.sites.find(q => DWELL[q.kind] && !raised(q)); if (s) return s;          // finish what is begun
+    const T = S.tribe; let s = T.sites.find(q => BUILDINGS[q.kind] && !raised(q)); if (s) return s;          // finish what is begun
     const homes = T.sites.filter(q => q.kind !== 'well');
     if (homes.length < households()) {                                                  // a household without a roof
       const who = folk().find(a => a.age >= WED && !a.house && (!a.partner || a.fem));
@@ -1503,7 +1513,7 @@ function create(seed, opt) {
       T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * got / 0.16;
       a.act = { k: 'chop', j, site: s.id }; sound(s.x + nx, s.y + ny, 3.5, 'work'); return true;
     }
-    const K = DWELL[s.kind], needW = (s.stage + 1) * K.wood + (s.lake ? 2 : 0), needS = (s.stage + 1) * K.stone;   // what must lie on the plot before the next stage; posts for a house over water
+    const K = BUILDINGS[s.kind], needW = stageNeed(K, s.stage, 'wood') + (s.lake ? 2 : 0), needS = stageNeed(K, s.stage, 'stone');   // what must lie on the plot before the next stage; posts for a house over water
     if (s.wood < needW) {
       if (T.wood >= 1) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; walk(T.x, T.y, s.x, s.y, 0.12); return true; }
       /* fell the nearest standing timber along the ways; saplings are left to grow. The further it stands, the less is
@@ -1531,7 +1541,7 @@ function create(seed, opt) {
     if (raised(s)) {
       const first = !T.sites.some(q => q !== s && q.kind === s.kind && raised(q)), rebuilt = s.was; s.was = '';
       /* quarry trips per stone dwelling: first raisings against raisings again after a flood */
-      if (DWELL[s.kind].stone) { if (s.flooded) { S.stat.reTrips += s.qtrips || 0; S.stat.reN++; } else if (!rebuilt) { S.stat.newTrips += s.qtrips || 0; S.stat.newN++; } }
+      if (stageNeed(BUILDINGS[s.kind], 0, 'stone')) { if (s.flooded) { S.stat.reTrips += s.qtrips || 0; S.stat.reN++; } else if (!rebuilt) { S.stat.newTrips += s.qtrips || 0; S.stat.newN++; } }
       s.flooded = false; s.qtrips = 0;
       if (s.kind === 'well') { T.well = true; tell('The people have dug a well. The fields need not wait for rain.'); }
       else if (first) tell({ tent: 'A tent of hides is up: the first roof in the valley.',
@@ -1830,7 +1840,7 @@ function create(seed, opt) {
     {
       const lv = T.sites.filter(live);
       T.huts = lv.length;
-      T.roof = lv.length ? lv.reduce((q, w) => q + ((DWELL[w.was || w.kind] || {}).roof || 0.7), 0) / lv.length - (T.skills.masonry ? 0.05 : 0) : 0.7;
+      T.roof = lv.length ? lv.reduce((q, w) => q + ((BUILDINGS[w.was || w.kind] || {}).roof || 0.7), 0) / lv.length - (T.skills.masonry ? 0.05 : 0) : 0.7;
       if (S.tickNo % TPY === 3) {
         reckonYear(); settlePits();
         townLife();
@@ -2142,6 +2152,7 @@ function create(seed, opt) {
     land: landKind,
     LANDS,
     DWELL,
+    BUILDINGS,
     SPECIES: SP,
     SKILLS,
     tempAt,

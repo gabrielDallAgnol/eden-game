@@ -583,3 +583,7 @@ Size 96, seeds 1 and 2:
 | mean |  | 17.3 | 76.6 | 142.8 | 159.4 | 53.1 | 147.9 | 0.3 | 12.9 |  | 2.6 | 5.9 | 16.7 | 5.2 | 102.9 | 1.1 | 1244.9 | 76.6 | 27.4 | 4.5 |  |  | 45.8 | 5.4 | 18.5 | 0.3 | 0 | 15245.2 |
 
 Year 100 mean 142.8 (152.2 before), year 25 17.3 (23.6), dwellings 53.1 (58.1), hunger deaths 147.9 (186.9), 3 resettles (plains 1, forest 1, highland 2) against 1. Wolves are alive at year 100 in all 10 worlds (before: none left in 1 of 10); people no longer kill them from across the camp.
+
+## F1: a BUILDINGS registry
+
+Tent, hut, house, well and fence are rows of `BUILDINGS` (stages with the wood and stone each needs, roof, whether people sleep in it, the idea it needs, what it is rebuilt into, lots). `raised()`, `live()`, the choice of what to raise, what is carried to a plot before each stage and the settlement's roof read the rows; `DWELL` is now derived from them for the view and the tests. New unit check: every row has stages with finite costs, a roof, an idea that exists and a known rebuild. Determinism: the 100-year table is identical to the E3 entry in every column but run time (year 100 mean 142.8), and four 40-year worlds at sizes 40 and 96 end with the same people, creatures, log and sites. Tests 429 passed, 0 failed.
