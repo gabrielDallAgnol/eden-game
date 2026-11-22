@@ -100,6 +100,7 @@ function WorldRun(land, seed, years) {
   add('softNeverGone', 'people never died out (no resettling was needed)', 'soft');
   add('softAnimals', 'at least one kind of animal is alive at the end', 'soft');
   add('softGrowth', 'agents array and log stay a sane size', 'soft');
+  add('softRubble', 'raising a house again after a flood takes fewer quarry trips than the first time (B6)', 'soft');
   add('softTrip', 'food trips from the door average under 8 tiles along the ways (B1)', 'soft');
   this.guard = function (key, fn) { try { fn(C[key]); } catch (e) { C[key].fail('the check itself threw at year ' + self.year + ': ' + (e && e.message || e)); } };
 }
@@ -374,6 +375,12 @@ WorldRun.prototype.finish = function () {
       if (!st.forageN) return c.skip('no food trips');
       var m = st.forageD / st.forageN; c.note = 'mean ' + show(m) + ' over ' + st.forageN + ' trips';
       if (m < 8) c.ok(); else c.fail(c.note);
+    });
+    this.guard('softRubble', function (c) {
+      var st = W.S.stat; if (!st || st.reN === undefined) return c.skip('S.stat has no rebuild counts');
+      if (!st.reN || !st.newN) return c.skip('no stone dwelling was raised again after a flood');
+      var a = st.reTrips / st.reN, b = st.newTrips / st.newN; c.note = show(a) + ' quarry trips after a flood (' + st.reN + '), ' + show(b) + ' for a first build (' + st.newN + ')';
+      if (a < b) c.ok(); else c.fail(c.note);
     });
     this.guard('softGrowth', function (c) {
       var S = W.S, bad = [];

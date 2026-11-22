@@ -140,7 +140,9 @@ function create(seed, opt) {
   const owner = new Int32Array(N * N);
   // Quarries leave holes. rock is the stone still in the ground (about STONE_PER_TILE stone at 1); pit is how deep it has
   // been dug (0 to 1). A pit is neither a lot nor a field.
-  const pit = new Float32Array(N * N), STONE_PER_TILE = 50;                                // whose field a tile is (the id of the roof it belongs to)
+  const pit = new Float32Array(N * N), STONE_PER_TILE = 50;
+  // what is left on a lot when a dwelling is pulled down to be rebuilt, or taken by a flood
+  const RUBBLE_STONE = 0.7, RUBBLE_WOOD = 0.3;                                // whose field a tile is (the id of the roof it belongs to)
   // Sound. Work, play, a crying child, a kill, a howl: each is a noise at a place, as loud as the thing that made it. It
   // carries a few tiles and fades with distance, a little faster through trees. Nothing is told what a noise means; each
   // creature does with it what its body would: the hungry hunter goes to look, the grazer and the fed hunter keep away
@@ -258,7 +260,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
-    stat: { pitD: 0, pitN: 0, lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
+    stat: { newTrips: 0, newN: 0, reTrips: 0, reN: 0, pitD: 0, pitN: 0, lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
     levers: { hold: {},
       banned: {} } };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
@@ -1160,7 +1162,7 @@ function create(seed, opt) {
     if (T.skills.well && !T.sites.some(q => q.kind === 'well')) return choosePlot('well', null);
     s = homes.filter(q => NEXT[q.kind] && T.skills[NEXT[q.kind]] && raised(q) && q.cold > 0.12 && (q.larder
         || 0) >= q.members * 0.6).sort((p, q) => q.cold - p.cold)[0];   // something better is known: the household that has felt the cold most, and can feed itself meanwhile, rebuilds first
-    if (s) { s.was = s.kind; s.kind = NEXT[s.kind]; s.stage = 0; s.wood = 0; s.stone = 0; s.lake = T.floodSeen && bank[I(s.x, s.y)] > 0.5; return s; }
+    if (s) { s.was = s.kind; s.kind = NEXT[s.kind]; s.stage = 0; s.wood *= RUBBLE_WOOD; s.stone *= RUBBLE_STONE; s.qtrips = 0; s.lake = T.floodSeen && bank[I(s.x, s.y)] > 0.5; return s; }
     return null;
   }
   // with a cart and a beast to draw it, one trip brings what took two
@@ -1235,13 +1237,16 @@ function create(seed, opt) {
       a.act = { k: 'quarry', j: bj, site: s.id };
       sound(bj % N, (bj / N) | 0, 4, 'work');
       walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1);
-      T.stoneWork++;
+      T.stoneWork++; s.qtrips = (s.qtrips || 0) + 1;
       if (!T.carts) T.need.toil += 0.16;
       return true;
     }
     s.stage++; a.act = { k: 'build', site: s.id, stage: s.stage }; sound(s.x, s.y, 3, 'work');
     if (raised(s)) {
       const first = !T.sites.some(q => q !== s && q.kind === s.kind && raised(q)), rebuilt = s.was; s.was = '';
+      /* quarry trips per stone dwelling: first raisings against raisings again after a flood */
+      if (DWELL[s.kind].stone) { if (s.flooded) { S.stat.reTrips += s.qtrips || 0; S.stat.reN++; } else if (!rebuilt) { S.stat.newTrips += s.qtrips || 0; S.stat.newN++; } }
+      s.flooded = false; s.qtrips = 0;
       if (s.kind === 'well') { T.well = true; tell('The people have dug a well. The fields need not wait for rain.'); }
       else if (first) tell({ tent: 'A tent of hides is up: the first roof in the valley.',
         hut: 'The first hut stands, timber and thatch.',
@@ -1500,8 +1505,9 @@ function create(seed, opt) {
       T.floodSeen = true;
       w.was = '';
       w.stage = 0;
-      w.wood = 0;
-      w.stone = 0; }
+      /* what the water leaves: most of the stone and some of the timber lie where the house stood */
+      w.wood *= RUBBLE_WOOD;
+      w.stone *= RUBBLE_STONE; w.flooded = true; w.qtrips = 0; }
     if (!T.skills.fire && S.popPeople) {
       for (let dy = -6; dy <= 6 && !T.skills.fire; dy++) for (let dx = -6; dx <= 6; dx++) {
         const x = T.x + dx, y = T.y + dy;
@@ -1754,7 +1760,7 @@ function create(seed, opt) {
     Object.assign(S, o.S); S.din = heardNow;
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
-      if (!S.stat) S.stat = {}; for (const k of ['pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
+      if (!S.stat) S.stat = {}; for (const k of ['newTrips', 'newN', 'reTrips', 'reN', 'pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }
     S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }
     folkList = null;

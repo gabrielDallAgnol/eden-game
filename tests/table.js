@@ -32,6 +32,9 @@ var COLS = [
   /* B5: stone dug from pits, and the mean distance of the pits dug from the fire */
   ['pit trips', function (W) { return W.S.stat.pitN || 0; }],
   ['pit dist', function (W) { var s = W.S.stat; return s.pitN ? s.pitD / s.pitN : ''; }],
+  /* B6: quarry trips per stone dwelling raised for the first time, and raised again after a flood */
+  ['quarry/new', function (W) { var s = W.S.stat; return s.newN ? s.newTrips / s.newN : ''; }],
+  ['quarry/flooded', function (W) { var s = W.S.stat; return s.reN ? s.reTrips / s.reN + ' (' + s.reN + ')' : ''; }],
   ['bridges', function (W) { return Object.keys(W.S.tribe.bridged || {}).length; }],
   ['homes across water', function (W) { if (!W.mass) return ''; var T = W.S.tribe, m = W.mass[T.y * W.N + T.x]; return T.sites.filter(function (q) { return q.kind !== 'well' && W.mass[q.y * W.N + q.x] !== m; }).length; }]
 ];

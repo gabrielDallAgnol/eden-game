@@ -221,3 +221,21 @@ Year 100 mean 55.4 against 48.3 at the water step (seed-to-seed spread; same ran
 | mean |  | 10.7 | 32.7 | 55.6 | 64.8 | 14 | 39.9 | 0.3 | 13.2 |  | 6.3 | 7.1 | 7.1 | 18.5 | 20.2 | 1 | 21937.4 | 29.4 | 14.6 | 3.4 | 2 | 1625.4 |
 
 Year 100 mean 55.6 (B4 55.4). Each quarry trip now takes stone out of the ground (rock falls by what was brought / 50) and deepens a pit on that tile; the quarry chosen is the stone on common ground that gives most for a day's walk, a deep pit giving less. Lots and fields never go on a pit. Stone from rock outcrops is a minority of stone trips (about 30 per 100-year run; the rest is cobbles from the water's edge), so pits stay shallow. Pit distance grows with houses built: valley #2 averaged 7.6 tiles in years 1-20 and 26 in years 61-80 (5 houses then 19); highland #1 8.3 then 10.4 (1 then 5 houses). Mean pit distance per run 14.6 tiles ('pit dist'). The view draws pits as stepped terraces (code-drawn). Tests: 298 passed, 0 failed (new: no lot or field on a pit), 4 warnings, 4 skipped. Scenarios: 21 passed, 1 warning.
+
+## B6: rubble
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 17 | 48 | 69 | 83 | 17 | 55 | 0 | 14 | 1/8/0 | 5.9 | 5.2 | 8.2 | 20.2 | 22 | 1.1 | 20181 | 39 | 14.9 | 2.2 | 1 (1) | 5 | 2 | 2272 |
+| valley | 2 | 13 | 55 | 80 | 99 | 21 | 78 | 0 | 15 | 0/9/0 | 6.2 | 7.2 | 11.4 | 20.2 | 65 | 0.8 | 30434 | 53 | 16 | 2.4 | 1 (1) | 7 | 0 | 2424 |
+| plains | 1 | 7 | 26 | 47 | 47 | 9 | 33 | 1 | 12 | 0/128/0 | 5.2 | 17.2 | 9.2 | 22.5 | 1 | 0.9 | 40 | 17 | 17.4 | 2.9 |  | 2 | 3 | 2151 |
+| plains | 2 | 4 | 21 | 47 | 47 | 8 | 39 | 1 | 14 | 19/31/0 | 5.8 | 25.1 | 6.1 | 28.8 | 15 | 0.9 | 44 | 15 | 11.6 | 2.4 |  | 3 | 0 | 1594 |
+| forest | 1 | 7 | 28 | 91 | 91 | 26 | 13 | 0 | 13 | 1/16/0 | 6.5 | 0 | 7.2 | 10 | 7 | 0.9 | 322 | 53 | 11.3 | 2 |  | 6 | 2 | 1472 |
+| forest | 2 | 19 | 53 | 73 | 82 | 23 | 24 | 0 | 14 | 2/23/0 | 6.5 | 3.8 | 10.9 | 14 | 74 | 1.1 | 110806 | 53 | 17 | 2.6 |  | 6 | 1 | 1963 |
+| lakeland | 1 | 8 | 36 | 47 | 62 | 6 | 44 | 1 | 13 | 0/29/0 | 5.9 | 0 | 2.9 | 19.8 | 34 | 0.4 | 7819 | 0 |  | 2.6 | 1 (1) | 3 | 0 | 1250 |
+| lakeland | 2 | 15 | 41 | 67 | 79 | 9 | 74 | 0 | 14 | 3/15/0 | 6.3 | 0 | 6.7 | 18.3 | 30 | 1.1 | 9211 | 20 | 16.8 | 2.6 | 0.5 (2) | 4 | 6 | 1717 |
+| highland | 1 | 5 | 25 | 16 | 40 | 9 | 56 | 0 | 14 | 2/0/0 | 6.5 | 8.9 | 4.8 | 20.7 | 9 | 1 | 42 | 20 | 10.8 | 1.8 | 1 (1) | 2 | 0 | 1012 |
+| highland | 2 | 9 | 17 | 26 | 26 | 9 | 37 | 0 | 13 | 1/0/0 | 6.5 | 0 | 4 | 19.9 | 3 | 1.2 | 28 | 20 | 9.6 | 1.9 |  | 2 | 0 | 783 |
+| mean |  | 10.4 | 35 | 56.3 | 65.6 | 13.7 | 45.3 | 0.3 | 13.6 |  | 6.1 | 6.7 | 7.1 | 19.4 | 26 | 0.9 | 17892.7 | 29 | 13.9 | 2.3 |  | 4 | 1.4 | 1663.8 |
+
+Year 100 mean 56.3 (B5 55.6). A dwelling taken by a flood, or pulled down to be rebuilt as something better, leaves 70% of its stone and 30% of its timber on the lot, counted toward the new stages. Over 4 seeds x 5 lands: 312 first raisings of stone dwellings took 2.18 quarry trips each; 13 raisings after a flood took 0.77 each. In this table only one run had a flooded stone house rebuilt (column 'quarry/flooded' blank elsewhere): floods that take houses are rare at 40x40. Tests: 299 passed, 0 failed, 4 warnings, 13 skipped (the new soft rubble check skips in worlds where no stone house was flooded and rebuilt). Scenarios: 21 passed, 1 warning.
