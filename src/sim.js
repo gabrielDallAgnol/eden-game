@@ -141,6 +141,13 @@ function create(seed, opt) {
   // Quarries leave holes. rock is the stone still in the ground (about STONE_PER_TILE stone at 1); pit is how deep it has
   // been dug (0 to 1). A pit is neither a lot nor a field.
   const pit = new Float32Array(N * N), STONE_PER_TILE = 50;
+  // What the settlement knows of the land: every tile one of its people has stood within sight of (less far under trees).
+  // It is only a record of what was seen. Nothing in the simulation reads it to decide anything.
+  const known = new Uint8Array(N * N), SIGHT = 5, SIGHT_WOOD = 3;
+  function see(a) {
+    const r = tree[I(a.x, a.y)] > 0.5 ? SIGHT_WOOD : SIGHT;
+    for (let y = Math.max(0, a.y - r); y <= Math.min(N - 1, a.y + r); y++) for (let x = Math.max(0, a.x - r); x <= Math.min(N - 1, a.x + r); x++) if ((x - a.x) * (x - a.x) + (y - a.y) * (y - a.y) <= r * r + r) known[I(x, y)] = 1;
+  }
   // what is left on a lot when a dwelling is pulled down to be rebuilt, or taken by a flood
   const RUBBLE_STONE = 0.7, RUBBLE_WOOD = 0.3;                                // whose field a tile is (the id of the roof it belongs to)
   // Sound. Work, play, a crying child, a kill, a howl: each is a noise at a place, as loud as the thing that made it. It
@@ -1523,7 +1530,7 @@ function create(seed, opt) {
     const [x, y] = campSite(), fresh = newSettlement(x, y);
     for (const k of Object.keys(T)) delete T[k];
     Object.assign(T, fresh);
-    tread.fill(0); owner.fill(0); field.fill(0);
+    tread.fill(0); owner.fill(0); field.fill(0); known.fill(0);   /* newcomers know nothing of the place */
   }
   // ---------------------------------------------------------------- one step of time
   function tick() {
@@ -1613,7 +1620,7 @@ function create(seed, opt) {
       if (flood[i]) { a.e -= 1.2 * dt; if (rnd() < 0.6 * dt) { die(a, 'drowned'); continue; } roam(a, 3, 2); }
       if (burn[i] > 0) { if (rnd() < 0.5) { die(a, 'burned'); continue; } a.e -= 0.1; roam(a, 3, 3); }
       const e0 = a.e;
-      if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) { person(a, d, dt); tally(a); } else animal(a, d, dt);
+      if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) { person(a, d, dt); tally(a); if (a.alive) see(a); } else animal(a, d, dt);
       if (!a.mood) a.mood = a.e < 0.3 ? 'hungry' : a.e > e0 + 0.02 ? 'fed' : '';
       if (a.alive && a.e <= 0) { die(a, Tc < d.comfort ? 'cold and hunger' : 'hunger'); continue; }
       // --- young are born to a well-fed mother when the air is warm enough for them
@@ -1775,7 +1782,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- save and load
   // The world is plain data: the land arrays, S, the random stream and the noises still in the air. Typed arrays travel as
   // base64, Maps as their entries, and a creature names its species row instead of holding it.
-  const FIELDS = { pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
+  const FIELDS = { known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
   const b64 = ta => {
     const u = new Uint8Array(ta.buffer, ta.byteOffset, ta.byteLength);
     let str = '';
@@ -1823,6 +1830,7 @@ function create(seed, opt) {
     save,
     restore,
     pit,
+    known,
     mass,
     fords: () => fords,
     wayDist,

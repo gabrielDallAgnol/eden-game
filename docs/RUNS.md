@@ -323,3 +323,21 @@ Year 100 mean 51.2 (D1 54.4), peak 64.2, hunger deaths 38.2 (D1 45.4), no resett
 ## Pace (owner's report: nothing happens for 15 minutes at 8x)
 
 View only; the simulation and its table are unchanged. At 8x a game year took a minute, so a child (13 years to grow up) took 13 minutes even at full speed, and a valley has on average 1.6 dwellings and 6 to 7 people at year 15 (20 worlds, measured both before and after the timber change: it is the founding family growing, not a slowdown). Speeds are now 1x, 4x, 16x and 48x (a year in 10 s). A slow frame now catches up on up to 6 missed steps instead of dropping time: with the CPU slowed 6 times (12 frames a second) 48x still gives exactly 3 game years in 30 s; the old code lost about 8% at 8x on the same setting. Children are drawn a little bigger each year (80% to 100% of their sprite size across each age band), and a label at the top right shows the year and season.
+
+## D2: known land
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 18 | 26 | 65 | 71 | 17 | 16 | 0 | 13 | 8/24/0 | 6.9 | 5.8 | 7.6 | 23.2 | 16 | 1.4 | 68512 | 38 | 16 | 2.2 |  | 74/0/5/0/21 | 81 | 1 | 1 | 2517 |
+| valley | 2 | 9 | 41 | 64 | 80 | 21 | 25 | 0 | 14 | 3/43/0 | 6.7 | 0 | 9.4 | 12.7 | 9 | 0.9 | 44494 | 50 | 16.3 | 2.4 |  | 79/0/6/0/15 | 85 | 1 | 0 | 2325 |
+| plains | 1 | 3 | 14 | 36 | 39 | 7 | 39 | 0 | 13 | 0/77/0 | 5.5 | 17.7 | 12.9 | 17.3 | 10 | 0.8 | 42 | 24 | 17.1 | 3.4 |  | 86/8/1/0/4 | 49 | 0 | 0 | 1521 |
+| plains | 2 | 5 | 28 | 62 | 71 | 17 | 41 | 0 | 14 | 2/35/0 | 6.1 | 40.4 | 9 | 25.8 | 17 | 1 | 214 | 26 | 22.5 | 2.9 | 1 (1) | 79/0/0/0/20 | 82 | 1 | 10 | 1947 |
+| forest | 1 | 15 | 44 | 76 | 90 | 27 | 35 | 0 | 14 | 0/0/0 | 7.4 | 0 | 7.2 | 9.1 | 46 | 0.9 | 267 | 52 | 10.7 | 2 | 1 (1) | 88/0/4/0/8 | 84 | 1 | 0 | 1965 |
+| forest | 2 | 11 | 39 | 89 | 90 | 25 | 38 | 0 | 14 | 0/24/0 | 6.3 | 4.1 | 12.4 | 12.3 | 33 | 1.1 | 222 | 53 | 18.1 | 2.7 | 1 (1) | 83/0/6/0/11 | 91 | 1 | 0 | 1882 |
+| lakeland | 1 | 17 | 42 | 39 | 64 | 8 | 50 | 0 | 12 | 3/5/0 | 6 | 0 | 4.9 | 27.4 | 4 | 1 | 25076 | 8 | 18.3 | 2.6 |  | 79/6/0/0/15 | 74 | 2 | 0 | 1492 |
+| lakeland | 2 | 20 | 53 | 41 | 76 | 10 | 59 | 0 | 12 | 11/0/0 | 6.8 | 0 | 6.2 | 19.2 | 4 | 0.8 | 104 | 18 | 16.1 | 2.6 |  | 72/0/5/0/23 | 90 | 1 | 7 | 1817 |
+| highland | 1 | 15 | 19 | 18 | 33 | 10 | 44 | 0 | 14 | 2/0/0 | 6.6 | 12.5 | 4.2 | 20.1 | 3 | 1.2 | 55 | 22 | 12 | 1.9 | 0.5 (2) | 65/0/0/0/34 | 73 | 2 | 0 | 1158 |
+| highland | 2 | 8 | 19 | 22 | 28 | 11 | 35 | 0 | 14 | 0/4/2 | 7.1 | 0 | 3.4 | 18.2 | 14 | 1.1 | 39 | 23 | 10.5 | 1.8 |  | 69/1/12/0/13 | 79 | 1 | 1 | 916 |
+| mean |  | 12.1 | 32.5 | 51.2 | 64.2 | 15.3 | 38.2 | 0 | 13.4 |  | 6.5 | 8.1 | 7.7 | 18.5 | 15.6 | 1 | 13902.5 | 31.4 | 15.8 | 2.5 |  |  | 78.8 | 1.1 | 1.9 | 1754 |
+
+Populations identical to the previous table (the record adds no random calls and nothing reads it). The settlement's known land is every tile one of its people has stood within sight of (5 tiles, 3 under trees). It starts at 8 to 16% of the map in year 1, reaches about 40% by year 20 and 74 to 91% by year 100 (column 'known %'); strangers to an emptied valley start knowing nothing. The view thins unseen land out pixel by pixel into the dark, dims the last of the seen land, gives chunks with nothing seen no canvas at all, fades trees, props and creatures by how much of their ground is known, and keeps the camera to the seen land. known lives only in the simulation and is saved; the camera never writes it. Ground still pixel-exact against colorAt() (forest #7). Tests: 333 passed, 0 failed (new unit: known starts small, grows, and is forgotten on resettling), 3 warnings, 13 skipped.

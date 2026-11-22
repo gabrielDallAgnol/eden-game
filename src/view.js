@@ -109,7 +109,9 @@ const BN = N * 8, CB = 16 * 8,
   bTr = mkB(),
   bSc = mkB(),
   bRd = mkB(),
+  bKn = mkB(),
   roadF = new Float32Array(N * N);
+const knownF = new Float32Array(N * N);
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
 let cbx = 0, cby = 0, cbFor = null;
@@ -131,11 +133,31 @@ const blur = (src, dst) => blurRect(src, dst, cbx, cby, cbx + CB - 1, cby + CB -
 /* make the smoothed fields those of one chunk (as the land is now) */
 function chunkFields(ch) {
   cbx = ch.i * CB; cby = ch.j * CB; cbFor = ch;
-  for (const [src, dst] of [[waterF, bWt], [W.fert, bFe], [roadF, bRd], [W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [trail, bTr], [scar, bSc]]) blur(src, dst);
+  for (let i = 0; i < N * N; i++) knownF[i] = W.known[i];
+  for (const [src, dst] of [[knownF, bKn], [waterF, bWt], [W.fert, bFe], [roadF, bRd], [W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [trail, bTr], [scar, bSc]]) blur(src, dst);
 }
 let gRipe = 0, gWarm = false, campOn = true;
 function groundState() { gRipe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0; gWarm = S.air > 9; campOn = S.popPeople > 0 || T0.huts > 0; }
+// Land nobody of the place has seen is not drawn: it thins out, pixel by pixel, into the dark round the world.
 function colorAt(pxx, py) {
+  const c = colorAt0(pxx, py); if (!c) return 0;
+  const v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
+  let k;
+  if (fx >= N || fy >= N) k = W.known[Math.min(N - 1, fy | 0) * N + Math.min(N - 1, fx | 0)];
+  else k = bKn[(((fy * 8) | 0) - cby) * CB + (((fx * 8) | 0) - cbx)];
+  if (k >= 0.98) return c;
+  const t = clamp(k * 1.4 - 0.2, 0, 1), n = noise2[((py & (NT - 1)) * NT) | (pxx & (NT - 1))];
+  if (t * 255 <= n) return 0;
+  /* the last of the seen land is a little dimmer, as if in mist */
+  const dim = 0.72 + 0.28 * t, r = (c & 255) * dim, g = ((c >>> 8) & 255) * dim, b = ((c >>> 16) & 255) * dim;
+  return (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
+}
+/* how much of a point on the ground has been seen, smoothly between tiles (for things standing on it) */
+function knownAt(x, y) {
+  const fx = clamp(x - 0.5, 0, N - 1), fy = clamp(y - 0.5, 0, N - 1), x0 = fx | 0, y0 = fy | 0, x1 = Math.min(N - 1, x0 + 1), y1 = Math.min(N - 1, y0 + 1), u = fx - x0, v = fy - y0, K = W.known;
+  return (K[y0 * N + x0] * (1 - u) + K[y0 * N + x1] * u) * (1 - v) + (K[y1 * N + x0] * (1 - u) + K[y1 * N + x1] * u) * v;
+}
+function colorAt0(pxx, py) {
   const p = ((py & (NT - 1)) * NT) | (pxx & (NT - 1)), v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
   if (fx < 0 || fy < 0) return 0;
   if (fx >= N || fy >= N) {                                                    // the cut edge of the land
@@ -200,7 +222,7 @@ function chunkSig(ch) {
   let h = (gRipe * 8 | 0) * 7 + (gWarm ? 3 : 0) + (campOn ? 5 : 0) + T0.pave * 11;
   /* what grows and lies on the ground: the chunk's average of each, in steps of 1/24; things that are or are not there
      (ways, fields, pits, water): tile by tile */
-  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field], sum = new Float64Array(soft.length + 1);
+  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field, W.known], sum = new Float64Array(soft.length + 1);
   let n = 0;
   for (let y = ch.j * CT; y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = ch.i * CT; x < Math.min(N, (ch.i + 1) * CT + 1); x++) {
     const i = y * N + x; n++;
@@ -224,10 +246,13 @@ function startPaint() {
   paint = { ch: null, row: 0 };
   groundWanted = false;
 }
+const chunkKnown = ch => { for (let y = Math.max(0, ch.j * CT - 1); y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = Math.max(0, ch.i * CT - 1); x < Math.min(N, (ch.i + 1) * CT + 1); x++) if (W.known[y * N + x]) return true; return false; };
 const chunkVisible = ch => { const z = cam.z, vw = cv.width / z, vh = cv.height / z; return ch.ox < cam.x + vw && ch.ox + CW > cam.x && ch.oy < cam.y + vh && ch.oy + CHT > cam.y; };
 /* paint some rows of the next stale chunk, those in view first; a finished chunk crossfades from its old picture */
 function paintSome(rows, all) {
   while (rows > 0 && paint) {
+    /* a chunk where nothing has been seen has no picture at all */
+    for (const c of chunks) if (c.stale && !chunkKnown(c)) { c.stale = false; if (c.cv) { c.cv = null; c.ctx = null; c.painted = false; if (c.fade) { fadePool.push(c.fade.from); c.fade = null; } } }
     if (!paint.ch) { paint.ch = chunks.find(c => c.stale && chunkVisible(c)) || (all ? chunks.find(c => c.stale) : null); paint.row = 0; if (!paint.ch) { paint = null; return; } }   /* stale chunks out of view wait until they are seen */
     const ch = paint.ch, end = Math.min(CHT, paint.row + rows);
     paintChunkRect(ch, 0, paint.row, CW, end); rows -= end - paint.row; paint.row = end;
@@ -897,11 +922,20 @@ function stepAt(r, u, dts) {
 // ================================================================== camera and touch
 function resize() { dpr = Math.min(3, window.devicePixelRatio || 1); cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); clampCam(); }
 const minZ = () => Math.min(cv.width / WW, cv.height / WH) * 0.96, maxZ = () => 5 * dpr;
+let kBox = null, kBoxT = -1;
+function knownBox() {
+  if (kBox && kBoxT === S.tickNo) return kBox;
+  let x0 = N, y0 = N, x1 = -1, y1 = -1; for (let i = 0; i < N * N; i++) if (W.known[i]) { const x = i % N, y = (i / N) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) { x0 = x1 = T0.x; y0 = y1 = T0.y; }
+  kBoxT = S.tickNo; return (kBox = { x0, y0, x1, y1 });
+}
 function clampCam() {
   cam.z = clamp(cam.z, minZ(), maxZ());
   const vw = cv.width / cam.z, vh = cv.height / cam.z;
-  cam.x = vw >= WW ? (WW - vw) / 2 : clamp(cam.x, -vw * 0.3, WW - vw * 0.7);
-  cam.y = vh >= WH ? (WH - vh) / 2 : clamp(cam.y, -vh * 0.3, WH - vh * 0.7);
+  /* the camera keeps to the land that has been seen */
+  const kb = knownBox(), x0 = isoX(kb.x0, kb.y1 + 1), x1 = isoX(kb.x1 + 1, kb.y0), y0 = isoY(kb.x0, kb.y0) - 60, y1 = isoY(kb.x1 + 1, kb.y1 + 1) + CLIFF;
+  cam.x = vw >= x1 - x0 ? (x0 + x1 - vw) / 2 : clamp(cam.x, x0 - vw * 0.3, x1 - vw * 0.7);
+  cam.y = vh >= y1 - y0 ? (y0 + y1 - vh) / 2 : clamp(cam.y, y0 - vh * 0.3, y1 - vh * 0.7);
 }
 const toWorld = (sx, sy) => ({ x: cam.x + sx * dpr / cam.z, y: cam.y + sy * dpr / cam.z });
 const toCell = (sx, sy) => { const w = toWorld(sx, sy), c = cellAt(w.x, w.y); return { x: clamp(c.x, 0, N - 0.01), y: clamp(c.y, 0, N - 0.01), wx: w.x, wy: w.y }; };
@@ -1093,6 +1127,7 @@ function frame(t) {
   for (const [key, p] of props) {
     const wx = isoX(p.x, p.y), wy = isoY(p.x, p.y) + (p.dy || 0); if (!vis(wx, wy)) continue;
     let al = clamp((now - p.born) / 1100, 0, 1); if (p.die) { al = Math.min(al, 1 - (now - p.die) / 1600); if (al <= 0) { props.delete(key); continue; } }
+    al *= knownAt(p.x, p.y); if (al < 0.02) continue;
     const d = put(p.img, wx, wy, { alpha: al < 1 ? al : undefined,
       sway: p.kind === 'tree' ? p.i : -1,
       tree: p.kind === 'tree',
@@ -1257,6 +1292,7 @@ function frame(t) {
     /* children grow a little every year, not only when they move up to the next size of sprite */
     { const ag = r.a.age, dd = r.a.d; if (dd.people && ag >= 2 && ag < dd.mature) extra.grow = (extra.grow || 1) * (ag < 6 ? 0.8 + 0.2 * (ag - 2) / 4 : 0.8 + 0.2 * (ag - 6) / (dd.mature - 6)); }
     if (extra.alpha !== undefined) al = Math.min(al, extra.alpha);
+    al *= knownAt(r.x, r.y); if (al < 0.02) continue;
     if (s && s.cart && A.cart) extra.cart = face;
     const d = put(im, wx, wy - lift, Object.assign(extra, { y: wy,
       shadow: { x: wx,

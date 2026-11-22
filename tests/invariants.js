@@ -520,6 +520,17 @@ UNITS.push(['around() finds exactly the creatures a scan of the whole world find
     if (got !== want) bad++; }); });
   return bad ? bad + ' of 120 lookups differ' : '';
 }]);
+UNITS.push(['known land starts small round the camp and grows; strangers to an empty valley know nothing (D2)', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'forest' }), N = W.N, i, out = [];
+  var share = function () { var k = 0; for (var j = 0; j < N * N; j++) k += W.known[j]; return k / (N * N); };
+  for (i = 0; i < 24; i++) W.tick(); var y1 = share();
+  for (i = 0; i < 24 * 19; i++) W.tick(); var y20 = share();
+  if (!(y1 > 0 && y1 < 0.3)) out.push('year 1 known ' + Math.round(y1 * 100) + '%');
+  if (!(y20 > y1)) out.push('year 20 known ' + Math.round(y20 * 100) + '% is not more than year 1');
+  W.G.cull('human', 1); for (i = 0; i < 24 * 8 && !/^Two strangers/.test((W.S.log[W.S.log.length - 1] || {}).text || ''); i++) W.tick();
+  var after = share(); if (after > 0.3) out.push('after resettling ' + Math.round(after * 100) + '% is still known');
+  return out.join('; ');
+}]);
 function runUnits() {
   var rows = [];
   for (var i = 0; i < UNITS.length; i++) { var msg; try { msg = UNITS[i][1](); } catch (e) { msg = 'threw: ' + (e && e.message || e); }
