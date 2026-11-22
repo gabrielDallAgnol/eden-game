@@ -6,6 +6,7 @@
 (function () {
 const TW = 64, TH = 32, CLIFF = 46, TICK_MS = 20000, DAY = 4, TS = TICK_MS / 1000;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b - a) * t, ease = k => k * k * (3 - 2 * k);
+const SMALL = 4;   /* small children (the tot sprite) until this age; grown at the species' mature age (8 for people) */
 const qs = new URLSearchParams(location.search), seed = +(qs.get('seed') || 1 + Math.floor(Math.random() * 9999));
 let landKept = ''; try { landKept = localStorage.getItem('eden.land') || ''; } catch (e) { /* no storage: the address decides */ }
 const landQ = qs.get('land') || landKept || 'valley';
@@ -140,7 +141,9 @@ function chunkFields(ch) {
 }
 let gRipe = 0, gWarm = false, campOn = true;
 function groundState() { gRipe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0; gWarm = S.air > 9; campOn = S.popPeople > 0 || T0.huts > 0; }
-// Land nobody of the place has seen is not drawn: it thins out, pixel by pixel, into the dark round the world.
+// The whole land is drawn. (The owner chose not to hide unseen land: the settlement's 'known' record stays in the
+// simulation, but the view does not fade it into the dark. SHOW_ALL = false brings the fade back.)
+const SHOW_ALL = true;
 function colorAt(pxx, py) {
   let c = colorAt0(pxx, py); if (!c) return 0;
   const v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
@@ -153,7 +156,7 @@ function colorAt(pxx, py) {
     const r = Math.min(255, (c & 255) * f), g = Math.min(255, ((c >>> 8) & 255) * f), b = Math.min(255, ((c >>> 16) & 255) * f);
     c = (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
   }
-  if (k >= 0.98) return c;
+  if (SHOW_ALL || k >= 0.98) return c;
   const t = clamp(k * 1.4 - 0.2, 0, 1), n = noise2[((py & (NT - 1)) * NT) | (pxx & (NT - 1))];
   if (t * 255 <= n) return 0;
   /* the last of the seen land is a little dimmer, as if in mist */
@@ -162,6 +165,7 @@ function colorAt(pxx, py) {
 }
 /* how much of a point on the ground has been seen, smoothly between tiles (for things standing on it) */
 function knownAt(x, y) {
+  if (SHOW_ALL) return 1;
   const fx = clamp(x - 0.5, 0, N - 1), fy = clamp(y - 0.5, 0, N - 1), x0 = fx | 0, y0 = fy | 0, x1 = Math.min(N - 1, x0 + 1), y1 = Math.min(N - 1, y0 + 1), u = fx - x0, v = fy - y0, K = W.known;
   return (K[y0 * N + x0] * (1 - u) + K[y0 * N + x1] * u) * (1 - v) + (K[y1 * N + x0] * (1 - u) + K[y1 * N + x1] * u) * v;
 }
@@ -254,7 +258,7 @@ function startPaint() {
   paint = { ch: null, row: 0 };
   groundWanted = false;
 }
-const chunkKnown = ch => { for (let y = Math.max(0, ch.j * CT - 1); y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = Math.max(0, ch.i * CT - 1); x < Math.min(N, (ch.i + 1) * CT + 1); x++) if (W.known[y * N + x]) return true; return false; };
+const chunkKnown = ch => { if (SHOW_ALL) return true; for (let y = Math.max(0, ch.j * CT - 1); y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = Math.max(0, ch.i * CT - 1); x < Math.min(N, (ch.i + 1) * CT + 1); x++) if (W.known[y * N + x]) return true; return false; };
 const chunkVisible = ch => { const z = cam.z, vw = cv.width / z, vh = cv.height / z; return ch.ox < cam.x + vw && ch.ox + CW > cam.x && ch.oy < cam.y + vh && ch.oy + CHT > cam.y; };
 /* paint some rows of the next stale chunk, those in view first; a finished chunk crossfades from its old picture */
 function paintSome(rows, all) {
@@ -620,7 +624,7 @@ const door = h => ({ x: h.x + 0.42, y: h.y + 0.42 });
 
 // ---- people
 function planPerson(r, phase, pi) {
-  const a = r.a, act = a.act || { k: 'idle' }, P = new Plan(r), end = endOf(a), evening = phase === 2, young = a.age < 13, sp = young ? 0.7 : a.age > 46 ? 0.5 : SPEED.person.walk;
+  const a = r.a, act = a.act || { k: 'idle' }, P = new Plan(r), end = endOf(a), evening = phase === 2, young = a.age < a.d.mature, sp = young ? 0.7 : a.age > 46 ? 0.5 : SPEED.person.walk;
   r.carriedBy = 0;
   if (r.pose === 'hidden') {                                         // waking up: out of the hut door, one by one
     if (act.k === 'sleep') { P.done('hidden', r.step && r.step.hut ? { hut: r.step.hut } : {}); return; }
@@ -652,11 +656,11 @@ function planPerson(r, phase, pi) {
           }
         }
       }   // the one who carries the baby
-      if (mom && !mom.dead && mom.a.age >= 13) { r.carriedBy = mom.id; P.done('carried'); return; }
+      if (mom && !mom.dead && mom.a.age >= mom.a.d.mature) { r.carriedBy = mom.id; P.done('carried'); return; }
       const s = seat(pi + 3); P.go(s.x, s.y, 0.3, 'crawl'); P.done('sit', { lx: fire.x, ly: fire.y }); return;
     }
     case 'play': {
-      const pals = [...actors.values()].filter(o => o !== r && !o.dead && o.a.d.people && o.a.age >= 2 && o.a.age < 13);
+      const pals = [...actors.values()].filter(o => o !== r && !o.dead && o.a.d.people && o.a.age >= 2 && o.a.age < o.a.d.mature);
       if (pals.length && Math.random() < 0.55) { const o = pals[(Math.random() * pals.length) | 0]; P.follow(0.45, o.id, { gap: 0.35, sp: 1.1, pose: 'run', playful: 1 }); }
       for (let k = 0; k < 4 && P.u < 0.85; k++) { const q = near(camp.x, camp.y, 2.4); P.go(q.x, q.y, 0.9, 'hop'); P.wait(R(0.05, 0.12), Math.random() < 0.4 ? 'sit' : 'idle', { play: 1 }); }
       break;
@@ -932,6 +936,7 @@ function resize() { dpr = Math.min(3, window.devicePixelRatio || 1); cv.width = 
 const minZ = () => Math.min(cv.width / WW, cv.height / WH) * 0.96, maxZ = () => 5 * dpr;
 let kBox = null, kBoxT = -1;
 function knownBox() {
+  if (SHOW_ALL) return { x0: 0, y0: 0, x1: N - 1, y1: N - 1 };
   if (kBox && kBoxT === S.tickNo) return kBox;
   let x0 = N, y0 = N, x1 = -1, y1 = -1; for (let i = 0; i < N * N; i++) if (W.known[i]) { const x = i % N, y = (i / N) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
   if (x1 < 0) { x0 = x1 = T0.x; y0 = y1 = T0.y; }
@@ -1225,7 +1230,7 @@ function frame(t) {
     if (pose === 'hidden' || pose === 'carried') continue;
     const x = r.x + r.ox, y = r.y + r.oy, wx = isoX(x, y), wy = isoY(x, y); if (!vis(wx, wy)) continue;
     const L = lookOf(a), dd = a.d, k = kind(a); let set = L.grown;
-    if (dd.people) { if (a.age < 2 && L.baby) set = null; else if (a.age < 6 && L.tot) set = L.tot; else if (a.age < dd.mature) set = L.young; else if (L.old && a.age > 46) set = L.old; }
+    if (dd.people) { if (a.age < 2 && L.baby) set = null; else if (a.age < SMALL && L.tot) set = L.tot; else if (a.age < dd.mature) set = L.young; else if (L.old && a.age > 46) set = L.old; }
     else if (a.age < dd.mature * 0.75) set = L.young;
     if (!set) { const b = L.baby[a.id % L.baby.length]; put(b, wx, wy, { shadow: { x: wx, y: wy, w: b.width }, alpha: r.alpha < 1 ? r.alpha : undefined }); continue; }
     // people drawn from sheets are put together one by one from their own looks; otherwise one of the built-in variants is picked
@@ -1298,7 +1303,7 @@ function frame(t) {
     // the newborn and the newly arrived ease into view
     let al = r.alpha; if (r.newborn) { const k2 = clamp((now - r.born) / 1400, 0, 1); if (k2 >= 1) r.newborn = 0; extra.grow = 0.45 + 0.55 * ease(k2); }
     /* children grow a little every year, not only when they move up to the next size of sprite */
-    { const ag = r.a.age, dd = r.a.d; if (dd.people && ag >= 2 && ag < dd.mature) extra.grow = (extra.grow || 1) * (ag < 6 ? 0.8 + 0.2 * (ag - 2) / 4 : 0.8 + 0.2 * (ag - 6) / (dd.mature - 6)); }
+    { const ag = r.a.age, dd = r.a.d; if (dd.people && ag >= 2 && ag < dd.mature) extra.grow = (extra.grow || 1) * (ag < SMALL ? 0.8 + 0.2 * (ag - 2) / (SMALL - 2) : 0.8 + 0.2 * (ag - SMALL) / (dd.mature - SMALL)); }
     if (extra.alpha !== undefined) al = Math.min(al, extra.alpha);
     al *= knownAt(r.x, r.y); if (al < 0.02) continue;
     if (s && s.cart && A.cart) extra.cart = face;
@@ -1669,7 +1674,7 @@ bS2.onclick = () => {
     const names = ['A camp', 'A hamlet', 'A village', 'A town'], jobs = {};
     let grown = 0;
     for (const a of S.agents) if (a.alive && a.d.people) {
-      if (a.age >= 13) grown++;
+      if (a.age >= a.d.mature) grown++;
       if (a.job) jobs[a.job] = (jobs[a.job] || 0) + 1;
     }
     const ideas = W.ideas(), known = ideas.filter(q => q.known).map(q => q.k).concat(['herd'].filter(k => T0.skills[k]));

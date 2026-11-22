@@ -127,5 +127,7 @@ These are rules, not outcomes, and are meant to stay that way:
 - People build only when fed (energy above 0.6): a tuning threshold on a want, like `IDEAS[k].at`.
 - The shape of each kind of country (D4/H1): the noise wavelengths (48, 16, 6 tiles), the valley's trough, the plains' low relief, the lakeland's basins, the highland's plateaus with steep edges, the valley's rocky knolls; how much must drain through a tile for a stream (`riverA`) and how deep a hollow holds a lake (`lake`); the tree line (level 7).
 - The guaranteed pass (H1): where a cliff cuts a piece of dry land in two, the lowest crossing is cut down to a bank, until every piece can be walked by banks of one level.
+- The ages of a life (owner's choice, 2026-11-22): grown at 8, may pair off at 10, small children by the fire until 4. A day's felling takes 0.3 of a stand.
+- Unseen land is drawn like the rest (owner's choice): the view's fade is switched off; the simulation still records `known`.
 - The map is 96 tiles a side in the game (`?size=` changes it); tests also run at 40 and 128.
 - A stranger arrives when a grown person has only kin to choose from. To be replaced by step 7 (people moving between places).

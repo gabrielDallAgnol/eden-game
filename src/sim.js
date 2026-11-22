@@ -26,7 +26,7 @@ const SPECIES = {
     metab: 1.05, speed: 2, sense: 7, mature: 1.6, breedE: 0.85, litter: [2, 4], interval: 0.8, warmBreed: -5, lateLight: 2,
     life: 9, comfort: -4.7, chill: 0.062, wanders: true, start: 8 },
   human: { mass: 9, eats: { meat: 1, fish: 1, fruit: 1, seed: 1 }, social: 'tribe', people: true,
-    metab: 2.2, speed: 1, sense: 6, mature: 13, breedE: 0.7, litter: [1, 1], interval: 2.4, warmBreed: -99, lateLight: 0,
+    metab: 2.2, speed: 1, sense: 6, mature: 8, breedE: 0.7, litter: [1, 1], interval: 2.4, warmBreed: -99, lateLight: 0,
     life: 52, comfort: 5.7, chill: 0.108, start: 2 }
 };
 // What people can do. Each skill is a small module; later eras add entries here.
@@ -198,6 +198,12 @@ function create(seed, opt) {
   // Quarries leave holes. rock is the stone still in the ground (about STONE_PER_TILE stone at 1); pit is how deep it has
   // been dug (0 to 1). A pit is neither a lot nor a field.
   const pit = new Float32Array(N * N), STONE_PER_TILE = 50;
+  // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
+  // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
+  const cut = new Uint8Array(N * N), CHOP = 0.3;   /* how much of a stand one day's felling takes (the owner asked for felling to clear ground sooner) */
+  function fell(j, amt) { const t = Math.min(tree[j], amt); tree[j] -= t; cut[j] = 1; if (tree[j] < 0.08) { tree[j] = 0; cut[j] = 0; } return t; }
+  /* where the next wood comes from: a begun stand in reach, else the nearest new one big enough to be worth starting */
+  function standFor(x, y, a, minNew) { const r = reachOf(a) * 2; let j = nearestWay(x, y, q => cut[q] && tree[q] > 0, 0, r); if (j < 0) j = nearestWay(x, y, q => tree[q] >= minNew, 1.5, r); return j; }
   // What the settlement knows of the land: every tile one of its people has stood within sight of (less far under trees).
   // It is only a record of what was seen. Nothing in the simulation reads it to decide anything.
   const known = new Uint8Array(N * N), SIGHT = 5, SIGHT_WOOD = 3;
@@ -490,7 +496,9 @@ function create(seed, opt) {
   const NAMES = { f: ['Mara', 'Ila', 'Suna', 'Edda', 'Wren', 'Tessa', 'Noor', 'Liv', 'Ansa', 'Runa', 'Yara', 'Hild', 'Oona', 'Brin', 'Sefa', 'Kaia', 'Dalla', 'Mirre', 'Thea', 'Ione'],
     m: ['Tor', 'Ben', 'Aron', 'Finn', 'Odo', 'Kell', 'Rasmus', 'Ivo', 'Bram', 'Leif', 'Soren', 'Hale', 'Emre', 'Jorn', 'Calder', 'Pell', 'Garth', 'Niko', 'Ulf', 'Davin'] };
   const CRAFTS = ['hunt', 'fish', 'gather', 'build'], CRAFT_NAME = { hunt: 'hunter', fish: 'fisher', gather: 'gatherer', build: 'builder' };
-  const WED = 16;                                                   // old enough to pair off
+  /* the ages of a life (the owner asked for children to grow up sooner, 2026-11-22): small children stay by the fire until
+     SMALL, are grown at GROWN (the species' mature age), and may pair off at WED */
+  const GROWN = HUMAN.mature, SMALL = 4, WED = 10;
   let folkList = null;                                               // the living people, gathered once and reused until someone is born, arrives or dies
   const folk = () => folkList || (folkList = S.agents.filter(b => b.alive && b.d.people));
   function nameFor(a) {
@@ -518,7 +526,7 @@ function create(seed, opt) {
   function describe(a) {
     if (!a.d.people || !a.name) return '';
     const age = Math.floor(a.age), p = S.byId.get(a.partner), kids = childrenOf(a).map(b => b.name);
-    const what = a.job && a.age >= 13 && a.age <= 46 ? 'a ' + a.job : a.age < 2 ? 'a baby' : a.age < 6 ? 'a small child' : a.age < 13 ? 'a child, learning to '
+    const what = a.job && a.age >= GROWN && a.age <= 46 ? 'a ' + a.job : a.age < 2 ? 'a baby' : a.age < SMALL ? 'a small child' : a.age < GROWN ? 'a child, learning to '
         + craftOf(a) : a.age > 46 ? 'an elder' : 'a ' + CRAFT_NAME[craftOf(a)];
     const mood = a.grief > 0.2 ? 'grieving' : a.mood === 'afraid' ? 'afraid' : a.e < 0.3 ? 'hungry' : a.mood === 'cold' ? 'cold' : a.e > 0.8 ? 'content' : 'getting by';
     const mom = S.byId.get(a.mom), dad = S.byId.get(a.dad), par = [mom, dad].filter(q => q && q.alive).map(q => q.name);
@@ -532,7 +540,7 @@ function create(seed, opt) {
   function society(dt) {
     const T = S.tribe, P = folk(); if (!P.length) return;
     const evening = !DAY || S.tickNo % DAY === DAY - 2;
-    T.kidsHungry = P.some(b => b.age < 13 && b.e < 0.7);
+    T.kidsHungry = P.some(b => b.age < GROWN && b.e < 0.7);
     for (const q of T.sites) q.members = 0; for (const b of P) { const h = homeSite(b); if (h) h.members++; }
     // More than a household can eat before it spoils goes to the common store. A household gone short is helped first by
     // its own kin, if they have it to give.
@@ -540,7 +548,7 @@ function create(seed, opt) {
       if (!q.members) { if (q.larder > 0) { T.store += q.larder; q.larder = 0; } continue; }
       { const room = { tent: 4, hut: 6, house: 8 }[q.was || q.kind] || 6;            // too many under one roof: the eldest grown child with no partner goes to make a place of their own
         if (q.members > room && S.tickNo % TPY === 5) {
-          const out = P.filter(b => b.house === q.id && b.age >= 17 && !b.partner && [b.mom, b.dad].some(id => {
+          const out = P.filter(b => b.house === q.id && b.age >= WED + 1 && !b.partner && [b.mom, b.dad].some(id => {
             const par = id && S.byId.get(id);
             return par && par.alive && par.house === q.id;
           })).sort((x, y) => y.age - x.age)[0];
@@ -572,7 +580,7 @@ function create(seed, opt) {
       if (a.grief > 0) a.grief = Math.max(0, a.grief - dt * 1.2);
       if (a.partner) { const q = S.byId.get(a.partner); if (!q || !q.alive) a.partner = 0; }
       // the young learn by going along: a child picks up whatever its parents are doing
-      if (a.age >= 6 && a.age < 13) for (const id of [a.mom, a.dad]) {
+      if (a.age >= SMALL && a.age < GROWN) for (const id of [a.mom, a.dad]) {
         const q = id && S.byId.get(id);
         const k = q && q.alive && q.act && { hunt: 'hunt', fish: 'fish', gather: 'gather', build: 'build', chop: 'build', haul: 'build' }[q.act.k];
         if (k) practise(a, k, 0.006);
@@ -968,7 +976,7 @@ function create(seed, opt) {
   // year; last year's counts are what a household knows about its own days (phase I weighs where to live with them).
   const TRIP_OF = { gather: 'forage', fish: 'forage', hunt: 'hunt', chop: 'timber', quarry: 'stone', build: 'build', fence: 'build', wood: 'wood', eat: 'store', guard: 'guard', patrol: 'guard' };
   function tally(a) {
-    if (S.night || a.age < 13 || a.age > 46 || !a.alive) return; const h = homeSite(a); if (!h) return;
+    if (S.night || a.age < GROWN || a.age > 46 || !a.alive) return; const h = homeSite(a); if (!h) return;
     const k = a.act ? (a.act.k === 'haul' ? (a.act.item === 'stone' ? 'stone' : 'timber') : TRIP_OF[a.act.k] || 'home') : 'home';
     if (!h.trips) { h.trips = {}; h.tripD = {}; h.workDays = 0; }
     h.trips[k] = (h.trips[k] || 0) + 1; h.tripD[k] = (h.tripD[k] || 0) + (a.tripD || 0); h.workDays++;
@@ -977,16 +985,16 @@ function create(seed, opt) {
     a.wood = -1; a.tripD = 0; const T = S.tribe, dist = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)), pop = S.pop[a.sp];
     // eating: from their own larder, at home. What is held in common by the fire is eaten only at the fire: someone whose
     // own larder is empty walks over to it, and that is their day. When there is little, the grown go short so the children eat.
-    const hm = homeSite(a), mouths = hm ? hm.members || 1 : pop, short = a.age >= 13 && T.kidsHungry && (hm ? (hm.larder || 0) < mouths * 0.5 : T.store < pop * 0.5);
+    const hm = homeSite(a), mouths = hm ? hm.members || 1 : pop, short = a.age >= GROWN && T.kidsHungry && (hm ? (hm.larder || 0) < mouths * 0.5 : T.store < pop * 0.5);
     if (a.e < (short ? 0.4 : 0.85)) {
       let want = Math.min(1 - a.e, 0.5);
       if (hm && hm.larder > 0.05) { const t = Math.min(hm.larder, want); hm.larder -= t; a.e += t; want -= t; }
       if (want > 0.05 && T.store > 0.05 && dist <= 2) { const t = Math.min(T.store, want); T.store -= t; a.e += t; }
-      else if (want > 0.05 && a.e < 0.4 && T.store > want && a.age >= 6 && !S.night) {
-        stepTo(a, T.x, T.y, 40); const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return;
+      else if (want > 0.05 && a.e < 0.4 && T.store > want && a.age >= SMALL && !S.night) {
+        stepTo(a, T.x, T.y, 40); if (Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= 2) { const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return; }   /* the way may be barred by water */
       }
     }
-    if (a.age < 6) { stepTo(a, T.x, T.y, 1); a.act = { k: S.night ? 'sleep' : a.age < 2 ? 'baby' : 'play' };
+    if (a.age < SMALL) { stepTo(a, T.x, T.y, 1); a.act = { k: S.night ? 'sleep' : a.age < 2 ? 'baby' : 'play' };
       if (a.age < 2 && (a.e < 0.5 || a.mood === 'cold')) sound(a.x, a.y, 3, 'cry');
       else if (!S.night && a.age >= 2) sound(a.x, a.y, 1.6, 'play');   /* a hungry or cold baby cries, day or night; children at play are not quiet */
       return; }
@@ -1051,10 +1059,10 @@ function create(seed, opt) {
     // wood gets less for a day's walking and burns low.
     { const hearth = doorOf(a);
       if (T.skills.fire && tempAt(I(hearth.x, hearth.y)) < d.comfort - 3 && (hearth.fuel || 0) < FUEL_KEEP && rnd() < dt * 8) {
-        const j = nearestWay(hearth.x, hearth.y, q => tree[q] > 0.1, 1.5, reachOf(a) * 2);
+        const j = standFor(hearth.x, hearth.y, a, 0.1);
         if (j < 0) stretch(a);
         if (j >= 0) {
-          tree[j] -= Math.min(tree[j], 0.03);
+          fell(j, 0.03);
           const w = wayDist(hearth.x, hearth.y, j % N, (j / N) | 0);
           const ef = 1 / (1 + w.d / (WALK * pace * (1 + 0.5 * w.road)));
           hearth.fuel = (hearth.fuel || 0) + ef;
@@ -1287,8 +1295,8 @@ function create(seed, opt) {
     if (s === T.bridge) {                                             // timber carried to the ford and laid across it, a few planks at a time
       if (T.wood >= 1) { const c = Math.min(T.wood, s.need - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'bridgework', x: s.ax, y: s.ay }; walk(T.x, T.y, s.ax, s.ay, 0.12); sound(s.ax, s.ay, 3, 'work'); }
       else {
-        const bj = nearestWay(s.ax, s.ay, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2); if (bj < 0) { stretch(a); return false; }
-        tree[bj] -= Math.min(tree[bj], 0.16); const w = wayDist(s.ax, s.ay, bj % N, (bj / N) | 0);
+        const bj = standFor(s.ax, s.ay, a, 0.3); if (bj < 0) { stretch(a); return false; }
+        fell(bj, CHOP); const w = wayDist(s.ax, s.ay, bj % N, (bj / N) | 0);
         T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) / (1 + w.d / WALK); a.act = { k: 'chop', j: bj, site: 0 }; return true;
       }
       if (s.wood >= s.need) { s.done = true; T.bridged[s.key] = true; tell('A bridge of logs now crosses the water where people waded every day.'); }
@@ -1296,9 +1304,9 @@ function create(seed, opt) {
     }
     if (s === T.wall) {                                               // stakes cut, carried and driven, a few paces of fence at a time
       if (T.wood < 1) {
-        const bj = nearestWay(T.x, T.y, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2);
+        const bj = standFor(T.x, T.y, a, 0.3);
         if (bj < 0) { stretch(a); return false; }
-        tree[bj] -= Math.min(tree[bj], 0.16);
+        fell(bj, CHOP);
         const ld = cartload(bj), ef = walkEff(T.x, T.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
         T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
         a.act = { k: 'chop', j: bj, site: 0 };
@@ -1316,8 +1324,8 @@ function create(seed, opt) {
     /* trees standing on the plot come down first: felled where they stand, and the first timber for the build */
     for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) {
       const j = I(s.x + nx, s.y + ny); if (water[j] || tree[j] <= 0.05) continue;
-      const cut = Math.min(tree[j], 0.16); tree[j] -= cut; if (tree[j] < 0.05) tree[j] = 0;
-      T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * cut / 0.16;
+      const got = fell(j, CHOP);
+      T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * got / 0.16;
       a.act = { k: 'chop', j, site: s.id }; sound(s.x + nx, s.y + ny, 3.5, 'work'); return true;
     }
     const K = DWELL[s.kind], needW = (s.stage + 1) * K.wood + (s.lake ? 2 : 0), needS = (s.stage + 1) * K.stone;   // what must lie on the plot before the next stage; posts for a house over water
@@ -1325,9 +1333,9 @@ function create(seed, opt) {
       if (T.wood >= 1) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; walk(T.x, T.y, s.x, s.y, 0.12); return true; }
       /* fell the nearest standing timber along the ways; saplings are left to grow. The further it stands, the less is
          brought back in a day */
-      const bj = nearestWay(s.x, s.y, j => tree[j] >= 0.3, 1.5, reachOf(a) * 2);
+      const bj = standFor(s.x, s.y, a, 0.3);
       if (bj < 0) { stretch(a); return false; }
-      tree[bj] -= Math.min(tree[bj], 0.16);
+      fell(bj, CHOP);
       const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
       { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.timberD += w.d; S.stat.timberN++; crossed(w); a.tripD = w.d; }
       T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
@@ -1343,7 +1351,7 @@ function create(seed, opt) {
       /* the quarry: of all the stone showing on common ground, the one that gives most for a day's walk; a deep pit is harder
          to work (deeper and farther both make stone dearer) */
       let bq = -1, vq = 0;
-      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || Math.hypot(j % N - s.x, ((j / N) | 0) - s.y) > reachOf(a) * 2 || (owner[j] && !field[j] && T.sites.some(q => q.id === owner[j] && q.kind !== 'well'))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
+      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || Math.hypot(j % N - s.x, ((j / N) | 0) - s.y) > reachOf(a) * 2 || field[j] || (owner[j] && T.sites.some(q => q.id === owner[j] && q.kind !== 'well'))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
       const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0, reachOf(a) * 2), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
       if (bq < 0 && bc < 0) { stretch(a); return false; }
       const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
@@ -1400,7 +1408,7 @@ function create(seed, opt) {
     const T = S.tribe, P = folk(); if (!P.length) return;
     T.threat *= 0.8; T.plenty = T.plenty * 0.6 + 0.4 * (allFood() / P.length);
     if (T.skills.palisade && (T.wall || T.threat >= 2)) planWall();
-    const able = P.filter(a => a.age >= 13 && a.age <= 46), n = able.length; for (const a of P) if (a.age > 46 || a.age < 13) a.job = '';
+    const able = P.filter(a => a.age >= GROWN && a.age <= 46), n = able.length; for (const a of P) if (a.age > 46 || a.age < GROWN) a.job = '';
     const spare = Math.floor(n * clamp((T.plenty - 0.7) / 4, 0, 0.45));           // hands the food supply can free from getting food
     if (n < 3 || (spare < 1 && !able.some(a => a.job))) { for (const a of able) a.job = ''; return; }
     const N_ = T.need, unroofed = Math.max(0, households() - T.sites.filter(q => q.kind !== 'well').length), work = T.sites.some(q => !raised(q)) || (T.wall && !T.wall.done) || unroofed > 0;
@@ -1473,6 +1481,22 @@ function create(seed, opt) {
     bridge:     { need: 'cross',  at: 1.2, can: T => T.skills.hut, say: 'Bridge. Too many days lost wading the ford, and the river too high to cross half the year. Logs can be laid across it.' },
     concrete:   { need: 'flood',  at: 3.0, can: T => T.skills.masonry && T.skills.fire, say: 'Concrete. The river took the houses again. Burnt lime, sand and stone set like rock, and stay.' }
   };
+  // the ground settling, year by year, whether or not anyone lives there
+  function settlePits() {
+    const T = S.tribe;
+    /* worked-out pits: on wet ground the water comes up and a pond forms, with a few fish in time; elsewhere the hole is
+       used for spoil and settles, over twenty years or so, into poor ground that can be built on */
+    let pond = false;
+    for (let j = 0; j < N * N; j++) {
+      if (pit[j] <= 0.1 || rock[j] >= 0.15 || water[j]) continue;
+      if (bank[j] > 0.4 || soil[j] > 0.95) {
+        water[j] = 1; fish[j] = 0.02; grass[j] = 0; tree[j] = 0; fruit[j] = 0; field[j] = 0; owner[j] = 0; pond = true;
+        for (const a of cells[j]) { const p = free(a.x, a.y); a.x = p[0]; a.y = p[1]; }
+        if (!T.pondTold) { T.pondTold = true; tell('The old stone pit by the water has filled. It is a pond now.'); }
+      } else { pit[j] = Math.max(0, pit[j] - 0.05); if (!pit[j] || pit[j] <= 0.1) fert[j] = Math.min(fert[j], 0.35); }
+    }
+    if (pond) { findMasses(); S.stat.ponds++; }
+  }
   function reckonYear() {
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
     // wants that are only seen over a year
@@ -1514,18 +1538,7 @@ function create(seed, opt) {
     }
     T.fordUse = {};
     for (const q of T.sites) { q.tripsLast = q.trips || {}; q.tripDLast = q.tripD || {}; q.workDaysLast = q.workDays || 0; q.trips = {}; q.tripD = {}; q.workDays = 0; }
-    /* worked-out pits: on wet ground the water comes up and a pond forms, with a few fish in time; elsewhere the hole is
-       used for spoil and settles, over twenty years or so, into poor ground that can be built on */
-    let pond = false;
-    for (let j = 0; j < N * N; j++) {
-      if (pit[j] <= 0.1 || rock[j] >= 0.15 || water[j]) continue;
-      if (bank[j] > 0.4 || soil[j] > 0.95) {
-        water[j] = 1; fish[j] = 0.02; grass[j] = 0; tree[j] = 0; fruit[j] = 0; field[j] = 0; owner[j] = 0; pond = true;
-        for (const a of cells[j]) { const p = free(a.x, a.y); a.x = p[0]; a.y = p[1]; }
-        if (!T.pondTold) { T.pondTold = true; tell('The old stone pit by the water has filled. It is a pond now.'); }
-      } else { pit[j] = Math.max(0, pit[j] - 0.05); if (!pit[j] || pit[j] <= 0.1) fert[j] = Math.min(fert[j], 0.35); }
-    }
-    if (pond) { findMasses(); S.stat.ponds++; }
+
     for (const k in N_) if (k !== 'danger') N_[k] *= 0.85;
     for (const q of T.sites) { q.cold *= 0.85; q.hunger *= 0.85; }                                 // what is no longer felt is forgotten
     // names for what the place has become: said, never used to decide anything
@@ -1548,7 +1561,7 @@ function create(seed, opt) {
       const P = folk(), homes = T.sites.filter(q => live(q) && q.members > 0), ids = new Set(homes.map(q => q.id)); let total = 0;
       for (let i = 0; i < N * N; i++) if (field[i] && !ids.has(owner[i])) { field[i] = 0; owner[i] = 0; }      // nobody's any more: it goes back to grass
       for (const h of homes) {
-        const mine = P.filter(b => b.house === h.id), hands = mine.filter(b => b.age >= 13 && b.age <= 60).length, farmers = mine.filter(b => b.job === 'farmer').length;
+        const mine = P.filter(b => b.house === h.id), hands = mine.filter(b => b.age >= GROWN && b.age <= 60).length, farmers = mine.filter(b => b.job === 'farmer').length;
         const want = Math.round(hands * 2 + farmers * 1.5 + mine.length * 0.7); let have = 0; const cand = [];
         for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
           const x = h.x + dx, y = h.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = I(x, y);
@@ -1651,7 +1664,7 @@ function create(seed, opt) {
       T.huts = lv.length;
       T.roof = lv.length ? lv.reduce((q, w) => q + ((DWELL[w.was || w.kind] || {}).roof || 0.7), 0) / lv.length - (T.skills.masonry ? 0.05 : 0) : 0.7;
       if (S.tickNo % TPY === 3) {
-        reckonYear();
+        reckonYear(); settlePits();
         townLife();
       }
     }
@@ -1686,7 +1699,7 @@ function create(seed, opt) {
       const cold = Math.max(0, d.comfort - Tc) * d.chill * shelter * soaked, hot = Tc > 32 ? (Tc - 32) * 0.08 : 0;
       if (d.people && cold > 0.1) { T.need.cold += cold * dt / S.popPeople; const hm = homeSite(a); if (hm) hm.cold += cold * dt / Math.max(1, hm.members); }
       const asleep = d.sleepsBelow !== undefined && Tc < d.sleepsBelow;                    // some bodies sleep the cold away
-      a.e -= d.metab * dt / (d.people && a.age < 10 ? 2.5 : 1) * (asleep ? 0.12 : 1 + cold + hot);
+      a.e -= d.metab * dt / (d.people && a.age < GROWN ? 2.5 : 1) * (asleep ? 0.12 : 1 + cold + hot);
       if (cold > 0.4) a.mood = 'cold'; else if (hot > 0.2) a.mood = 'hot';
       if (a.age > a.life * (d.people && T.skills.medicine ? 1.15 : 1)) { die(a, 'old age'); continue; }
       if (flood[i]) { a.e -= 1.2 * dt; if (rnd() < 0.6 * dt) { die(a, 'drowned'); continue; } roam(a, 3, 2); }
@@ -1704,7 +1717,7 @@ function create(seed, opt) {
           }
           const q = S.byId.get(a.partner);
           if (!q || !q.alive || cheb(q, a) > 3) continue;
-          if (childrenOf(a).filter(c => c.age < 9).length >= 3) continue;
+          if (childrenOf(a).filter(c => c.age < GROWN).length >= 3) continue;
         }   // a household can carry only so many small children at once
         else {
           if (!nearest(a, 7, b => b.sp === a.sp && b.age >= d.mature)) continue;
@@ -1854,7 +1867,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- save and load
   // The world is plain data: the land arrays, S, the random stream and the noises still in the air. Typed arrays travel as
   // base64, Maps as their entries, and a creature names its species row instead of holding it.
-  const FIELDS = { height, known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
+  const FIELDS = { cut, height, known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
   const b64 = ta => {
     const u = new Uint8Array(ta.buffer, ta.byteOffset, ta.byteLength);
     let str = '';
@@ -1904,6 +1917,7 @@ function create(seed, opt) {
     pit,
     known,
     height,
+    cut,
     flowTo,
     accum,
     filled,
