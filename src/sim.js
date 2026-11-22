@@ -58,12 +58,15 @@ function create(seed, opt) {
 
   // The kind of country. Same rules everywhere; only the lie of the land differs: how much water, how much wood, how much stone, how cold.
   const LANDS = {
-    valley:   { river: 1.1, pond: [4.2, 3],   treeAt: 0.56, rockAt: 0.82, warm: 0,  fert: 0 },
-    plains:   { river: 0.8, pond: [2.4, 1.7], treeAt: 0.72, rockAt: 0.9,  warm: 1,  fert: 0.08 },
-    forest:   { river: 1.1, pond: [3, 2.2],   treeAt: 0.42, rockAt: 0.86, warm: 0,  fert: 0.05 },
-    lakeland: { river: 1.2, pond: [9, 6.5],   treeAt: 0.58, rockAt: 0.86, warm: 0,  fert: 0 },
-    highland: { river: 0.9, pond: [2.6, 1.9], treeAt: 0.6,  rockAt: 0.56, warm: -3, fert: -0.12 }
+    /* shape: how the height is made (see below); riverA: how many tiles must drain through a tile for a stream to run there;
+       lake: how deep a hollow must be, in levels, to hold a lake */
+    valley:   { shape: 'trough', riverA: 70,  lake: 0.4, treeAt: 0.56, rockAt: 0.82, warm: 0,  fert: 0 },
+    plains:   { shape: 'low',    riverA: 120, lake: 0.3, treeAt: 0.72, rockAt: 0.9,  warm: 1,  fert: 0.08 },
+    forest:   { shape: 'rolling', riverA: 80, lake: 0.6, treeAt: 0.42, rockAt: 0.86, warm: 0,  fert: 0.05 },
+    lakeland: { shape: 'basins', riverA: 70,  lake: 0.2, treeAt: 0.58, rockAt: 0.86, warm: 0,  fert: 0 },
+    highland: { shape: 'high',   riverA: 90,  lake: 0.9,  treeAt: 0.6,  rockAt: 0.56, warm: -3, fert: -0.12 }
   };
+  const TREE_LINE = 7;   /* levels above which it grows too cold for woods to close */
   const landKind = LANDS[opt.land] ? opt.land : 'valley', LAND = LANDS[landKind], rock = F();
   const noise = (x, y, s) => {
     const h = (a, b) => {
@@ -76,13 +79,62 @@ function create(seed, opt) {
     return h(xi, yi) + (h(xi + 1, yi) - h(xi, yi)) * u + (h(xi, yi + 1) - h(xi, yi)) * v + (h(xi, yi) - h(xi + 1, yi) - h(xi, yi + 1) + h(xi + 1, yi + 1)) * u * v;
   };
   const sd = (seed || 1) * 7 + 3;
+  // ---- the lie of the land. height is in levels (0 to about 8): neighbours one whole level apart are joined by a bank
+  // that can be walked; two or more apart they meet at a cliff. It is made from noise at fixed wavelengths in tiles (48, 16
+  // and 6), so a valley looks the same whatever the size of the map, shaped by the kind of country.
+  const height = F(), flowTo = new Int32Array(N * N).fill(-1), accum = F(), filled = F();
+  { const nz = (x, y, w, k) => noise(x / w, y / w, sd + k);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      let h = 3.0 * nz(x, y, 48, 31) + 1.5 * nz(x, y, 16, 37) + 0.6 * nz(x, y, 6, 41);
+      if (LAND.shape === 'trough') { const cx = N / 2 + 9 * Math.sin(y / 15 + sd), p = nz(x, y, 12, 67); h = h * 0.7 + Math.min(Math.abs(x - cx), 18) * 0.2 + (p > 0.62 ? 2 : 0); }   /* a few rocky knolls */
+      else if (LAND.shape === 'low') h = h * 0.5 + 0.5;
+      else if (LAND.shape === 'basins') h = h * 0.7 + 2.2 * nz(x, y, 9, 53);
+      else if (LAND.shape === 'high') { h = h * 1.5 + 1.5 + 2.4 * Math.abs(nz(x, y, 14, 59) - 0.5); const p = nz(x, y, 20, 61); h += p > 0.56 ? 2.5 : p > 0.52 ? (p - 0.52) * 62 : 0; }   /* plateaus with steep edges */
+      height[I(x, y)] = Math.max(0, h);
+    }
+  }
+  // ---- water by flow, not placement. Every tile drains to its lowest way out; hollows fill to the point where they spill
+  // (priority-flood from the edge of the map, which is where all water leaves). Where the fill stands above the ground there
+  // is a lake; where enough land drains through a tile, a stream, wider the more drains through it.
+  const flowOrder = [];
+  { const heap = [], key = filled, done = new Uint8Array(N * N);
+    const push = i => { heap.push(i); let k = heap.length - 1; while (k > 0) { const p = (k - 1) >> 1; if (key[heap[p]] <= key[i]) break; heap[k] = heap[p]; k = p; } heap[k] = i; };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; const km = () => (m === k ? key[last] : key[heap[m]]); if (l < heap.length && key[heap[l]] < km()) m = l; if (r < heap.length && key[heap[r]] < km()) m = r; if (m === k) break; heap[k] = heap[m]; k = m; } heap[k] = last; } return top; };
+    for (let i = 0; i < N * N; i++) { const x = i % N, y = (i / N) | 0; if (x === 0 || y === 0 || x === N - 1 || y === N - 1) { filled[i] = height[i]; done[i] = 1; push(i); } }
+    while (heap.length) {
+      const c = pop(), x = c % N; flowOrder.push(c);
+      for (const n of [x > 0 ? c - 1 : -1, x < N - 1 ? c + 1 : -1, c - N, c + N]) { if (n < 0 || n >= N * N || done[n]) continue; done[n] = 1; filled[n] = Math.max(height[n], filled[c] + 1e-4); flowTo[n] = c; push(n); }
+    }
+    for (let k = flowOrder.length - 1; k >= 0; k--) { const i = flowOrder[k]; accum[i] += 1; if (flowTo[i] >= 0) accum[flowTo[i]] += accum[i]; }
+    for (let i = 0; i < N * N; i++) if (filled[i] - height[i] > LAND.lake || accum[i] >= LAND.riverA) water[i] = 1;
+    /* a big stream spreads: its lowest side-neighbour is under water too */
+    for (let i = 0; i < N * N; i++) if (water[i] && accum[i] >= LAND.riverA * 12) { const x = i % N; let b = -1, bh = 1e9; for (const n of [x > 0 ? i - 1 : -1, x < N - 1 ? i + 1 : -1, i - N, i + N]) if (n >= 0 && n < N * N && !water[n] && height[n] < bh) { bh = height[n]; b = n; } if (b >= 0) water[b] = 2; }
+    for (let i = 0; i < N * N; i++) if (water[i] === 2) water[i] = 1;
+  }
+  // ---- a way through: on any one piece of dry land, every tile can be reached by banks of one level, never only by
+  // climbing a cliff. Where a cliff cuts the land in two, the lowest place on it is cut down to a bank (a fixed fix-up).
+  { const L = i => Math.floor(height[i]), comp = new Int32Array(N * N);
+    for (let round = 0; round < 400; round++) {
+      comp.fill(-1); let nc = 0; const sizes = [];
+      for (let i = 0; i < N * N; i++) { if (water[i] || comp[i] >= 0) continue; const st = [i]; comp[i] = nc; let sz = 0;
+        while (st.length) { const c = st.pop(), x = c % N; sz++; for (const n of [x > 0 ? c - 1 : -1, x < N - 1 ? c + 1 : -1, c - N, c + N]) if (n >= 0 && n < N * N && !water[n] && comp[n] < 0 && Math.abs(L(n) - L(c)) <= 1) { comp[n] = nc; st.push(n); } }
+        sizes.push(sz); nc++; }
+      /* the smallest piece cut off by a cliff from a neighbour on the same dry land gets its lowest crossing cut down */
+      let best = null, bd = 1e9;
+      for (let c = 0; c < N * N; c++) { if (water[c]) continue; const x = c % N; for (const n of [x < N - 1 ? c + 1 : -1, c + N]) { if (n < 0 || n >= N * N || water[n] || comp[n] === comp[c]) continue; const d = Math.abs(L(n) - L(c)) * 1000 + Math.min(sizes[comp[c]], sizes[comp[n]]); if (d < bd) { bd = d; best = [c, n]; } } }
+      if (!best) break;
+      const [a, b] = best, hi = L(a) > L(b) ? a : b, lo = hi === a ? b : a; height[hi] = L(lo) + 1.5;
+    }
+  }
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const i = I(x, y), rx = N * 0.62 + Math.sin(y * 0.22 + sd) * 4;
-    if (Math.abs(x - rx) < LAND.river || ((x - N * 0.3) / LAND.pond[0]) ** 2 + ((y - N * 0.7) / LAND.pond[1]) ** 2 < 1) water[i] = 1;
-    const rn = noise(x / 5, y / 5, sd + 21); rock[i] = !water[i] && rn > LAND.rockAt ? clamp((rn - LAND.rockAt) * 5, 0.2, 1) : 0;   // bare stone showing through
+    const i = I(x, y);
+    /* steep and high ground shows bare stone; above the tree line it is too cold for woods */
+    let slope = 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N) slope = Math.max(slope, Math.abs(height[I(nx, ny)] - height[i])); }
+    const rn = noise(x / 5, y / 5, sd + 21), rockAt = LAND.rockAt - 0.3 * Math.max(0, slope - 0.5) - 0.05 * Math.max(0, height[i] - 6); rock[i] = !water[i] && rn > rockAt ? clamp((rn - rockAt) * 5, 0.2, 1) : 0;   // bare stone showing through
     fert[i] = clamp((0.45 + 0.75 * noise(x / 7, y / 7, sd) + LAND.fert) * (1 - 0.45 * rock[i]), 0.25, 1);
     const tn = noise(x / 6, y / 6, sd + 9);
-    tree[i] = water[i] || rock[i] > 0.5 ? 0 : tn > LAND.treeAt ? clamp((tn - LAND.treeAt + 0.06) * 3, 0, 0.95) : 0;
+    const treeAt = LAND.treeAt + 0.2 * Math.max(0, height[i] - TREE_LINE);
+    tree[i] = water[i] || rock[i] > 0.5 ? 0 : tn > treeAt ? clamp((tn - treeAt + 0.06) * 3, 0, 0.95) : 0;
     grass[i] = water[i] ? 0 : 0.5 * fert[i]; fish[i] = water[i] ? 1 : 0; cells.push([]);
   }
   // how close each piece of ground lies to open water: it decides seepage and what floods first
@@ -422,6 +474,8 @@ function create(seed, opt) {
   function edgeOfReach() {
     const T = S.tribe, home = mass[I(T.x, T.y)];
     const joined = m => m === home || fords.some(f => T.bridged[f.key] && ((f.ma === home && f.mb === m) || (f.mb === home && f.ma === m)));
+    /* first choice: somewhere at the edge of what the place knows, so they come out of the unknown */
+    for (let k = 0; k < 60; k++) { const j = (rnd() * N * N) | 0, x = j % N, y = (j / N) | 0; if (!known[j] || water[j] || !joined(mass[j])) continue; if ((x > 0 && !known[j - 1]) || (x < N - 1 && !known[j + 1]) || (y > 0 && !known[j - N]) || (y < N - 1 && !known[j + N])) return [x, y]; }
     for (let k = 0; k < 40; k++) { const side = (rnd() * 4) | 0, t = R(2, N - 2) | 0, x = side === 0 ? 1 : side === 1 ? N - 2 : t, y = side === 2 ? 1 : side === 3 ? N - 2 : t; if (!water[I(x, y)] && joined(mass[I(x, y)])) return [x, y]; }
     return [T.x, T.y];
   }
@@ -579,7 +633,7 @@ function create(seed, opt) {
     return Math.max(1, n);
   };
 
-  for (const sp in SP) { const d = SP[sp]; if (d.people) continue; const n = opt[sp] === undefined ? (d.start || 0) : opt[sp]; for (let k = 0; k < n; k++) add(sp, R(0, N), R(0, N)); }
+  for (const sp in SP) { const d = SP[sp]; if (d.people) continue; const n = opt[sp] === undefined ? Math.round((d.start || 0) * N * N / 1600) : opt[sp]; for (let k = 0; k < n; k++) add(sp, R(0, N), R(0, N)); }
   {
     const [bx, by] = campSite();
     S.tribe.x = bx; S.tribe.y = by;
@@ -1795,7 +1849,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- save and load
   // The world is plain data: the land arrays, S, the random stream and the noises still in the air. Typed arrays travel as
   // base64, Maps as their entries, and a creature names its species row instead of holding it.
-  const FIELDS = { known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
+  const FIELDS = { height, known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
   const b64 = ta => {
     const u = new Uint8Array(ta.buffer, ta.byteOffset, ta.byteLength);
     let str = '';
@@ -1844,6 +1898,10 @@ function create(seed, opt) {
     restore,
     pit,
     known,
+    height,
+    flowTo,
+    accum,
+    filled,
     mass,
     fords: () => fords,
     wayDist,

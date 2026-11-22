@@ -125,4 +125,7 @@ These are rules, not outcomes, and are meant to stay that way:
 - How people search for food: places nearer the door are looked at more often (distance drawn from an exponential with mean `WALK` tiles). The choice among them is by value and walking cost.
 - Walking across open ground costs 1.5 times a way. Water cannot be crossed except on a bridge, and a bridge can only span a narrow place (up to 4 tiles of water). These are physical tuning numbers.
 - People build only when fed (energy above 0.6): a tuning threshold on a want, like `IDEAS[k].at`.
+- The shape of each kind of country (D4/H1): the noise wavelengths (48, 16, 6 tiles), the valley's trough, the plains' low relief, the lakeland's basins, the highland's plateaus with steep edges, the valley's rocky knolls; how much must drain through a tile for a stream (`riverA`) and how deep a hollow holds a lake (`lake`); the tree line (level 7).
+- The guaranteed pass (H1): where a cliff cuts a piece of dry land in two, the lowest crossing is cut down to a bank, until every piece can be walked by banks of one level.
+- The map is 96 tiles a side in the game (`?size=` changes it); tests also run at 40 and 128.
 - A stranger arrives when a grown person has only kin to choose from. To be replaced by step 7 (people moving between places).

@@ -18,7 +18,8 @@ try {
   }
 } catch (e) { /* no storage */ }
 let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { console.warn('the saved valley could not be loaded; starting a new one', e); } }
-const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ }), N = W.N, S = W.S, A = EdenArt.build();
+const sizeQ = clamp(+(qs.get('size') || 96), 24, 160);   /* the map, in tiles a side */
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -110,6 +111,7 @@ const BN = N * 8, CB = 16 * 8,
   bSc = mkB(),
   bRd = mkB(),
   bKn = mkB(),
+  bHt = mkB(),
   roadF = new Float32Array(N * N);
 const knownF = new Float32Array(N * N);
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
@@ -134,17 +136,23 @@ const blur = (src, dst) => blurRect(src, dst, cbx, cby, cbx + CB - 1, cby + CB -
 function chunkFields(ch) {
   cbx = ch.i * CB; cby = ch.j * CB; cbFor = ch;
   for (let i = 0; i < N * N; i++) knownF[i] = W.known[i];
-  for (const [src, dst] of [[knownF, bKn], [waterF, bWt], [W.fert, bFe], [roadF, bRd], [W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [trail, bTr], [scar, bSc]]) blur(src, dst);
+  for (const [src, dst] of [[W.height, bHt], [knownF, bKn], [waterF, bWt], [W.fert, bFe], [roadF, bRd], [W.grass, bG], [W.snow, bS], [W.soil, bM], [W.flood, bF], [W.tree, bT], [trail, bTr], [scar, bSc]]) blur(src, dst);
 }
 let gRipe = 0, gWarm = false, campOn = true;
 function groundState() { gRipe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0; gWarm = S.air > 9; campOn = S.popPeople > 0 || T0.huts > 0; }
 // Land nobody of the place has seen is not drawn: it thins out, pixel by pixel, into the dark round the world.
 function colorAt(pxx, py) {
-  const c = colorAt0(pxx, py); if (!c) return 0;
+  let c = colorAt0(pxx, py); if (!c) return 0;
   const v = (py - OY) / (TH / 2), u = (pxx - OX) / (TW / 2), fx = (u + v) / 2, fy = (v - u) / 2;
   let k;
   if (fx >= N || fy >= N) k = W.known[Math.min(N - 1, fy | 0) * N + Math.min(N - 1, fx | 0)];
   else k = bKn[(((fy * 8) | 0) - cby) * CB + (((fx * 8) | 0) - cbx)];
+  /* the shape of the land, before it is drawn in relief: low ground a little darker, ridges a little lighter */
+  if (fx < N && fy < N && !W.water[(fy | 0) * N + (fx | 0)]) {
+    const h = bHt[(((fy * 8) | 0) - cby) * CB + (((fx * 8) | 0) - cbx)], f = clamp(0.84 + 0.045 * h, 0.8, 1.2);
+    const r = Math.min(255, (c & 255) * f), g = Math.min(255, ((c >>> 8) & 255) * f), b = Math.min(255, ((c >>> 16) & 255) * f);
+    c = (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
+  }
   if (k >= 0.98) return c;
   const t = clamp(k * 1.4 - 0.2, 0, 1), n = noise2[((py & (NT - 1)) * NT) | (pxx & (NT - 1))];
   if (t * 255 <= n) return 0;

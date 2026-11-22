@@ -14,7 +14,7 @@ var CONFIG = {
   seeds: [1, 2, 3],
   lands: ['valley', 'forest', 'plains'],       // any of: valley, plains, forest, lakeland, highland
   worldOptions: { resettle: true, startT: 0.3, dayCycle: 4, family: true },   // as the game creates its world; `land` is added per world
-  extraWorlds: [{ land: 'lakeland', seed: 1, years: 100 }],   // longer runs with their own length, after the grid above (?extra=0 drops them)
+  extraWorlds: [{ land: 'lakeland', seed: 1, years: 100 }, { land: 'valley', seed: 1, years: 30, size: 96 }, { land: 'highland', seed: 2, years: 20, size: 128 }],   // longer runs with their own length, after the grid above (?extra=0 drops them)
   determinism: true,                           // run every world a second time and compare the end state
   mustSurviveOn: ['valley', 'forest'],         // lands where people must not be gone for good
   survivalWindowYears: 5,                      // "not gone for good" = people seen at a yearly check within this many years of the end (resettling takes about 3)
@@ -63,8 +63,8 @@ Check.prototype.row = function () {
 };
 
 // ---------------------------------------------------------------- one world
-function WorldRun(land, seed, years) {
-  this.land = land; this.seed = seed; this.years = years || CONFIG.years; this.label = land + ' #' + seed + (years ? ' (' + years + ' years)' : '');
+function WorldRun(land, seed, years, size) {
+  this.land = land; this.seed = seed; this.size = size; this.years = years || CONFIG.years; this.label = land + ' #' + seed + (size ? ' at ' + size : '') + (years ? ' (' + years + ' years)' : '');
   this.W = null; this.ticks = 0; this.year = 0; this.inYear = 0; this.phase = 'create'; this.aborted = '';
   this.W2 = null; this.ticks2 = 0;
   this.lastPeopleYear = -1; this.everPeople = false; this.gonePeopleYears = 0; this.firstDwellingYear = -1;
@@ -108,7 +108,7 @@ function WorldRun(land, seed, years) {
   this.guard = function (key, fn) { try { fn(C[key]); } catch (e) { C[key].fail('the check itself threw at year ' + self.year + ': ' + (e && e.message || e)); } };
 }
 
-WorldRun.prototype.options = function () { var o = {}, k; for (k in CONFIG.worldOptions) o[k] = CONFIG.worldOptions[k]; o.land = this.land; return o; };
+WorldRun.prototype.options = function () { var o = {}, k; for (k in CONFIG.worldOptions) o[k] = CONFIG.worldOptions[k]; o.land = this.land; if (this.size) o.size = this.size; return o; };
 
 WorldRun.prototype.living = function () {
   var S = this.W.S, by = {}, people = 0, n = 0, list = [];
@@ -453,9 +453,10 @@ UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function (
   return W.S.problems.indexOf('unknown site kind castle') >= 0 ? '' : 'S.problems is ' + show(W.S.problems);
 }]);
 UNITS.push(['moveTo into the middle of a lake lands on dry ground', function () {
-  var W = Eden.create(1, { land: 'lakeland' }), N = W.N, a = W.S.agents[0], wet = -1;
-  for (var i = 0; i < N * N && wet < 0; i++) { var x = i % N, y = (i / N) | 0, deep = true; for (var d = -2; d <= 2 && deep; d++) for (var e = -2; e <= 2; e++) if (x + d < 0 || y + e < 0 || x + d >= N || y + e >= N || !W.water[(y + e) * N + x + d]) { deep = false; break; } if (deep) wet = i; }
-  if (wet < 0) return 'no deep water found on lakeland #1';
+  var W = null, N = 0, a = null, wet = -1;
+  for (var sd = 1; sd <= 8 && wet < 0; sd++) { W = Eden.create(sd, { land: 'lakeland', size: 96 }); N = W.N; a = W.S.agents[0];
+  for (var i = 0; i < N * N && wet < 0; i++) { var x = i % N, y = (i / N) | 0, deep = true; for (var d = -2; d <= 2 && deep; d++) for (var e = -2; e <= 2; e++) if (x + d < 0 || y + e < 0 || x + d >= N || y + e >= N || !W.water[(y + e) * N + x + d]) { deep = false; break; } if (deep) wet = i; } }
+  if (wet < 0) return 'no deep water found on lakeland seeds 1 to 8 at 96';
   for (var k = 0; k < 20; k++) { W.moveTo(a, wet % N, (wet / N) | 0); if (W.water[a.y * N + a.x] || a.x !== Math.round(a.x)) return 'placed at ' + a.x + ',' + a.y; }
   return '';
 }]);
@@ -524,12 +525,30 @@ UNITS.push(['known land starts small round the camp and grows; strangers to an e
   var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'forest' }), N = W.N, i, out = [];
   var share = function () { var k = 0; for (var j = 0; j < N * N; j++) k += W.known[j]; return k / (N * N); };
   for (i = 0; i < 24; i++) W.tick(); var y1 = share();
-  for (i = 0; i < 24 * 19; i++) W.tick(); var y20 = share();
+  var y20 = 0; for (i = 0; i < 24 * 19; i++) { W.tick(); y20 = Math.max(y20, share()); }   /* the most known before any emptying */
   if (!(y1 > 0 && y1 < 0.3)) out.push('year 1 known ' + Math.round(y1 * 100) + '%');
   if (!(y20 > y1)) out.push('year 20 known ' + Math.round(y20 * 100) + '% is not more than year 1');
   W.G.cull('human', 1); for (i = 0; i < 24 * 8 && !/^Two strangers/.test((W.S.log[W.S.log.length - 1] || {}).text || ''); i++) W.tick();
   var after = share(); if (after > 0.3) out.push('after resettling ' + Math.round(after * 100) + '% is still known');
   return out.join('; ');
+}]);
+UNITS.push(['the land at 40, 96 and 128: water drains to the edge or a lake, never uphill; each dry piece joined by banks of one level (H1)', function () {
+  var out = [];
+  [40, 96, 128].forEach(function (size) { ['valley', 'plains', 'forest', 'lakeland', 'highland'].forEach(function (land) {
+    var W = Eden.create(1, { land: land, size: size }), N = W.N, bad = [];
+    for (var i = 0; i < N * N; i++) {
+      /* follow the drainage from every water tile: it must reach the map edge, never climbing */
+      if (W.water[i]) { var c = i, g = 0; while (W.flowTo[c] >= 0 && g++ < N * N) { var f = W.flowTo[c]; if (W.filled[f] > W.filled[c] + 1e-9) { bad.push('uphill at ' + (c % N) + ',' + ((c / N) | 0)); break; } c = f; } var x = c % N, y = (c / N) | 0; if (!(x === 0 || y === 0 || x === N - 1 || y === N - 1)) bad.push('no outlet from ' + (i % N) + ',' + ((i / N) | 0)); }
+      if (bad.length) break;
+    }
+    /* banks: on each dry piece, every tile reachable from every other by steps of at most one level */
+    var comp = new Int32Array(N * N).fill(-1), byMass = {}, L = function (j) { return Math.floor(W.height[j]); };
+    for (var s0 = 0; s0 < N * N && !bad.length; s0++) { if (W.water[s0] || comp[s0] >= 0) continue; var st = [s0]; comp[s0] = s0;
+      while (st.length) { var c2 = st.pop(), x2 = c2 % N; [x2 > 0 ? c2 - 1 : -1, x2 < N - 1 ? c2 + 1 : -1, c2 - N, c2 + N].forEach(function (n) { if (n >= 0 && n < N * N && !W.water[n] && comp[n] < 0 && Math.abs(L(n) - L(c2)) <= 1) { comp[n] = s0; st.push(n); } }); }
+      var m = W.mass[s0]; if (byMass[m] !== undefined && byMass[m] !== s0) bad.push('land at ' + (s0 % N) + ',' + ((s0 / N) | 0) + ' is cut off by a cliff'); else byMass[m] = s0; }
+    if (bad.length) out.push(land + ' at ' + size + ': ' + bad.slice(0, 2).join('; '));
+  }); });
+  return out.join(' | ');
 }]);
 function runUnits() {
   var rows = [];
@@ -543,7 +562,7 @@ function start() {
   running = true;
   var runs = [], li, si, t0 = now(), at = 0;
   for (li = 0; li < CONFIG.lands.length; li++) for (si = 0; si < CONFIG.seeds.length; si++) runs.push(new WorldRun(CONFIG.lands[li], CONFIG.seeds[si]));
-  for (li = 0; li < CONFIG.extraWorlds.length; li++) runs.push(new WorldRun(CONFIG.extraWorlds[li].land, CONFIG.extraWorlds[li].seed, CONFIG.extraWorlds[li].years));
+  for (li = 0; li < CONFIG.extraWorlds.length; li++) runs.push(new WorldRun(CONFIG.extraWorlds[li].land, CONFIG.extraWorlds[li].seed, CONFIG.extraWorlds[li].years, CONFIG.extraWorlds[li].size));
   window.EdenTests = { done: false, passed: 0, failed: 0, warnings: 0, skipped: 0, results: [], worlds: [], config: CONFIG, ms: 0, summary: '' };
   var body = $('results'); if (body) body.textContent = '';
   var unitRows = runUnits(); Array.prototype.push.apply(window.EdenTests.results, unitRows); showWorld({ label: 'units', rows: unitRows, summary: '' });
