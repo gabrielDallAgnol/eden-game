@@ -137,7 +137,10 @@ function create(seed, opt) {
   const homeSite = a => a.house ? S.tribe.sites.find(q => q.id === a.house) || null : null;
   const bring = (a, amt) => { const h = homeSite(a); if (h) h.larder = (h.larder || 0) + amt; else S.tribe.store += amt; };
   const allFood = () => { let f = S.tribe.store; for (const q of S.tribe.sites) f += q.larder || 0; return f; };
-  const owner = new Int32Array(N * N);                                // whose field a tile is (the id of the roof it belongs to)
+  const owner = new Int32Array(N * N);
+  // Quarries leave holes. rock is the stone still in the ground (about STONE_PER_TILE stone at 1); pit is how deep it has
+  // been dug (0 to 1). A pit is neither a lot nor a field.
+  const pit = new Float32Array(N * N), STONE_PER_TILE = 50;                                // whose field a tile is (the id of the roof it belongs to)
   // Sound. Work, play, a crying child, a kill, a howl: each is a noise at a place, as loud as the thing that made it. It
   // carries a few tiles and fades with distance, a little faster through trees. Nothing is told what a noise means; each
   // creature does with it what its body would: the hungry hunter goes to look, the grazer and the fed hunter keep away
@@ -255,7 +258,7 @@ function create(seed, opt) {
     dayK: 1,
     byId: new Map(),
     problems: [],
-    stat: { lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
+    stat: { pitD: 0, pitN: 0, lotsRefused: 0, fireMeals: 0, starveD: 0, starveRef: 0, starveN: 0, forageD: 0, forageN: 0, timberD: 0, timberN: 0, stoneD: 0, stoneN: 0, fuelD: 0, fuelN: 0 },
     levers: { hold: {},
       banned: {} } };
   const DAY = opt.dayCycle || 0;   // ticks per day (0 = no day and night). Work that is skipped at night is done a little faster by day, so a year holds the same work.
@@ -1099,7 +1102,7 @@ function create(seed, opt) {
       if (T.sites.some(q => q.x === x && q.y === y)) continue;                                                // one roof to a lot, for now
       if (T.wall && T.wall.cells.includes(i)) continue;
       let wet = 0, timber = 0, crops = 0, way = 0, theirs = false;
-      for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) { const j = I(x + nx, y + ny); if (water[j]) wet++; timber += tree[j]; crops += field[j]; if (owner[j] && !mayUse.has(owner[j])) theirs = true; }
+      for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) { const j = I(x + nx, y + ny); if (water[j]) wet++; timber += tree[j]; crops += field[j]; if ((owner[j] && !mayUse.has(owner[j])) || pit[j] > 0.1) theirs = true; }
       if (theirs) { S.stat.lotsRefused++; continue; }                                                                                    /* someone else's field or lot: not theirs to build on */
       if (wet > 2) continue;                                                                                  // not enough dry ground to stand a roof on
       for (const [ax, ay] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) way = Math.max(way, tread[I(clamp(x + ax, 0, N - 1), clamp(y + ay, 0, N - 1))]);
@@ -1217,13 +1220,18 @@ function create(seed, opt) {
     if (s.stone < needS) {
       if (T.stone >= 1) { const c = Math.min(T.stone, needS - s.stone); T.stone -= c; s.stone += c; a.act = { k: 'haul', site: s.id, item: 'stone' }; return true; }
       /* break stone where it shows, or carry cobbles up from the water's edge: whichever costs the less walking for what it gives */
-      const bq = nearestWay(s.x, s.y, j => rock[j] >= 0.15, 0), bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0);
-      const vq = bq < 0 ? 0 : 2 * walkEff(s.x, s.y, bq % N, (bq / N) | 0, 1), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
+      /* the quarry: of all the stone showing on common ground, the one that gives most for a day's walk; a deep pit is harder
+         to work (deeper and farther both make stone dearer) */
+      let bq = -1, vq = 0;
+      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || (owner[j] && !field[j] && T.sites.some(q => q.id === owner[j] && q.kind !== 'well'))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
+      const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
       if (bq < 0 && bc < 0) return false;
       const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
       const ld = cartload(bj), ef = walkEff(s.x, s.y, bj % N, (bj / N) | 0, ld > 1 ? 2 : 1);
       { const w = wayDist(s.x, s.y, bj % N, (bj / N) | 0); S.stat.stoneD += w.d; S.stat.stoneN++; crossed(w); }
-      T.stone += (got + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef;
+      const brought = (got + (a.job === 'mason' ? 1 : 0) + (T.skills.tools ? 1 : 0)) * ld * ef * (got === 2 ? 1 - 0.5 * pit[bj] : 1);
+      T.stone += brought;
+      if (got === 2) { const dug = Math.min(rock[bj], brought / STONE_PER_TILE); rock[bj] -= dug; pit[bj] = Math.min(1, pit[bj] + dug); S.stat.pitD += wayDist(T.x, T.y, bj % N, (bj / N) | 0, true).d; S.stat.pitN++; }
       a.act = { k: 'quarry', j: bj, site: s.id };
       sound(bj % N, (bj / N) | 0, 4, 'work');
       walk(s.x, s.y, bj % N, (bj / N) | 0, T.carts ? 0.2 : 0.1);
@@ -1411,7 +1419,7 @@ function create(seed, opt) {
         for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
           const x = h.x + dx, y = h.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = I(x, y);
           if (field[i] && owner[i] === h.id) { have++; continue; }
-          if (water[i] || mass[i] !== mass[I(h.x, h.y)] || field[i] || onWay(x, y) || rock[i] > 0.4 || T.sites.some(q => Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1)) continue;
+          if (water[i] || pit[i] > 0.1 || mass[i] !== mass[I(h.x, h.y)] || field[i] || onWay(x, y) || rock[i] > 0.4 || T.sites.some(q => Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1)) continue;
           cand.push([i, Math.hypot(dx, dy) * 0.22 - fert[i] + tree[i] * 0.5]);
         }
         cand.sort((p, q) => p[1] - q[1]);
@@ -1713,7 +1721,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- save and load
   // The world is plain data: the land arrays, S, the random stream and the noises still in the air. Typed arrays travel as
   // base64, Maps as their entries, and a creature names its species row instead of holding it.
-  const FIELDS = { water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
+  const FIELDS = { pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
   const b64 = ta => {
     const u = new Uint8Array(ta.buffer, ta.byteOffset, ta.byteLength);
     let str = '';
@@ -1740,13 +1748,13 @@ function create(seed, opt) {
   function restore(json) {
     const o = typeof json === 'string' ? JSON.parse(json, unpack) : json;
     if (o.N !== N) throw new Error('save is for a ' + o.N + ' map, this world is ' + N);
-    for (const k in FIELDS) FIELDS[k].set(o.fields[k]);
+    for (const k in FIELDS) if (o.fields[k]) FIELDS[k].set(o.fields[k]);
     rs = o.rs; din = o.din; heardNow = o.heardNow;
     for (const k of Object.keys(S)) delete S[k];
     Object.assign(S, o.S); S.din = heardNow;
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
-      if (!S.stat) S.stat = {}; for (const k of ['lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
+      if (!S.stat) S.stat = {}; for (const k of ['pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }
     S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }
     folkList = null;
@@ -1760,6 +1768,7 @@ function create(seed, opt) {
     newSettlement,
     save,
     restore,
+    pit,
     mass,
     fords: () => fords,
     wayDist,

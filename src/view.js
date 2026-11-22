@@ -69,6 +69,7 @@ const C = {
   shadeA: rgb('#4f7f3a'), shadeB: rgb('#447035'), flowerW: rgb('#fbf4e2'), flowerY: rgb('#f3d24f'), flowerP: rgb('#e08fb8'), flowerR: rgb('#d9523f'),
   snow: rgb('#f6f9fc'), snow2: rgb('#e3ebf5'), snow3: rgb('#cddaea'), frost: rgb('#dfeadf'),
   furrow: rgb('#5f4630'), tilled: rgb('#8c6c47'), crop1: rgb('#8fbf52'), crop2: rgb('#c2c957'), crop3: rgb('#e6c453'), stubble: rgb('#cdb06c'),
+  pitRim: rgb('#8c7a62'), pit1: rgb('#6b5c4b'), pit2: rgb('#55493d'), pit3: rgb('#41372f'), pitFloor: rgb('#4f5a56'),
   ash: rgb('#3a3432'), ash2: rgb('#5a5350'), ember: rgb('#c9552c'), floodA: rgb('#6aa3b0'), floodB: rgb('#7bb2bb'),
   path1: rgb('#b49a6c'), path2: rgb('#a3875a'), pathEdge: rgb('#9a9a55'),
   kerb: rgb('#7d776c'), mortar: rgb('#6f6a60'), cob1: rgb('#b3aea2'), cob2: rgb('#a09b90'), cob3: rgb('#c2bdb1'), grav1: rgb('#bdb39a'), grav2: rgb('#a89e86'), grav3: rgb('#cfc6ae'),
@@ -137,6 +138,9 @@ function colorAt(pxx, py) {
     if (n2 < 5) col = T < 0 ? C.frost : C.gHi; else if (n2 > 250) col = C.gLo;
     else if (gWarm && g > 0.5 && m > 0.35 && n2 === 7) col = n < 64 ? C.flowerW : n < 128 ? C.flowerY : n < 192 ? C.flowerP : C.flowerR;
   }
+  /* a quarry pit: stepped terraces down to its floor, deeper the more stone has been taken */
+  { const pd = W.pit ? W.pit[ci] : 0;
+    if (pd > 0.04) { const e = Math.max(Math.abs(fx % 1 - 0.5), Math.abs(fy % 1 - 0.5)) * 2, inner = 1 - e; if (inner < 0.12 + 0.5 * pd) { const lv = Math.floor(inner / 0.12); col = e > 0.92 ? C.pitRim : lv <= 0 ? C.pitRim : lv === 1 ? C.pit1 : lv === 2 ? C.pit2 : pd > 0.7 && lv >= 4 ? C.pitFloor : C.pit3; } } }
   // footpaths worn by people, and the trodden ground of the camp
   if (!W.field[ci]) {
     let worn = bTr[b] + jn * 0.16;

@@ -203,3 +203,21 @@ Year 100 mean 48.3 against 54.8 at B3 in this table; over 4 seeds x 5 lands the 
 | mean |  | 10.6 | 33 | 55.4 | 66.5 | 14.8 | 46.5 | 0.3 | 13.3 |  | 6.2 | 8.9 | 6.2 | 18.7 | 18.4 | 0.9 | 15971.7 | 3.8 | 2.1 | 1574.6 |
 
 Year 100 mean 55.4 against 48.3 at the water step (seed-to-seed spread; same random stream). A new lot's 3x3 tiles belong to its household (a well's stay common); a household may build only where every lot tile is common, its own, its partner's or its kin's, and fields are never sown on another's lot. The old crops x 0.4 penalty in choosePlot is gone: ownership does that job. 'lots refused' counts lot evaluations passed over because another household held the ground (choosePlot looks at every lot each time it is asked, so this is a count of looks, not of decisions: about 16,000 per run). Tests: 288 passed, 0 failed (new: every lot tile belongs to its own household and is not sown by another), 4 warnings, 4 skipped. Scenarios: 21 passed, 1 warning.
+
+## B5: stone leaves pits
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 19 | 64 | 59 | 71 | 16 | 56 | 0 | 12 | 5/0/2 | 6.2 | 5.4 | 8.2 | 20.1 | 19 | 1.2 | 172732 | 38 | 14.7 | 5 | 2 | 2483 |
+| valley | 2 | 15 | 31 | 85 | 93 | 22 | 28 | 0 | 14 | 2/20/0 | 6.7 | 5.7 | 10.1 | 14.2 | 53 | 0.9 | 38093 | 52 | 16.8 | 2 | 0 | 2182 |
+| plains | 1 | 7 | 18 | 40 | 40 | 9 | 46 | 1 | 11 | 0/55/0 | 5.7 | 17.1 | 9.1 | 24.6 | 0 | 0.7 | 43 | 20 | 18.2 | 1 | 2 | 1583 |
+| plains | 2 | 5 | 23 | 53 | 71 | 16 | 47 | 1 | 13 | 0/4/0 | 5.3 | 24.1 | 7.8 | 27.6 | 16 | 1 | 157 | 19 | 14 | 5 | 6 | 1849 |
+| forest | 1 | 6 | 27 | 87 | 87 | 19 | 5 | 0 | 13 | 3/0/0 | 7.2 | 0 | 6.5 | 9.2 | 16 | 1.2 | 195 | 39 | 11 | 5 | 0 | 1220 |
+| forest | 2 | 18 | 47 | 77 | 81 | 22 | 34 | 0 | 15 | 5/0/0 | 6.5 | 4 | 12.1 | 13.4 | 46 | 1 | 214 | 59 | 17.5 | 5 | 1 | 1548 |
+| lakeland | 1 | 8 | 36 | 47 | 62 | 6 | 44 | 1 | 13 | 0/29/0 | 5.9 | 0 | 2.9 | 19.8 | 34 | 0.4 | 7820 | 0 |  | 3 | 0 | 1510 |
+| lakeland | 2 | 15 | 33 | 55 | 81 | 10 | 65 | 0 | 14 | 2/16/0 | 6.3 | 0 | 6.9 | 19.5 | 7 | 1 | 0 | 23 | 16.8 | 4 | 7 | 2069 |
+| highland | 1 | 5 | 29 | 31 | 40 | 12 | 42 | 0 | 14 | 3/5/0 | 6.4 | 15.1 | 4.3 | 20.3 | 7 | 1.1 | 90 | 25 | 12.2 | 2 | 2 | 1030 |
+| highland | 2 | 9 | 19 | 22 | 22 | 8 | 32 | 0 | 13 | 3/5/0 | 6.7 | 0 | 3.6 | 16.6 | 4 | 1.1 | 30 | 19 | 10.1 | 2 | 0 | 780 |
+| mean |  | 10.7 | 32.7 | 55.6 | 64.8 | 14 | 39.9 | 0.3 | 13.2 |  | 6.3 | 7.1 | 7.1 | 18.5 | 20.2 | 1 | 21937.4 | 29.4 | 14.6 | 3.4 | 2 | 1625.4 |
+
+Year 100 mean 55.6 (B4 55.4). Each quarry trip now takes stone out of the ground (rock falls by what was brought / 50) and deepens a pit on that tile; the quarry chosen is the stone on common ground that gives most for a day's walk, a deep pit giving less. Lots and fields never go on a pit. Stone from rock outcrops is a minority of stone trips (about 30 per 100-year run; the rest is cobbles from the water's edge), so pits stay shallow. Pit distance grows with houses built: valley #2 averaged 7.6 tiles in years 1-20 and 26 in years 61-80 (5 houses then 19); highland #1 8.3 then 10.4 (1 then 5 houses). Mean pit distance per run 14.6 tiles ('pit dist'). The view draws pits as stepped terraces (code-drawn). Tests: 298 passed, 0 failed (new: no lot or field on a pit), 4 warnings, 4 skipped. Scenarios: 21 passed, 1 warning.

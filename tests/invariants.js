@@ -77,6 +77,7 @@ function WorldRun(land, seed, years) {
   add('dry', 'no living creature stands on a water tile');
   add('dryAlways', 'no living creature is on a water tile after any tick');
   add('problems', 'the sim reports no defects in S.problems');
+  add('pitFree', 'no lot or field on a quarry pit (B5)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
   add('fieldBank', 'every field lies on the same bank as the household that sows it');
   add('agentNums', 'each creature\'s energy and age are finite, age is not negative');
@@ -254,6 +255,13 @@ WorldRun.prototype.yearly = function () {
     var by = {}; sites.forEach(function (q) { by[q.id] = q; }); var bad = 0, ex = '';
     for (var i = 0; i < N * N; i++) if (W.field[i] && W.owner[i] && by[W.owner[i]]) { var h = by[W.owner[i]]; if (W.mass[i] !== W.mass[h.y * N + h.x]) { bad++; if (!ex) ex = 'field ' + (i % N) + ',' + ((i / N) | 0) + ' of the house at ' + h.x + ',' + h.y; } }
     if (bad) c.fail(at + bad + ' fields across water, e.g. ' + ex); else c.ok();
+  });
+  this.guard('pitFree', function (c) {
+    if (!W.pit || !sites) return c.skip('W.pit is missing');
+    var bad = 0, ex = '';
+    for (var i = 0; i < N * N; i++) if (W.pit[i] > 0.1 && W.field[i]) { bad++; if (!ex) ex = 'field on a pit at ' + (i % N) + ',' + ((i / N) | 0); }
+    sites.forEach(function (q) { if (q.kind !== 'well' && W.pit[q.y * N + q.x] > 0.1) { bad++; if (!ex) ex = q.kind + ' on a pit at ' + q.x + ',' + q.y; } });
+    if (bad) c.fail(at + bad + ', e.g. ' + ex); else c.ok();
   });
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');
