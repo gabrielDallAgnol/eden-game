@@ -332,7 +332,7 @@ Can be done at any time after A; each item is small.
 
 ## Phase M. The living ground
 
-**Design note:** `docs/ENVIRONMENT.md`. Steps M1 to M8, checks and tuning order are there.
+**Design note:** `docs/ENVIRONMENT.md`. Steps M1 to M8 (the core: weather, water, soil, succession, fire, animals on the ground) and M9 to M18 (height, wind, mast years, hedges, new creatures, health, seasons, the land remembering), with checks and tuning order. M9 (height) is a decision for the owner and goes with D4.
 
 **Goal:** the land grows, wears out, burns and heals from flows of water, warmth, nutrients and seed, and reacts to people and animals through the same numbers.
 
