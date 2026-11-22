@@ -125,7 +125,7 @@ Today the map is flat; water sits where world creation put it. A `height` field 
 - **Later:** the fall of a river is what a watermill needs.
 - **Seen:** the isometric view gets real relief: raised tiles, cliffs inside the map (the map edge already draws a cliff), shading by slope. This is the biggest visual win in the whole note and the biggest change to `view.js`.
 
-**Decision for the owner:** height touches world creation, `colorAt()`, props and routing. It is best done together with D4 (water from noise, map size), in one commit that re-baselines every seed.
+**Decided 2026-11-22: the owner wants height.** The full design is in "Height: design for M9" below. Its first step goes in with D4.
 
 ### 8. Wind
 
@@ -198,6 +198,75 @@ Each is a row in `SPECIES` plus, where needed, one behaviour, like the three ani
 | Beavers move into a stream | A few bank trees felled. | Pond and marsh; more fish and reeds; a field drowned. | A wetland that outlives the beavers. |
 | A hard winter | River freezes; people cross; wolves cross. | — | — |
 
+## Height: design for M9
+
+Approved by the owner on 2026-11-22. The land gets hills, valleys, banks and cliffs. Water, warmth, walking, building and drawing all take height into account.
+
+### Data
+
+- `height` (`Float32Array`, in steps, 0 to about 8): drawn from the seed at world creation, then never changed except by slow erosion and digging (pits, terraces). In `FIELDS`.
+- `level = floor(height)`: whole steps, used to draw the land and to set lots. **Neighbours one level apart** are joined by a grassy bank you can walk up. **Two or more levels apart** they meet at a rock cliff you cannot climb. Whole levels keep the pixel art clean and the town orderly (rule 2). The smooth `height` keeps water and warmth right (rule 1).
+- `flowTo` (`Int32Array`): the lowest neighbour of each tile. `accum` (`Float32Array`): how much land drains through each tile. Both are worked out once at world creation and again only if digging changes the ground.
+
+### Making the land (with D4)
+
+- `height` = noise layers at fixed wavelengths of about 48, 16 and 6 tiles (fixed in tiles, not as fractions of `N`, so the shape does not change with map size), plus a shape for each land kind in `LANDS`:
+  - **valley:** a trough along a winding line, with hills either side.
+  - **plains:** low and gentle, few banks, almost no cliffs.
+  - **forest:** rolling hills.
+  - **lakeland:** many shallow basins.
+  - **highland:** high and steep, with long cliffs and narrow passes.
+- **Water by flow, not placement.** Fill hollows to their spill point to make lakes (priority-flood), give every tile a `flowTo`, add up `accum`, and make a tile a river where `accum` is high enough. Width grows with `accum`. This replaces the river at `N * 0.62` and the pond ellipse. `bank`, the fords and land masses keep working: they read `water` as before.
+- **Rock and trees from height and slope.** Bare stone shows on steep and high ground, which takes over from most of the `rock` noise. In the highland, trees thin out above a tree line where it is too cold (follows from the next point).
+- **A pass is guaranteed:** after the land is made, any two pieces of land in the same land mass must be connected by banks one level apart. Where a cliff cuts the map, the lowest stretch of it is cut down to a bank. That is a fixed fix-up, listed under "Planned on purpose".
+
+### What height changes in the simulation
+
+| Where | Change |
+|---|---|
+| `tempAt()` | Higher is colder: about -0.6 degrees per level. On still, clear nights cold air sinks into hollows (tiles lower than the average around them); on sunny days, slopes facing the sun are warmer. Snow lies longest in hollows and on high ground. |
+| Soil water in `land()` | Some soil water seeps to the `flowTo` neighbour every tick, so valley floors are wetter and ridges drier. |
+| Runoff and floods | Runoff follows `flowTo` down to the river. Floods spread to the lowest tiles along a river first, by `height` above the water, replacing the `bank` threshold. |
+| Erosion (layer 3) | Rain on bare ground moves `fert` (and later a little `height`) to the `flowTo` neighbour, more on steep ground. Valley floors get richer and cleared hills poorer. |
+| Walking (`wayDist`, B1's walking factor, route) | Going uphill costs about 1 extra tile of walking per level climbed; going downhill costs about a third of that. Cliffs cannot be crossed. Ways and fords already work this way for water; cliffs join the same check. |
+| Lots (`choosePlot`) | A lot sits on one level. A lot whose tiles are a bank apart may be levelled (one extra stage of digging work), which is a fixed form. Lots on the river's flood line score worse automatically, because floods reach them. |
+| Ways (`onWay`, roads) | The lattice continues across levels. A way that would cross a cliff is not a way there. Where a way climbs a bank, the view draws a ramp or steps. |
+| Fields (`farm`) | Fields on slopes lose `fert` faster through erosion. Terraces are an idea that comes from falling yields on sloping fields. A terraced field is drawn as steps along the slope and stops the erosion. |
+| Sound and sight | A ridge blocks sight (later `known`, D2) and dulls sound. Seeing from high ground reaches further. |
+| Wolves and deer | Deer graze valley floors and flee uphill; wolves den on high ground. Both follow from shelter and sight, not new rules. |
+
+### What height changes in the drawing
+
+This is the biggest risk in the step, so it is spelled out.
+
+- **Projection.** A tile at level `L` is drawn `L * HZ` pixels higher on screen, with `HZ` about 12 (TH is 32). `isoY(x, y)` gets a height term. Every prop, person, animal and building takes the height of the tile it stands on, blended smoothly across banks as it walks.
+- **The ground painter has to change.** The chunk painter (C1) assumes that every screen pixel belongs to exactly one tile (`chunkOfPixel`, `colorAt(pxx, py)`). With height that is no longer true: a raised tile covers part of the tile behind it. New approach:
+  - Paint each chunk tile by tile from back to front. Draw each tile's diamond raised by its level, then its side faces down to the next tile in front: a grassy bank for one level, layered rock for two or more.
+  - `colorAt` keeps all its colour logic, but takes the tile and a position inside it instead of a screen pixel.
+  - Chunk canvases grow taller by the highest level times `HZ` so that raised land fits inside them.
+- **Shading.** Faces toward the light are lighter, faces away darker, plus a soft shadow on the low side of cliffs. Snow lies on top surfaces only. Water shows a bright edge where it meets a bank.
+- **Clicking a tile** (`toCell`, `toWorld`): test the tiles under the pointer from front to back and take the first one whose raised diamond contains the point.
+- **Camera and the map edge.** The edge cliff starts at each edge tile's own level, so the island looks cut from the land.
+- **Water:** rivers sit lower than their banks, and lakes are flat at their spill height. Waterfalls appear where a river drops a level: a short animated strip, code-drawn.
+
+### Steps (M9 split into five)
+
+| Step | Do | Check |
+|---|---|---|
+| H1 | **With D4, in the same commit:** `height`, `flowTo`, `accum`, lakes by priority-flood, rivers by `accum`, rock and trees from slope, the guaranteed pass. View: still flat, but tinted by height (darker low ground, lighter ridges) so the shape can be seen before relief is drawn. | Every water tile drains to the edge or into a lake; no river runs uphill; every land mass is connected by banks. Tests pass at 40, 96 and 128. Table re-baselined. |
+| H2 | **Warmth and water from height:** colder higher up, cold air in hollows, warm sunny slopes, soil water seeping down, floods by height above the river, erosion downhill. | Snow lasts longer on high ground and in hollows; valley floors are wetter; scenario `deforest` on a slope shows `fert` moving downhill. |
+| H3 | **Relief in the view:** the new painter, raised props and people, banks, cliffs, shading, clicking, waterfalls. No change to the simulation. | Screenshots at 40 and 128 of every land kind; no gaps or seams between chunks; clicking picks the tile drawn on top; 60 fps on the phone build at 96. |
+| H4 | **Walking and building with height:** climbing costs walking time, cliffs block, lots on one level, levelling as a building stage, ways climb banks with ramps or steps. | Paths follow valleys and passes; no lot spans a cliff; the town sits on the flat ground first and climbs only when that is taken. |
+| H5 | **Terraces** as an idea that comes from falling yields on sloping fields, drawn as steps. | Terraces appear only in runs that farm slopes. |
+
+**Order with the rest:** H1 goes into D4. H2 can follow at once. H3 is view work like phase C and can run alongside H2. H4 needs H3 so that what is walked matches what is drawn. H5 needs M4 (nutrients that move).
+
+**Traps**
+- H1 changes every seed's world. Re-baseline everything in that commit and do not tune anything in it.
+- H3 changes how the ground is painted. Compare before and after on a world made flat (all `height` = 0) to show that nothing else changed.
+- Steep land can split the map. The guaranteed pass prevents that; check it in the tests at every size.
+- `HZ` too high hides people behind hills. Keep it modest; the camera angle stays fixed.
+
 ## Order of work: phase M
 
 Phase A is done, so M can start now; B1 to B3 are in. It should land **before phase D** retunes the ecology at 128x128, so the retune happens once. Each step follows the definition of done in `docs/PLAN.md` and adds its columns to the standard table.
@@ -217,11 +286,11 @@ Phase A is done, so M can start now; B1 to B3 are in. It should land **before ph
 
 ### Phase M, second part: life and beauty (M9 to M18)
 
-After M1 to M8. Order by value and risk; M9 is a decision, not a step.
+After M1 to M8, except M9's first step (H1), which goes with D4 whenever that lands.
 
 | Step | Do | Check | Table columns |
 |---|---|---|---|
-| M9 | **Decide on height** with the owner. If yes, do it with D4 in one commit: `height`, rivers and lakes by flow, frost hollows, erosion downhill, relief drawn in the view. | Rivers reach the edge; no water uphill; tests pass at 40, 96, 128. Screenshot before and after. | mean slope farmed |
+| M9 | **Height**, in five steps H1 to H5 (see "Height: design for M9"). H1 goes in the D4 commit. | Checks under each H step. | mean slope farmed, lots on levelled ground |
 | M10 | **Wind.** Direction and strength; fire, seed, smoke, sound and shelter use it. List under "Planned on purpose". | Fire spreads mostly downwind across seeds. Houses with a wood upwind feel less cold. | fires downwind share |
 | M11 | **Tree kinds and mast.** Kind per tree tile; nut crop from spring warmth and a per-tile reserve; nuts eaten by deer, boar, people. | Mast years vary with weather; deer peak follows a mast; wolves a year later. | mast years |
 | M12 | **Hedges and coppice.** Scrub under fence lines (falls out of M5; check it); coppicing as an idea from long timber trips. | Hedges along every fence older than 10 years in most seeds. | hedge tiles |
@@ -238,7 +307,7 @@ After M1 to M8. Order by value and risk; M9 is a decision, not a step.
 ## Engineering
 
 - **Cost.** `land()` is one loop over tiles; each new field adds a few multiply-adds. Slow layers (`deep`, `fert`, `seed`, `deadwood`, `wood`) may integrate every 4th tick with `dt * 4`. That is numerical step size, not a gameplay timer, and it keeps 128x128 well under the 30 s per 100 years target in D4.
-- **Memory.** Five new `Float32Array(N * N)` fields for M1 to M8: 320 KB at 128x128. The second part adds about six more (`height`, tree kind, nut reserve, `foul`, old use, hedge age): under 1 MB in all.
+- **Memory.** Five new `Float32Array(N * N)` fields for M1 to M8: 320 KB at 128x128. The second part adds about eight more (`height`, `flowTo`, `accum`, tree kind, nut reserve, `foul`, old use, hedge age): under 1 MB in all.
 - **Animals.** Four new species multiply creature cost; phase D1's removal of the quadratic loops must come first.
 - **Save and load.** Every new field must be added to `FIELDS` in `sim.js`, or save and load silently drop it. Add a test that every typed array the world allocates is in `FIELDS`.
 - **Determinism.** Seed spread and lightning call `rnd()`. Expect every history to change at M2 and M5; compare distributions over seeds, not one history.
@@ -272,4 +341,6 @@ After M1 to M8. Order by value and risk; M9 is a decision, not a step.
 - The slow swing of wet and dry years, drawn once from the seed. Like the sun, it is given from outside.
 - The slow drift of the wind's direction and strength. Given from outside, like the sun.
 - Tree kinds and the height map, drawn from the seed at world creation, like the rock and water are today.
+- The guaranteed pass: where a cliff would cut a land mass in two, its lowest stretch is cut down to a bank.
+- Whole levels for drawing and lots: one level apart is a bank, two or more is a cliff; a lot sits on one level.
 - The physical constants of each flow (growth, rot, runoff shares, seed distances). These are tuning numbers, like an animal's metabolism.
