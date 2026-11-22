@@ -532,5 +532,124 @@
    "rd_cart_raw.png"
   ],
   "time": 1795361834
+ },
+ {
+  "test": "M",
+  "name": "rd_stall_lite",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   96,
+   96
+  ],
+  "n": 1,
+  "prompt": "a small wooden market stall with a red and cream striped cloth awning, a counter with baskets of apples and bread, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_stall_lite_raw.png"
+  ],
+  "time": 1795381928,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_stall_green",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   80,
+   80
+  ],
+  "n": 1,
+  "prompt": "a small wooden market stall with a green and white striped cloth awning, a counter with jars of honey and cheese wheels, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_stall_green_raw.png"
+  ],
+  "time": 1795381964,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_table_bench",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   72,
+   72
+  ],
+  "n": 1,
+  "prompt": "a rustic wooden outdoor table with two benches, a jug and two cups on the table, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_table_bench_raw.png"
+  ],
+  "time": 1795381972,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_barrels",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "three wooden barrels with iron hoops standing together, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_barrels_raw.png"
+  ],
+  "time": 1795381980,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_crates",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a small stack of wooden crates, one with vegetables, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_crates_raw.png"
+  ],
+  "time": 1795381985,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_haystack",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   72,
+   72
+  ],
+  "n": 1,
+  "prompt": "a round golden haystack with a pitchfork leaning on it, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_haystack_raw.png"
+  ],
+  "time": 1795381993,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_beehives",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "two straw beehive skeps on a low wooden stand with a few flowers, single isolated game asset, nothing else, no ground, no people, on a plain white background",
+  "files": [
+   "rd_beehives_raw.png"
+  ],
+  "time": 1795381998,
+  "via": "mcp"
  }
 ]

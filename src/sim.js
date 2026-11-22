@@ -1159,7 +1159,8 @@ function create(seed, opt) {
     let budget = 1;
     if (a.trip) { budget = runTrip(a, d, pace, 1); if (budget < 0.1) return; }
     /* a fed, free evening goes to what they love */
-    if (DAY && S.tickNo % DAY === DAY - 2 && !a.trip && a.e > 0.65 && a.likes && a.likes.length && rnd() < 0.6 && hobby(a, d)) return;
+    /* an evening is free when the household has food put by for tomorrow, not only when this one has eaten */
+    if (DAY && S.tickNo % DAY === DAY - 2 && !a.trip && a.e > 0.65 && (hm ? (hm.larder || 0) >= mouths * 1.2 : T.store >= pop * 1.2) && a.likes && a.likes.length && rnd() < 0.6 && hobby(a, d)) return;
     if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { stepTo(a, T.x, T.y, 2); a.act = { k: 'mourn' }; return; }   // the newly bereaved sit by the fire and do little
     // foul weather: with a roof, food in the store and nothing pressing, people stay in
     if (T.huts > 0 && a.e > 0.6 && (hm ? (hm.larder || 0) > mouths * 0.9 : T.store > pop * 1.1)) {
@@ -2066,7 +2067,7 @@ function create(seed, opt) {
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
       if (!S.piles) S.piles = [];
-      for (const a of S.agents) if (a.d.people && !a.likes) { a.likes = [LIKE_KEYS[a.id % LIKE_KEYS.length]]; a.joy = 0.5; }   /* people from an older save love something too */
+      for (const a of S.agents) if (SP[a.sp] && SP[a.sp].people && !a.likes) { a.likes = [LIKE_KEYS[a.id % LIKE_KEYS.length]]; a.joy = 0.5; }   /* people from an older save love something too */
       if (!S.stat) S.stat = {}; for (const k of ['wishes', 'ponds', 'newTrips', 'newN', 'reTrips', 'reN', 'pitD', 'pitN', 'lotsRefused', 'fireMeals', 'starveD', 'starveRef', 'starveN', 'forageD', 'forageN', 'timberD', 'timberN', 'stoneD', 'stoneN', 'fuelD', 'fuelN']) if (!(k in S.stat)) S.stat[k] = 0;
       for (const q of S.tribe.sites) { if (q.fuel === undefined) q.fuel = 0; if (q.lit === undefined) q.lit = -1; } }
     S.byId = new Map(); for (const a of S.agents) { a.d = SP[a.sp]; S.byId.set(a.id, a); }
