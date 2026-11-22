@@ -505,6 +505,23 @@ Size 96, seeds 1 and 2:
 
 Year 100 mean 153.3 (before this step 168.5 in the table; 172.5 in a direct run with the same options), year 25 20.0 (28.1), dwellings 60.2 (64.2), hunger deaths 189.6 (200.1), 2 resettles (forest 1, highland 2). Stone trips are now measured as the real route walked from where the person stands: 17.1 tiles against 5.9 straight-line from the site before; timber trips 8.4, firewood 5.4. Without the before-dark check, year 100 was 112.6. Speed: 16.5 s per world (14.3). Tests 413 passed, 0 failed; scenarios 22 passed.
 
+## Rocks, bushes and tall grass from Yar's tileset, recoloured per season (view only)
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 41 | 199 | 213 | 277 | 103 | 319 | 0 | 15 | 8/76/5 | 2.7 | 27.4 | 18.3 | 6.1 | 273 | 1 | 3530 | 197 | 42.1 | 8.8 | 33.5 (2) | 79/0/2/0/17 | 72 | 7.7 | 29 | 3 | 0 | 31365 |
+| valley | 2 | 30 | 74 | 107 | 116 | 39 | 154 | 0 | 12 | 6/254/5 | 2.8 | 0 | 16.1 | 4.4 | 109 | 1.1 | 320 | 100 | 21.1 | 4.1 | 0 (1) | 85/2/2/0/10 | 51 | 4.4 | 13 | 0 | 0 | 12683 |
+| plains | 1 | 9 | 51 | 178 | 235 | 60 | 184 | 0 | 12 | 3/198/5 | 2.5 | 22.4 | 21.5 | 5.7 | 57 | 0.9 | 1628 | 47 | 34.8 | 5.1 |  | 87/0/1/0/10 | 46 | 6 | 21 | 0 | 0 | 13725 |
+| plains | 2 | 29 | 148 | 253 | 276 | 77 | 344 | 0 | 12 | 0/138/2 | 2.6 | 3.6 | 21.2 | 6.4 | 144 | 0.9 | 2903 | 121 | 25.8 | 5.1 |  | 80/0/1/0/17 | 53 | 6.7 | 29 | 0 | 0 | 17071 |
+| forest | 1 | 8 | 50 | 212 | 266 | 80 | 181 | 2 | 13 | 3/131/5 | 2.4 | 14.3 | 15.8 | 3.5 | 132 | 1.1 | 701 | 81 | 89.3 | 27.2 | 12 (1) | 83/1/3/0/12 | 60 | 4.5 | 25 | 2 | 0 | 27210 |
+| forest | 2 | 32 | 98 | 91 | 126 | 44 | 188 | 0 | 12 | 14/260/0 | 2.3 | 2 | 13.6 | 3.7 | 37 | 1.1 | 353 | 21 | 20.2 | 4.4 | 0 (1) | 83/1/2/0/13 | 34 | 5.1 | 13 | 0 | 0 | 11225 |
+| lakeland | 1 | 20 | 103 | 236 | 249 | 94 | 226 | 0 | 14 | 34/135/0 | 2.7 | 0 | 18.9 | 5.8 | 97 | 1 | 2410 | 89 | 28.5 | 5.3 | 5 (1) | 80/1/2/1/15 | 69 | 6.8 | 25 | 0 | 0 | 18868 |
+| lakeland | 2 | 19 | 104 | 143 | 150 | 59 | 143 | 0 | 13 | 18/190/5 | 2.4 | 4 | 14.6 | 5.2 | 60 | 1.1 | 1015 | 76 | 27.6 | 4.9 | 0 (1) | 87/0/4/2/7 | 43 | 5.1 | 25 | 0 | 0 | 12230 |
+| highland | 1 | 10 | 57 | 77 | 81 | 28 | 105 | 0 | 14 | 5/65/5 | 2.9 | 0 | 16.4 | 6.7 | 76 | 1.1 | 193 | 67 | 15 | 2.7 | 0 (1) | 76/0/3/0/19 | 53 | 6.5 | 13 | 0 | 0 | 7878 |
+| highland | 2 | 2 | 24 | 23 | 52 | 18 | 52 | 2 | 13 | 10/70/0 | 2.8 | 9.8 | 14.2 | 6 | 51 | 1.1 | 76 | 42 | 17.3 | 2.8 | 1 (1) | 80/2/2/0/16 | 34 | 9.5 | 9 | 0 | 0 | 5450 |
+| mean |  | 20 | 90.8 | 153.3 | 182.8 | 60.2 | 189.6 | 0.4 | 13 |  | 2.6 | 8.4 | 17.1 | 5.4 | 103.6 | 1 | 1312.9 | 84.1 | 32.2 | 7 |  |  | 51.5 | 6.2 | 20.2 | 0.5 | 0 | 15770.5 |
+
+Identical to the E2 entry above in every simulated column (only the ms column, the run time, differs), as expected: the change is in drawing only (`src/sprites.js`, `src/view.js`). Tests: 413 passed, 0 failed, 3 warnings, 18 skipped. In seed 7 (valley, size 96) the view shows about 735 bushes, 770 rocks (105 of them wet by water) and, once grass has grown long, 100 to 160 tufts of tall grass; in Year 2 autumn 198 bushes and 60 tufts had turned gold or red, and in Year 3 winter 705 bushes and tufts carried snow.
 
 ## Owner's report: wolves' den by the camp, furniture too early, yard under a tent, floating sleepers
 
