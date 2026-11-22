@@ -740,7 +740,7 @@ function create(seed, opt) {
     a.alive = false;
     folkList = null;
     if (why === 'eaten' || why === 'hunted' || why === 'killed by people') sound(a.x, a.y, 4, 'kill');
-    S.fx.push({ kind: 'death', sp: a.sp, x: a.x, y: a.y, why, id: a.id, by: by || 0 });
+    { const k = by && S.byId.get(by); S.fx.push({ kind: 'death', sp: a.sp, x: a.x, y: a.y, why, id: a.id, by: by || 0, kx: k ? k.x : -1, ky: k ? k.y : -1 }); }   /* where the killer stood when it struck */
     const k = a.sp + ':' + why;
     S.deaths[k] = (S.deaths[k] || 0) + 1;
     if (a.d.people && (why === 'hunger' || why === 'cold and hunger')) {
@@ -770,7 +770,7 @@ function create(seed, opt) {
     let best = null, bd = r + 0.01;
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = a.x + dx, y = a.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue;
-      for (const b of cells[I(x, y)]) { if (!b.alive || b === a || !ok(b)) continue; const d = Math.max(Math.abs(dx), Math.abs(dy)); if (d < bd) { bd = d; best = b; } }
+      for (const b of cells[I(x, y)]) { if (!b.alive || b === a || !ok(b)) continue; const d = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)); if (d < bd) { bd = d; best = b; } }   /* where it is now: the cells were filled at the start of the step, and it may have moved since */
     }
     return best;
   }
@@ -788,13 +788,17 @@ function create(seed, opt) {
     let best = null, bd = 1e9;
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = a.x + dx, y = a.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue;
-      for (const b of cells[I(x, y)]) { if (!b.alive || b === a || !ok(b)) continue; const d = Math.max(Math.abs(dx), Math.abs(dy)) + bias(b); if (d < bd) { bd = d; best = b; } }
+      for (const b of cells[I(x, y)]) { if (!b.alive || b === a || !ok(b)) continue; const c = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)); if (c > r) continue; const d = c + bias(b); if (d < bd) { bd = d; best = b; } }
     }
     return best;
   }
   // what cannot be walked onto: water, and for anything on four legs that is not led, a closed fence met from the outside
   const within = a => { const w = S.tribe.wall; return !!w && a.x > w.x0 && a.x < w.x1 && a.y > w.y0 && a.y < w.y1; };
   const shut = (a, x, y) => { const i = I(x, y); if (water[i]) return true; const T = S.tribe; return !!(T.fence && T.fence[i] && !a.d.people && !a.tame && !within(a)); };
+  /* E3: the tiles each person passed through in the last step, in order, for the view to walk them along. Kept beside the
+     state, not in it: a save does not carry it, and nothing in the simulation reads it */
+  const trails = new Map(); let trailA = null, trailNow = null;
+  const trailStep = a => { if (a === trailA) { const t = I(a.x, a.y); if (trailNow[trailNow.length - 1] !== t) trailNow.push(t); } };
   function stepTo(a, tx, ty, n) {
     for (let k = 0; k < n; k++) {
       const dx = Math.sign(tx - a.x), dy = Math.sign(ty - a.y); if (!dx && !dy) return;
@@ -808,7 +812,7 @@ function create(seed, opt) {
       }
       /* no squeezing through the corner between two shut tiles: a diagonal step needs both sides open */
       if (nx !== a.x && ny !== a.y && (shut(a, nx, a.y) || shut(a, a.x, ny))) { if (!shut(a, nx, a.y)) ny = a.y; else if (!shut(a, a.x, ny)) nx = a.x; else return; }
-      a.x = nx; a.y = ny;
+      a.x = nx; a.y = ny; trailStep(a);
     }
   }
   // ---- routes (E1). The way a body actually goes from one tile to another: over dry ground and bridges, never over open
@@ -1145,7 +1149,7 @@ function create(seed, opt) {
     const tr = a.trip, speed = PACE * pace;
     if (tr.phase !== 'work') {
       let steps = Math.floor(speed * budget + 1e-9), walked = 0;
-      while (steps-- > 0 && tr.path.length) { const t = tr.path.shift(); a.x = t % N; a.y = (t / N) | 0; walked++; }
+      while (steps-- > 0 && tr.path.length) { const t = tr.path.shift(); a.x = t % N; a.y = (t / N) | 0; walked++; trailStep(a); }
       budget -= walked / speed; tr.walked += walked;
       if (tr.path.length) { a.act = { k: tr.phase === 'out' ? 'walkto' : 'carryhome', x: a.x, y: a.y, item: TRIP_ITEM[tr.kind] || 'basket' }; return -1; }
       if (tr.phase === 'back') { deposit(a, tr); a.trip = null; a.act = { k: tr.home ? 'drop' : 'home', x: a.x, y: a.y, item: TRIP_ITEM[tr.kind] }; return Math.max(0, budget); }
@@ -1783,7 +1787,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- one step of time
   function tick() {
     heardNow = din; din = []; S.din = heardNow;
-    const dt = 1 / TPY; S.t += dt; S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
+    const dt = 1 / TPY; trails.clear(); S.t += dt; S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
     for (let k = S.piles.length - 1; k >= 0; k--) { const p = S.piles[k], i = I(p.x, p.y); if (p.kind === 'meat') p.amt *= 1 - Math.min(1, 2.5 * dt); if (p.kind === 'wood' && burn[i] > 0) p.amt = 0; if (p.amt <= 0.05 || water[i]) S.piles.splice(k, 1); }   /* meat rots in a few months; logs burn */
     for (const q of S.homes.values()) q.n = 0;
     for (const L of cells) L.length = 0; S.pop = {}; for (const sp in SP) S.pop[sp] = 0; S.popPeople = 0;
@@ -1869,7 +1873,10 @@ function create(seed, opt) {
       if (flood[i]) { a.e -= 1.2 * dt; if (rnd() < 0.6 * dt) { die(a, 'drowned'); continue; } roam(a, 3, 2); }
       if (burn[i] > 0) { if (rnd() < 0.5) { die(a, 'burned'); continue; } a.e -= 0.1; roam(a, 3, 3); }
       const e0 = a.e;
-      if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) { person(a, d, dt); tally(a); if (a.alive) see(a); } else animal(a, d, dt);
+      if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) { trailA = a; trailNow = [I(a.x, a.y)]; person(a, d, dt); trailA = null;
+        /* a move made in one jump (home by dusk, to the fire to eat) is filled in along the way it would be walked */
+        { const last = trailNow[trailNow.length - 1], here = I(a.x, a.y); if (last !== here) { const rt = route(last % N, (last / N) | 0, a.x, a.y, a, 160); for (const t of rt.tiles) trailNow.push(t); if (trailNow[trailNow.length - 1] !== here) trailNow.push(here); } }
+        trails.set(a.id, trailNow); tally(a); if (a.alive) see(a); } else { trailA = a; trailNow = [I(a.x, a.y)]; animal(a, d, dt); trailA = null; const here = I(a.x, a.y); if (trailNow[trailNow.length - 1] !== here) trailNow.push(here); trails.set(a.id, trailNow); }
       if (!a.mood) a.mood = a.e < 0.3 ? 'hungry' : a.e > e0 + 0.02 ? 'fed' : '';
       if (a.alive && a.e <= 0) { die(a, Tc < d.comfort ? 'cold and hunger' : 'hunger'); continue; }
       // --- young are born to a well-fed mother when the air is warm enough for them
@@ -2113,6 +2120,7 @@ function create(seed, opt) {
     wayDist,
     around,
     route,
+    trailOf: id => trails.get(id) || null,
     stats,
     tread,
     PITCH,

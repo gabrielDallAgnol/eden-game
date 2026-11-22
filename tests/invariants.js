@@ -74,10 +74,11 @@ function WorldRun(land, seed, years, size) {
   add('run', 'create() and tick() throw no exception');
   add('clock', 'time moves forward: one tickNo per tick, S.t never goes back');
   add('inside', 'every living creature is on a whole tile inside the map');
-  add('dry', 'no living creature stands on a water tile');
-  add('dryAlways', 'no living creature is on a water tile after any tick');
+  add('dry', 'no living creature stands on a water tile (a finished bridge is not water)');
+  add('dryAlways', 'no living creature is on a water tile after any tick (a finished bridge is not water)');
   add('problems', 'the sim reports no defects in S.problems');
   add('pitFree', 'no lot or field on a quarry pit (B5)');
+  add('killNear', 'every kill is made by a creature standing within 3 tiles of what it killed, by the state (E3)');
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
@@ -146,6 +147,7 @@ WorldRun.prototype.step = function (deadline) {
       else C.clock.skip('S.tickNo or S.t is not a number');
       this.dryTick();
       this.woodTick(woodBefore);
+      this.killTick();
       if (lastOfYear) { this.inYear = 0; this.year++; this.popCheck(before); this.yearly(); }
     }
     if (this.phase === 'run' && this.year >= this.years) this.phase = CONFIG.determinism ? 'again' : 'finish';
@@ -195,10 +197,18 @@ WorldRun.prototype.woodTick = function (before) {
   var chop = S.agents.some(function (a) { return a.act && a.act.k === 'chop' && (a.alive || a.d.people); });   /* a chopper may die later in the same step */
   if (chop || back >= T.wood - before - 1e-6) c.ok(); else c.fail('tick ' + this.ticks + ': timber went from ' + show(before) + ' to ' + show(T.wood) + ' and nobody chopped');
 };
+WorldRun.prototype.killTick = function () {
+  var S = this.W.S, c = this.C.killNear, seen = this.fxSeen || (this.fxSeen = new WeakSet());
+  (S.fx || []).forEach(function (f) { if (seen.has(f)) return; seen.add(f);
+    if (f.kind !== 'death' || !f.by || f.why === 'struck') return; var k = S.byId && S.byId.get(f.by); if (!k) return;
+    var kx = f.kx >= 0 ? f.kx : k.x, ky = f.ky >= 0 ? f.ky : k.y, d = Math.max(Math.abs(kx - f.x), Math.abs(ky - f.y)); if (d <= 3) c.ok(); else c.fail(f.sp + ' ' + f.why + ' by a ' + k.sp + ' standing ' + d + ' tiles away'); });
+};
+/* tiles of every finished bridge: standing there is standing on the bridge, not in the river */
+function bridgeSet(W) { var T = W.S.tribe, set = {}; if (!T || !T.bridged || !W.fords) return set; W.fords().forEach(function (f) { if (T.bridged[f.key]) f.tiles.forEach(function (t) { set[t] = 1; }); }); return set; }
 WorldRun.prototype.dryTick = function () {
   var W = this.W, S = W.S, N = W.N, water = W.water, c = this.C.dryAlways;
   if (!isField(water) || !isArr(S.agents)) return c.skip('W.water or S.agents is missing');
-  for (var i = 0; i < S.agents.length; i++) { var a = S.agents[i]; if (a && a.alive && water[a.y * N + a.x]) { c.fail('tick ' + this.ticks + ': ' + who(a) + ' at ' + a.x + ',' + a.y); return; } }
+  var br = null; for (var i = 0; i < S.agents.length; i++) { var a = S.agents[i]; if (a && a.alive && water[a.y * N + a.x] && !(br || (br = bridgeSet(W)))[a.y * N + a.x]) { c.fail('tick ' + this.ticks + ': ' + who(a) + ' at ' + a.x + ',' + a.y); return; } }
   c.ok();
 };
 
@@ -217,8 +227,8 @@ WorldRun.prototype.yearly = function () {
   });
   this.guard('dry', function (c) {
     if (!L) return c.skip('S.agents is missing'); if (!okN || !water) return c.skip('W.N or W.water is missing');
-    var bad = 0, ex = '';
-    for (var i = 0; i < L.list.length; i++) { var a = L.list[i]; if (whole(a.x) && whole(a.y) && inMap(a.x, a.y) && water[a.y * N + a.x]) { bad++; if (!ex) ex = who(a) + ' at ' + a.x + ',' + a.y; } }
+    var bad = 0, ex = '', br = bridgeSet(W);
+    for (var i = 0; i < L.list.length; i++) { var a = L.list[i]; if (whole(a.x) && whole(a.y) && inMap(a.x, a.y) && water[a.y * N + a.x] && !br[a.y * N + a.x]) { bad++; if (!ex) ex = who(a) + ' at ' + a.x + ',' + a.y; } }
     if (bad) c.fail(at + bad + ' in the water, e.g. ' + ex); else c.ok();
   });
   this.guard('agentNums', function (c) {

@@ -587,6 +587,13 @@ let clouds = []; for (let k = 0; k < 5; k++) clouds.push({ x: Math.random() * WW
 
 // ================================================================== creatures: each has a short plan for the coming step of time
 const actors = new Map();
+/* E3/E4 check: just before each step, how far each creature is drawn from where the simulation has it (people and animals apart) */
+const drift = { people: { n: 0, far: 0, max: 0, ex: '' }, animals: { n: 0, far: 0, max: 0, ex: '' } };
+function driftNote() {
+  for (const r of actors.values()) { if (r.dead || !r.a.alive || r.pose === 'hidden' || r.pose === 'carried' || r.a.hidden) continue;
+    const d = Math.hypot(r.x - (r.a.x + 0.5), r.y - (r.a.y + 0.5)), o = r.a.d.people ? drift.people : drift.animals; o.n++;
+    if (d > 1.5) { o.far++; if (!o.ex) o.ex = r.a.sp + ' ' + r.id + ' drawn ' + d.toFixed(1) + ' tiles off, doing ' + (r.a.act && r.a.act.k); } if (d > o.max) o.max = d; }
+}
 const lookOf = a => A.look[a.d.look || a.sp] || (A.look[a.sp] = A.generic(a.d));
 const jit = (id, k) => (((id * (k ? 53 : 37)) % 11) - 5) * 0.055;
 const endOf = a => ({ x: a.x + 0.5 + jit(a.id, 0), y: a.y + 0.5 + jit(a.id, 1) });
@@ -628,18 +635,14 @@ function route(x0, y0, x1, y1) {
   pts.push({ x: x1, y: y1 }); return pts;
 }
 // a plan: moves and pauses laid out over the step (u runs 0 to 1)
+const BOUND = 1.4;
 class Plan {
   constructor(r) { this.r = r; this.steps = []; this.u = 0; this.x = r.x; this.y = r.y; }
   // people keep to the ways between lots: out to the nearest way, along the ways, and in at the other end
+  /* E3: a person goes only where the simulation has them; once bound, anything asked farther than BOUND from where the step
+     leaves them is drawn at the edge of that reach instead of on an invented trip */
   go(x, y, sp, pose, o) {
-    if (this.r.a.d.people && campOn && Math.hypot(x - this.x, y - this.y) > 2.5 && !this.noWay) {
-      const snap = (v, c) => c + Math.round((v - c) / W.PITCH) * W.PITCH, vx = snap(this.x - 0.5, T0.x) + 0.5, hy = snap(y - 0.5, T0.y) + 0.5;
-      this.noWay = 1;
-    for (const [wx, wy] of [[vx, this.y], [vx, hy], [x, hy]]) if (!isWater(wx, wy) && wx > 0.3 && wy > 0.3 && wx < N - 0.3 && wy < N - 0.3) this.go(wx, wy, sp, pose, o);
-    this.go(x, y, sp, pose, o);
-    this.noWay = 0;
-    return this;
-    }
+    if (this.bound) { const b = this.bound, d = Math.hypot(x - b.x, y - b.y); if (d > BOUND) { x = b.x + (x - b.x) * BOUND / d; y = b.y + (y - b.y) * BOUND / d; if (isWater(x, y)) { x = b.x; y = b.y; } } }
     for (const p of route(this.x, this.y, x, y)) {
     const d = Math.hypot(p.x - this.x, p.y - this.y);
     if (d < 0.02) continue;
@@ -650,10 +653,15 @@ class Plan {
     this.y = p.y;
   }
   return this; }
+  /* along tiles the simulation walked this step, tile centre to tile centre, with no way-finding of its own */
+  path(tiles, sp, pose, o) {
+    for (let k = 1; k < tiles.length; k++) { const t = tiles[k], px = (t % N) + 0.5 + jit(this.r.id, 0) * 0.5, py = ((t / N) | 0) + 0.5 + jit(this.r.id, 1) * 0.5, d = Math.hypot(px - this.x, py - this.y);
+      if (d < 0.02) continue; const du = d / (sp * TS); this.steps.push(Object.assign({ t: 'm', u0: this.u, u1: this.u + du, x1: px, y1: py, pose: pose || 'walk' }, o)); this.u += du; this.x = px; this.y = py; }
+    return this; }
   wait(du, pose, o) { if (du > 0) { this.steps.push(Object.assign({ t: 's', u0: this.u, u1: this.u + du, pose: pose || 'idle' }, o)); this.u += du; } return this; }
   until(u, pose, o) { return this.wait(u - this.u, pose, o); }
   follow(du, id, o) {
-  this.steps.push(Object.assign({ t: 'f', u0: this.u, u1: this.u + du, id, pose: 'walk' }, o));
+  this.steps.push(Object.assign({ t: 'f', u0: this.u, u1: this.u + du, id, pose: 'walk' }, this.bound ? { bx: this.bound.x, by: this.bound.y } : {}, o));
   this.u += du;
   const m = recOf(id);
   if (m) {
@@ -699,6 +707,10 @@ function planPerson(r, phase, pi) {
     if (act.k === 'sleep') { P.done('hidden', r.step && r.step.hut ? { hut: r.step.hut } : {}); return; }
     P.wait(R(0.01, 0.12), 'hidden'); P.wait(0.03, 'emerge');
   }
+  /* the way the simulation walked them this step comes first, then whatever they do there, kept close to where the step left them */
+  { const tr = W.trailOf ? W.trailOf(a.id) : null;
+    if (tr && tr.length > 1) { const carry = act.k === 'carryhome' || act.k === 'drop'; P.path(tr, act.k === 'flee' ? SPEED.person.run : carry ? sp * 0.85 : sp, carry ? 'carry' : 'walk', carry ? { item: act.item || 'basket' } : undefined); P.squeeze(0.7); }
+    if (act.k !== 'baby') P.bound = { x: a.x + 0.5, y: a.y + 0.5 }; }
   const home = () => {
     const h = huts.filter(q => q && q.live && !q.die), q = h.find(x => x.id === a.house) || (h.length ? h[(r.id * 7) % h.length] : null); /* their own house if they have one */
     if (q) {
@@ -827,7 +839,7 @@ function planPerson(r, phase, pi) {
         P.wait(0.04, 'work', { drop: 1 });
         if (act.k === 'wood') return;
       }
-      const fields = []; if (T0.sown) for (let i = 0; i < N * N; i++) if (W.field[i]) fields.push(i);
+      const fields = []; if (T0.sown) for (let y = Math.max(0, a.y - 2); y <= Math.min(N - 1, a.y + 2); y++) for (let x = Math.max(0, a.x - 2); x <= Math.min(N - 1, a.x + 2); x++) if (W.field[y * N + x]) fields.push(y * N + x);   /* a field where they stand, not one across the valley */
       if (fields.length && Math.random() < 0.7) {
         const f = fields[(Math.random() * fields.length) | 0], fx0 = f % N + 0.5, fy0 = ((f / N) | 0) + 0.5;
         P.go(fx0, fy0, sp);
@@ -848,6 +860,9 @@ function planAnimal(r) {
   const a = r.a, act = a.act || { k: 'idle' }, k = kind(a), V = SPEED[k], P = new Plan(r), end = endOf(a), hop = k === 'small' ? 'hop' : 'walk';
   if (r.pose === 'hidden') { if (a.hidden) { P.done('hidden'); return; } P.wait(R(0, 0.1), 'hidden'); P.wait(0.03, 'emerge'); }
   const homeAt = id => { const h = S.homes.get(id); return h ? { x: h.x + 0.5, y: h.y + 0.5 } : null; };
+  /* E4: the way the simulation moved it this step first, then whatever it does there, kept close to where it now is */
+  { const tr = W.trailOf ? W.trailOf(a.id) : null; if (tr && tr.length > 1) { const run = act.k === 'flee' || act.k === 'chase' || act.k === 'hide' || act.k === 'kill'; P.path(tr, run ? V.run : V.walk, run ? 'run' : hop); P.squeeze(0.6); }
+    P.bound = { x: a.x + 0.5, y: a.y + 0.5 }; }
   switch (act.k) {
     case 'graze': {
       const legs = k === 'small' ? 3 : 2;
@@ -994,10 +1009,11 @@ function stepAt(r, u, dts) {
   } else if (s.t === 'f') {
     const m = recOf(s.id); r.vx = r.vy = 0;
     if (m && !m.dead) {
-      const ang = (r.id % 7) * 0.9 + (s.playful ? Math.sin(gameMs / 900 + r.id) * 0.8 : 0),
-        tx = m.x + Math.cos(ang) * s.gap,
-        ty = m.y + Math.sin(ang) * s.gap * 0.8,
-        d = Math.hypot(tx - r.x, ty - r.y);
+      const ang = (r.id % 7) * 0.9 + (s.playful ? Math.sin(gameMs / 900 + r.id) * 0.8 : 0);
+      let tx = m.x + Math.cos(ang) * s.gap, ty = m.y + Math.sin(ang) * s.gap * 0.8;
+      /* following, but no farther than the simulation lets them stray from their own place (E3, E4) */
+      if (s.bx !== undefined) { const bd = Math.hypot(tx - s.bx, ty - s.by); if (bd > BOUND) { tx = s.bx + (tx - s.bx) * BOUND / bd; ty = s.by + (ty - s.by) * BOUND / bd; } }
+      const d = Math.hypot(tx - r.x, ty - r.y);
       if (d > 0.06 && !isWater(tx, ty)) {
         const step = Math.min(d, (d > 0.6 ? s.sp * 1.5 : s.sp) * dts);
         r.vx = (tx - r.x) / d * step;
@@ -1189,7 +1205,7 @@ function frame(t) {
   if (!paused) {
     usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
     /* a slow frame catches up on the steps it missed, a few at a time, so fast speeds stay fast on a slow device */
-    for (let n = 0; tickFrac >= 1 && n < 6; n++) { tickFrac -= 1; W.tick(); onTick(); }
+    for (let n = 0; tickFrac >= 1 && n < 6; n++) { tickFrac -= 1; driftNote(); W.tick(); onTick(); }
     if (tickFrac >= 1) tickFrac = 0.99;
   }
   if (!paint && groundWanted) startPaint();
@@ -1827,7 +1843,7 @@ window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => {
     return tickFrac;
   }, set tickFrac(v) {
     tickFrac = v;
-  }, parts, flies, scar, bSc, colorAt, repaintCells, chunks, paintCounts: () => ({ repaints: chunkRepaints, skips: chunkSkips }),
+  }, parts, flies, scar, bSc, colorAt, repaintCells, chunks, drift: () => { const o = JSON.parse(JSON.stringify(drift)); for (const k in drift) drift[k] = { n: 0, far: 0, max: 0, ex: '' }; return o; }, paintCounts: () => ({ repaints: chunkRepaints, skips: chunkSkips }),
   groundBytes: () => chunks.reduce((t, c) => t + (c.cv ? CW * CHT * 4 : 0), 0) + fadePool.length * CW * CHT * 4 + CW * CHT * 4 + 10 * CB * CB * 4 + 2 * NT * NT + 4 * 4 * N * N,
   /* the ground as the chunks hold it, laid into one world-sized picture, and how many pixels differ from colorAt (a test) */
   groundCheck() { paint = null; startPaint(); paintSome(1e9, true); const c = mkC(WW, WH), x = c.getContext('2d'); for (const ch of chunks) if (ch.cv) x.drawImage(ch.cv, ch.ox, ch.oy); const d = new Uint32Array(x.getImageData(0, 0, WW, WH).data.buffer); let bad = 0, ex = ''; for (let py = 0; py < WH; py += 3) for (let pxx = 0; pxx < WW; pxx += 3) { const ck = chunkOfPixel(pxx, py); if (ck >= 0 && cbFor !== chunks[ck]) chunkFields(chunks[ck]); const want = colorAt(pxx, py) >>> 0, got = d[py * WW + pxx] >>> 0; if (want !== got && !(want === 0 && (got >>> 24) === 0)) { bad++; if (!ex) ex = pxx + ',' + py + ' want ' + want.toString(16) + ' got ' + got.toString(16); } } return { bad, ex }; } };

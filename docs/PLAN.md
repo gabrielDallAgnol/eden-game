@@ -49,7 +49,7 @@ If a rule you add is a plan rather than an outcome, list it under "Planned on pu
 | B | Done: B1 to B8, plus a water step the owner asked for (fords, bridges from wading toil, fishing from the bank). B7's check (a pond in a 100-year lakeland run) is not met: stone demand is too low to work pits out. |
 | C | Done: C1, C2 and C3 (one commit). Ground memory 27.7 MB at 40x40. |
 | D | Done: D1 to D5 (D4 with height H1; game map 96 tiles). D5: all three animal kinds alive at year 100 in 7 of 10 standard worlds (8 of 10 at 128, 1 of 10 at the old 40). Also done on the owner's request: no crossing without a bridge, timber only from chopping, faster speeds (up to 48x). Next: E. |
-| E | E1 done (routes). E2 done: gathering, fishing, felling, firewood and quarrying are real trips (pace 20 tiles a step, home before dark); hunting still takes one step. E3, E4 next. |
+| E | E1 done (routes). E2 done: gathering, fishing, felling, firewood and quarrying are real trips (pace 20 tiles a step, home before dark); hunting moves 3 tiles a step toward the game. E3, E4 done: the view walks each creature along the tiles the simulation moved it through and keeps its work within 1.4 tiles of its state position. |
 
 ## 1. How to work on it
 

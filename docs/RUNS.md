@@ -555,3 +555,31 @@ At fast speeds the ground chunks go stale again every step, and the painter alwa
 ## Owner's request: the leafy Yar bush is what people sow
 
 `yar_bush_a` is no longer a wild bush; it is the crop. On every sown field tile a plant stands as far on as the season's warmth has brought the harvest (`cropWarm`): a small spring-green sprout, a larger one, a full plant (dry-coloured on parched soil), then ripe, gold and hung with fruit; after the harvest the field is bare stubble again. Each plant is a little ahead or behind its neighbours. Wild bushes keep the other two Yar drawings. View only: the 100-year table is identical to the entry before (year 100 mean 152.2, dwellings 58.1, hunger deaths 186.9). Tests 417 passed, 0 failed. Checked by stills of valley seed 1 at year 15 with the harvest half grown and ripe.
+
+
+## E3 and E4: the view draws what the simulation did
+
+- The simulation keeps, for each creature, the tiles it passed through in the last step (`W.trailOf(id)`; beside the state, not in it, so saves are unchanged). A move made in one jump (home by dusk, to the fire to eat) is filled in along the route it would be walked.
+- The view walks people and animals along that trail, then plays the work where the step left them. Anything a plan asks farther than 1.4 tiles from that place is drawn at the edge of that reach, so the old invented trips (carrying logs to the plot, meat to the store, a random field across the valley, a fawn trotting after a mother tiles away) are gone. `Plan.go`'s own street-snapping is removed.
+- A bug the new kill check found: `nearest()` searched the cells filled at the start of the step, so a wolf that had moved since could be "within 3" while standing 5 away, and was killed from there. It now measures from where each creature is now.
+- The water checks now count a finished bridge as dry ground (trips end a step mid-bridge).
+
+Checks. New invariant: every kill is made by a creature standing within 3 tiles of its victim at the moment of the kill (it failed twice before the `nearest()` fix). In the browser, sampled just before every step for 40 s at 4x after 8 years (EdenGame.drift()): people more than 1.5 tiles from their state position, before → after: valley 1: 9 of 44 → 0 of 44; lakeland 2: 16 of 44 → 0 of 44; forest 1 and highland 3: 0 after. Animals: 35 of 1813 and 31 of 1782 → 0. At 1x: 0 of 12 people, 0 of 221 animals. At 16x, 2 of 143 people samples lag (several steps run inside one frame before the drawing catches up); animals 0 of 2870. Tests 428 passed, 0 failed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 33 | 145 | 254 | 254 | 99 | 233 | 0 | 15 | 11/110/5 | 2.6 | 0 | 17 | 5.7 | 263 | 1.1 | 3452 | 248 | 49.4 | 6.4 | 0 (2) | 76/0/3/4/15 | 61 | 6 | 29 | 3 | 0 | 27470 |
+| valley | 2 | 30 | 107 | 131 | 132 | 45 | 177 | 0 | 12 | 15/139/5 | 2.6 | 0 | 18.7 | 4.5 | 93 | 1.1 | 470 | 118 | 42 | 4.4 | 0 (1) | 84/1/2/0/12 | 57 | 5.2 | 17 | 0 | 0 | 19153 |
+| plains | 1 | 4 | 3 | 14 | 14 | 4 | 6 | 1 | 11 | 6/330/5 | 2.6 | 18.2 | 8.8 | 2.7 | 1 | 1 | 15 | 6 | 17.1 | 4.2 |  | 48/7/6/5/26 | 12 | 3.1 | 8 | 0 | 0 | 5723 |
+| plains | 2 | 16 | 85 | 187 | 214 | 77 | 226 | 0 | 12 | 5/109/5 | 2.4 | 8 | 18.5 | 6.5 | 162 | 1 | 2854 | 77 | 23 | 6 |  | 88/1/1/0/7 | 52 | 8 | 29 | 0 | 0 | 18087 |
+| forest | 1 | 11 | 73 | 166 | 195 | 65 | 154 | 1 | 12 | 3/179/5 | 2.6 | 26 | 15.9 | 4.1 | 58 | 1.1 | 910 | 63 | 20 | 5.4 |  | 87/1/3/0/8 | 43 | 4.5 | 17 | 0 | 0 | 14086 |
+| forest | 2 | 32 | 155 | 105 | 162 | 43 | 210 | 0 | 14 | 8/287/0 | 2.3 | 2 | 18.8 | 3.9 | 63 | 1.1 | 395 | 28 | 27 | 4 | 0 (1) | 90/0/3/0/7 | 37 | 4.7 | 13 | 0 | 0 | 15311 |
+| lakeland | 1 | 6 | 63 | 312 | 312 | 97 | 169 | 0 | 14 | 1/205/1 | 2.7 | 0 | 21.1 | 4.8 | 128 | 0.9 | 2882 | 74 | 30.9 | 6.3 | 0 (1) | 84/0/3/1/10 | 63 | 5.5 | 25 | 0 | 0 | 20916 |
+| lakeland | 2 | 22 | 67 | 166 | 174 | 59 | 136 | 0 | 12 | 10/109/5 | 2.4 | 4.6 | 16.4 | 4.7 | 124 | 1 | 1153 | 68 | 28.3 | 3.6 |  | 85/1/3/1/9 | 47 | 5.2 | 25 | 0 | 0 | 14463 |
+| highland | 1 | 15 | 60 | 56 | 98 | 30 | 134 | 0 | 14 | 5/84/0 | 3 | 0 | 15.1 | 7.5 | 118 | 1 | 243 | 53 | 19.6 | 1.8 | 0 (1) | 78/1/4/0/16 | 53 | 6.7 | 13 | 0 | 0 | 12053 |
+| highland | 2 | 4 | 8 | 37 | 39 | 12 | 34 | 1 | 13 | 8/60/0 | 2.6 | 0 | 16.6 | 7.8 | 19 | 1.2 | 75 | 31 | 16.5 | 2.9 | 0 (1) | 70/0/1/0/28 | 33 | 5.1 | 9 | 0 | 0 | 5190 |
+| mean |  | 17.3 | 76.6 | 142.8 | 159.4 | 53.1 | 147.9 | 0.3 | 12.9 |  | 2.6 | 5.9 | 16.7 | 5.2 | 102.9 | 1.1 | 1244.9 | 76.6 | 27.4 | 4.5 |  |  | 45.8 | 5.4 | 18.5 | 0.3 | 0 | 15245.2 |
+
+Year 100 mean 142.8 (152.2 before), year 25 17.3 (23.6), dwellings 53.1 (58.1), hunger deaths 147.9 (186.9), 3 resettles (plains 1, forest 1, highland 2) against 1. Wolves are alive at year 100 in all 10 worlds (before: none left in 1 of 10); people no longer kill them from across the camp.
