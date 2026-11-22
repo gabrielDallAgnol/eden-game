@@ -50,7 +50,7 @@ Registries are data rows, like `SPECIES` today. A new thing is a new row plus, i
 
 Each step is useful on its own and unlocks the next. "Check" is how to know it worked.
 
-### 1. Households are real
+### 1. Households are real (built 2026-11-22)
 - Food, firewood and tools are carried to the household's lot and kept in its larder. The common store becomes what is left over (later: the granary).
 - Cold and hunger are felt per household. `need` for the settlement is the sum of what households feel.
 - Fields are cleared, sown and reaped by the household beside its lot. `farm()`'s population formula goes.
@@ -104,6 +104,12 @@ Each step is useful on its own and unlocks the next. "Check" is how to know it w
 | Knowing it still works | A `tests.html` page that runs fixed-seed worlds for N years and checks invariants (nobody in water, no dwelling on a way, food conserved, no settlement extinct on easy land). It runs in the browser, so it does not depend on Node (the Node on the dev machine is broken; `brew reinstall node` fixes it and would allow the same file to run in CI). |
 | Art for many buildings | Every `BUILDINGS` row names a sprite and a tint. New buildings start as a recolour of an existing sprite or are drawn in code (`art.js`), and get a generated sprite only when the building has proved worth keeping. |
 | Resetting a settlement | One `newSettlement()` constructor used for the first camp and for resettling, so new fields cannot be forgotten in a hand-written reset. |
+
+## Related notes
+
+- `docs/LAND-AND-DENSITY.md`: how sprawl, upper storeys, flats, quarries, prices and rent come from land being finite and distance costing time. This is the design for roadmap step 6.
+- `docs/WORLD-GROWTH.md`: a 128x128 world that becomes known as people have reason to go further, and the chunked ground drawing it needs.
+- `docs/AGES.md`: what drove each historical age and which buildings to draw for it.
 
 ## Planned on purpose
 
