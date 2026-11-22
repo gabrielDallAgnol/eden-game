@@ -4,9 +4,14 @@
 // animals graze in little hops, rest together, follow their mothers, flee and hunt. Whatever changes in the
 // world grows, fades, melts or crossfades into its new state; nothing pops in or out.
 (function () {
-const TW = 64, TH = 32, CLIFF = 46, TICK_MS = 20000, DAY = 4, TS = TICK_MS / 1000;
+const TW = 64, TH = 32, CLIFF = 46, DAY = 4;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b - a) * t, ease = k => k * k * (3 - 2 * k);
 const qs = new URLSearchParams(location.search), seed = +(qs.get('seed') || 1 + Math.floor(Math.random() * 9999));
+/* The pace. One step of the engine is shown as TICK_MS of watching at 1x: 20 s normally (a year in 8 minutes), 5 s at the quick pace
+   (a year in 2 minutes). Only the watching is faster; the engine, its causes and its saves are the same at both paces. */
+let quick = false; try { quick = localStorage.getItem('eden.pace') === 'quick'; } catch (e) { /* no storage */ }
+if (qs.get('pace')) quick = qs.get('pace') === 'quick';
+let TICK_MS = quick ? 5000 : 20000, TS = TICK_MS / 1000;
 let landKept = ''; try { landKept = localStorage.getItem('eden.land') || ''; } catch (e) { /* no storage: the address decides */ }
 const landQ = qs.get('land') || landKept || 'valley';
 /* a saved valley is taken up again when the opening card's Continue was pressed (or ?continue=1); otherwise a new one is made */
@@ -829,11 +834,14 @@ function takeEvents(instant) {
     }
   }
 }
+let saveDue = false, lastSave = -1e9;
 function onTick() {
   syncCrossings();
   /* newcomers to an emptied valley may camp somewhere else: the fixed places of the camp follow the fire */
   if (camp.x !== T0.x + 0.5 || camp.y !== T0.y + 0.5) { camp.x = T0.x + 0.5; camp.y = T0.y + 0.5; fire.x = camp.x + 0.55; fire.y = camp.y + 0.15; store.x = camp.x - 0.45; store.y = camp.y + 0.35; }
-  if (S.tickNo % W.TPY === 0 && !window.EDEN_NOSAVE) { try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }   /* autosave once a game year */
+  /* autosave once a game year, but not more than once a minute of watching (at the quick pace a year can pass in seconds) */
+  if (S.tickNo % W.TPY === 0) saveDue = true;
+  if (saveDue && !window.EDEN_NOSAVE && performance.now() - lastSave > 60000) { saveDue = false; lastSave = performance.now(); try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }
   takeEvents(false); syncHuts();
   for (const a of S.agents) { if (!a.alive) continue; let r = recOf(a.id); if (!r) { const e = endOf(a); r = newRec(a, e.x, e.y, { alpha: 0 }); } r.a = a; }
   const phase = S.tickNo % DAY; let pi = 0;
@@ -1010,17 +1018,19 @@ function usePower(dtMs) {
 
 // ================================================================== chronicle: a few words when something big happens
 const say = (() => {
-  const el = document.getElementById('news');
-  let h;
-  return t => {
-    el.textContent = t;
-    el.style.opacity = 1;
+  /* news waits its turn: several things said in one step are shown one after another, each for at least 2.5 s, not overwritten */
+  const el = document.getElementById('news'), q = [];
+  let h = null, busy = false;
+  const show = () => {
     clearTimeout(h);
-    h = setTimeout(() => el.style.opacity = 0, 6500);
+    if (!q.length) { busy = false; h = setTimeout(() => el.style.opacity = 0, 4000); return; }
+    busy = true; el.textContent = q.shift(); el.style.opacity = 1; h = setTimeout(show, 2500);
   };
+  return t => { q.push(t); if (q.length > 4) q.shift(); if (!busy) show(); };
 })();
 let logSeen = 0, hadPeople = true, hadFlood = false;
 function chronicle() {
+  if (logSeen < S.log.length) heard();
   while (logSeen < S.log.length) say(S.log[logSeen++].text);
   if (hadPeople && !S.popPeople) say('The valley is empty of people.'); hadPeople = S.popPeople > 0;
   const fl = W.flood[T0.y * N + T0.x]; if (fl && !hadFlood && S.popPeople) say('The water has reached the camp.'); hadFlood = !!fl;
@@ -1033,7 +1043,7 @@ function lightAt(tod) { // 0 = full day, 1 = full night; tod runs over one day o
   if (tod < 0.06) return 1 - tod / 0.06; if (tod < 0.6) return 0; if (tod < 0.76) return (tod - 0.6) / 0.16; if (tod < 0.94) return 1; return 1 - (tod - 0.94) / 0.12;
 }
 function frame(t) {
-  requestAnimationFrame(frame); const dtMs = Math.min(100, t - now); now = t;
+  requestAnimationFrame(frame); const dtMs = Math.min(100, t - now); now = t; skipStep();
   const dts = paused ? 0 : dtMs * speed / 1000;
   if (!paused) {
     usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
@@ -1576,11 +1586,35 @@ for (const [id, label] of [['hand', 'Hand'], ['rain', 'Rain'], ['sun', 'Sun'], [
   b.appendChild(document.createTextNode(label));
   b.onclick = () => { tool = id; for (const q of tools.children) q.classList.toggle('sel', q.dataset.t === id); }; tools.appendChild(b);
 }
-const bS2 = document.getElementById('bSpeed'), SPEEDS = [1, 3, 8, 0];
-bS2.onclick = () => {
-  speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
-  bS2.textContent = speed === 0 ? 'II' : speed + 'x';
+/* speeds: the quick pace adds 24x. Skipping (quick pace only) runs at SKIP through quiet stretches and drops to 1x for HOLD ms
+   whenever the chronicle has something new to say, then speeds up again. It follows what happens, not a clock of its own. */
+const bS2 = document.getElementById('bSpeed'), bSkip = document.getElementById('bSkip'), SKIP = 64, HOLD = 6000;
+let SPEEDS = quick ? [1, 3, 8, 24, 0] : [1, 3, 8, 0], skipping = false, skipBack = 1, holdUntil = 0;
+const showSpeed = () => {
+  bS2.textContent = skipping ? '»' : speed === 0 ? 'II' : speed + 'x';
+  if (bSkip) { bSkip.style.display = quick ? '' : 'none'; bSkip.classList.toggle('sel', skipping); }
 };
+function setSkip(on) {
+  if (on === skipping) return; skipping = on;
+  if (on) { skipBack = speed || 1; speed = SKIP; } else speed = skipBack;
+  showSpeed();
+}
+/* the chronicle spoke: while skipping, slow to 1x so it can be watched */
+function heard() { if (skipping) { speed = 1; holdUntil = now + HOLD; } }
+function skipStep() { if (skipping && speed === 1 && now > holdUntil) speed = SKIP; }
+function setPace(q) {
+  quick = q; TICK_MS = q ? 5000 : 20000; TS = TICK_MS / 1000;
+  SPEEDS = q ? [1, 3, 8, 24, 0] : [1, 3, 8, 0];
+  try { localStorage.setItem('eden.pace', q ? 'quick' : 'normal'); } catch (e) { /* no storage */ }
+  if (!q) setSkip(false); if (SPEEDS.indexOf(speed) < 0) speed = 1; showSpeed();
+}
+bS2.onclick = () => {
+  if (skipping) { setSkip(false); return; }
+  speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+  showSpeed();
+};
+if (bSkip) bSkip.onclick = () => setSkip(!skipping);
+showSpeed();
 {
   const el = document.getElementById('lands');
   if (el) for (const k in W.LANDS) {
@@ -1643,10 +1677,11 @@ bS2.onclick = () => {
       if (el.style.display === 'block') fill();
     }, 1500);
   } }
-document.getElementById('begin').onclick = () => { document.getElementById('intro').style.display = 'none'; paused = false; };
+document.getElementById('begin').onclick = () => { setPace(false); document.getElementById('intro').style.display = 'none'; paused = false; };
+{ const b = document.getElementById('beginQuick'); if (b) b.onclick = () => { setPace(true); document.getElementById('intro').style.display = 'none'; paused = false; }; }
 { const c = document.getElementById('cont'); let has = false; try { has = !!localStorage.getItem('eden.save'); } catch (e) { /* no storage */ }
   if (c && has && !loaded) { c.style.display = 'block'; c.onclick = () => { try { sessionStorage.setItem('eden.continue', '1'); } catch (e) { /* ignore */ } location.reload(); }; } }
-if (loaded) { const b = document.getElementById('begin'); if (b) b.textContent = 'Carry on'; }
+if (loaded) { const b = document.getElementById('begin'), q = document.getElementById('beginQuick'); if (b) b.textContent = 'Carry on'; if (q) q.textContent = 'Carry on at the quick pace'; }
 document.getElementById('bHelp').onclick = () => { document.getElementById('intro').style.display = 'flex'; paused = true; };
 addEventListener('resize', resize); resize();
 cam.z = clamp(dpr * 1.1, minZ(), maxZ()); { const wx = isoX(camp.x, camp.y), wy = isoY(camp.x, camp.y); cam.x = wx - cv.width / cam.z / 2; cam.y = wy - 30 - cv.height / cam.z / 2; clampCam(); }
@@ -1660,6 +1695,8 @@ window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => {
     paused = false;
   }, setSpeed: s => {
     speed = s;
+  }, setPace, setSkip, get pace() {
+    return { quick, tickMs: TICK_MS, speed, skipping, speeds: SPEEDS.slice() };
   }, clampCam, sync: onTick, A, get tickFrac() {
     return tickFrac;
   }, set tickFrac(v) {
