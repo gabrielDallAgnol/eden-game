@@ -42,6 +42,7 @@ const SKILLS = {
 const TECHS = { bridge: 1, pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, tools: 1, medicine: 1, masonry: 1, writing: 1, concrete: 1 };
 const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt', smith: 'build', potter: 'build', wright: 'build', healer: 'gather', scribe: 'gather' };
 /* F6: every trade is work in a place: on the land, at the water, on the building plots, or in a building (named by its kind) */
+const TRADE_JOBS = new Set(['smith', 'potter', 'wright', 'scribe', 'healer', 'builder', 'mason', 'herder']);
 const JOB_PLACE = { farmer: 'the fields', hunter: 'the wild', fisher: 'the water', gatherer: 'the wild', builder: 'the plots', woodcutter: 'the woods', mason: 'the quarry', guard: 'the camp', herder: 'pen', smith: 'smithy', potter: 'kiln', wright: 'workshop', healer: 'healerhouse', scribe: 'tallyhouse' };
 function create(seed, opt) {
   opt = opt || {};
@@ -1201,7 +1202,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- people
   // Trips. Each working step of a grown member of a household is one trip, counted by where it went and how far, for the
   // year; last year's counts are what a household knows about its own days (phase I weighs where to live with them).
-  const TRIP_OF = { gather: 'forage', fish: 'forage', hunt: 'hunt', chop: 'timber', quarry: 'stone', build: 'build', fence: 'build', wood: 'wood', eat: 'store', guard: 'guard', patrol: 'guard', market: 'market' };
+  const TRIP_OF = { gather: 'forage', fish: 'forage', hunt: 'hunt', chop: 'timber', quarry: 'stone', build: 'build', fence: 'build', wood: 'wood', eat: 'store', guard: 'guard', patrol: 'guard', market: 'market', craft: 'work', dig: 'fields' };
   function tally(a) {
     if (S.night || a.age < GROWN || a.age > 46 || !a.alive) return; const h = homeSite(a); if (!h) return;
     const k = a.act ? (a.act.k === 'haul' ? (a.act.item === 'stone' ? 'stone' : 'timber') : TRIP_OF[a.act.k] || 'home') : 'home';
@@ -1573,7 +1574,7 @@ function create(seed, opt) {
      centre (the fire, the store, the market, the building plots, the place of work) and to its own fields; stairs add to every trip */
   function walkYear(x, y, who, stairs) {
     const T = S.tribe, h = homeSite(who) || (who.mom && homeSite(S.byId.get(who.mom) || {})) || null, tr = (h && h.tripsLast) || { store: 40, build: 10 };
-    const centre = (tr.store || 0) + (tr.market || 0) + (tr.build || 0) + (tr.guard || 0), fieldsT = tr.forage || 0;
+    const centre = (tr.store || 0) + (tr.market || 0) + (tr.build || 0) + (tr.guard || 0) + (tr.work || 0), fieldsT = tr.forage || 0;
     let fx = x, fy = y, nf = 0; if (h) { let sx = 0, sy = 0; for (const i of fieldTiles()) if (field[i] && owner[i] === h.id) { sx += i % N; sy += (i / N) | 0; nf++; } if (nf) { fx = sx / nf; fy = sy / nf; } }
     /* and out past the edge of the place for what grows wild, timber, stone and game: a door near the middle is far from all that */
     const outward = (tr.forage || 0) + (tr.timber || 0) + (tr.wood || 0) + (tr.stone || 0) + (tr.hunt || 0);
@@ -1620,7 +1621,9 @@ function create(seed, opt) {
       const dc = mass[i] === mass[I(T.x, T.y)] ? Math.hypot(x - T.x, y - T.y) : wayDist(T.x, T.y, x, y).d;
       if (!isFinite(dc)) { if (!across && !T.sites.some(q => q.x === x && q.y === y) && !water[i]) { const wh = wayDist(T.x, T.y, x, y, true); if (wh.ford) across = wh.ford; } continue; }
       if (T.sites.some(q => q.x === x && q.y === y)) continue;                                                // one roof to a lot, for now
-      if (T.market && Math.abs(x - T.market.x) <= PITCH && Math.abs(y - T.market.y) <= PITCH) continue;   /* the lots round the fire are the market's (H4) */
+      /* the lots round the fire are the market's (H4): only a household with a trade may build there, a shop below and its home above (I4) */
+      const onMarket = T.market && Math.abs(x - T.market.x) <= PITCH && Math.abs(y - T.market.y) <= PITCH, trade = who && P.some(b => (b.house === who.house || b === who || b.id === who.partner) && TRADE_JOBS.has(b.job));
+      if (onMarket && !(trade && !well)) continue;
       if (T.wall && T.wall.cells.includes(i)) continue;
       let wet = 0, timber = 0, crops = 0, way = 0, theirs = false;
       for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) { const j = I(x + nx, y + ny); if (water[j]) wet++; timber += tree[j]; crops += field[j]; if ((owner[j] && !mayUse.has(owner[j])) || pit[j] > 0.1) theirs = true; }
@@ -1665,6 +1668,7 @@ function create(seed, opt) {
       lit: -1,
       was: '',
       lake: !well && kind !== 'tent' && T.floodSeen && bank[bestI] > 0.5, forId: who ? who.id : 0 };
+    if (T.market && Math.abs(s.x - T.market.x) <= PITCH && Math.abs(s.y - T.market.y) <= PITCH && BUILDINGS[kind].room) { s.shop = true; if (!T.shopTold) { T.shopTold = true; tell((who ? who.name + '\'s household' : 'A household') + ' is building on the market: a shop below, and their home above it.'); } }
     T.sites.push(s);
     for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) {
       const j = I(s.x + nx, s.y + ny);

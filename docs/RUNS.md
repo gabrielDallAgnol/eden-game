@@ -1062,3 +1062,31 @@ Size 96, seeds 1 and 2:
 | mean |  | 16.8 | 68 | 121.6 | 142.9 | 41 | 128.5 | 0.3 | 11.9 |  | 2.7 | 7.6 | 20 | 5.3 | 36.6 | 1.1 | 1145.9 | 89.8 | 25.1 | 4.9 |  |  | 44.9 | 5.6 | 16.9 | 0.3 | 0 | 16903.4 |
 
 Year 100 mean 121.6 (119.6 at I1), dwellings 41.0 (39.5), hunger deaths 128.5 (131.7), 3 resettles (forest 1), as before.
+
+
+## I4 (in part): shops on the market, and the walk to work counted
+
+- A day at a place of work (`craft`) is now counted as a trip of its own ('work'), and ditch digging as 'fields'. The walking cost of I1 counts 'work' trips toward the centre, so a household whose people work in the places of work weighs a door near the middle.
+- The market lots (H4) are no longer closed to everyone: a household in which someone has a building trade (smith, potter, wright, scribe, healer, builder, mason, herder) may build there. Such a house is a shop below with the home above (`shop`); the first is told.
+
+Not shown: the plan's check, "tradespeople's doors are nearer the centre than farmers'". Over years 50 to 100 of four worlds, households with a tradesperson lived 14.6 tiles from the fire on average, farmers' 15.4. That is nearer, but barely. No shop was built in those runs. Trades are still given out only when the food supply can spare hands (F6 changed that only for the places of work), so late in these runs few households hold a trade at all: lakeland 1 and valley 1 had none. A proper fix is to let trades be taken up by what they earn (H3) for every trade, not only food work; that is not done.
+
+Tests 516 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 77 | 166 | 172 | 50 | 120 | 0 | 12 | 0/151/5 | 2.8 | 20.9 | 30.2 | 6.1 | 33 | 1.1 | 3675 | 192 | 36.4 | 6.9 |  | 84/0/4/0/11 | 58 | 6.4 | 21 | 3 | 0 | 19161 |
+| valley | 2 | 7 | 63 | 104 | 120 | 35 | 119 | 0 | 10 | 13/96/6 | 2.7 | 0 | 24.7 | 3.9 | 19 | 1.1 | 434 | 143 | 30.9 | 4.9 | 0 (1) | 85/3/3/0/7 | 49 | 4.8 | 13 | 0 | 0 | 16349 |
+| plains | 1 | 19 | 119 | 264 | 351 | 84 | 333 | 0 | 14 | 14/193/0 | 2.6 | 19.1 | 22.9 | 7.2 | 68 | 1 | 3134 | 121 | 35.1 | 4.8 | 0 (1) | 83/0/1/0/14 | 58 | 6.2 | 29 | 0 | 0 | 32663 |
+| plains | 2 | 26 | 105 | 99 | 116 | 44 | 129 | 0 | 11 | 6/284/5 | 2.4 | 20.4 | 17.2 | 7.4 | 91 | 1.1 | 963 | 36 | 17.8 | 5.6 |  | 83/1/0/1/11 | 44 | 5.8 | 21 | 0 | 0 | 15835 |
+| forest | 1 | 3 | 10 | 134 | 135 | 32 | 57 | 3 | 10 | 15/91/8 | 2.6 | 13.5 | 19.5 | 3.8 | 23 | 1 | 493 | 57 | 25 | 7.3 |  | 81/3/2/0/11 | 36 | 4.6 | 17 | 0 | 0 | 11988 |
+| forest | 2 | 25 | 109 | 89 | 129 | 35 | 144 | 0 | 13 | 11/219/0 | 2.5 | 0 | 21.7 | 3.8 | 28 | 1.1 | 305 | 43 | 22 | 4.7 | 8.4 (5) | 75/0/3/1/18 | 31 | 4.2 | 13 | 0 | 0 | 17471 |
+| lakeland | 1 | 13 | 81 | 203 | 225 | 76 | 146 | 0 | 13 | 24/43/5 | 2.8 | 0 | 24 | 4.7 | 59 | 1.1 | 1805 | 145 | 29.2 | 5.6 | 1.5 (2) | 82/0/3/0/12 | 64 | 7.6 | 21 | 0 | 0 | 24037 |
+| lakeland | 2 | 10 | 63 | 92 | 114 | 40 | 128 | 0 | 12 | 1/197/5 | 2.6 | 0 | 15.8 | 5.1 | 127 | 1.1 | 647 | 86 | 22 | 4.6 | 0 (1) | 80/1/1/0/13 | 37 | 5.4 | 17 | 0 | 0 | 14422 |
+| highland | 1 | 23 | 47 | 53 | 53 | 17 | 76 | 0 | 13 | 9/51/0 | 2.8 | 0 | 18.1 | 6.1 | 10 | 1 | 44 | 53 | 20.1 | 3 |  | 75/0/1/0/22 | 47 | 6.4 | 9 | 0 | 0 | 9366 |
+| highland | 2 | 14 | 12 | 17 | 23 | 2 | 65 | 0 | 11 | 3/92/0 | 2.9 | 2 | 6.3 | 5.6 | 0 |  | 15 | 18 | 12.6 | 2.2 |  | 58/7/0/0/35 | 27 | 5.7 | 8 | 0 | 0 | 5811 |
+| mean |  | 16.8 | 68.6 | 122.1 | 143.8 | 41.5 | 131.7 | 0.3 | 11.9 |  | 2.7 | 7.6 | 20 | 5.4 | 45.8 | 1.1 | 1151.5 | 89.4 | 25.1 | 5 |  |  | 45.1 | 5.7 | 16.9 | 0.3 | 0 | 16710.3 |
+
+Year 100 mean 122.1 (121.6 at I3).
