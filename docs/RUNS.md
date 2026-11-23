@@ -1194,3 +1194,14 @@ Size 96, seeds 1 and 2:
 | mean |  | 18 | 100.1 | 404.7 | 470.8 | 100 | 333.4 | 0.5 | 14.5 |  | 3.1 | 11 | 21.4 | 7.2 | 74.6 | 0.9 | 3843.2 | 204.2 | 30.8 | 4.9 |  |  | 65.5 | 7.6 | 28.9 | 0.9 | 0 | 50019.5 |
 
 Year 100 mean 404.7 (341.7 before), hunger deaths 333.4 (385.1), 5 resettles (forest 1). A world now takes 50 s for 100 years.
+
+## Owner's report: small things set out round houses in the wrong places
+
+The garden, woodpile, bench, planter and the generated furniture each had their own fixed place, half a tile from the house's middle, two of them behind it. A house is drawn standing up from its tile, so things beside or behind it were drawn into its walls or hidden under its roof, and things collided with each other. Now each house has five spots, in front of it and out beyond its sides (offsets from its middle: (1.25, 1.25), (1.45, 0.5), (0.5, 1.45), (1.5, -0.4), (-0.4, 1.5)). They are filled in order: garden, woodpile, bench, planter, then furniture. A spot on water, a street, a field or another building is passed over. Floors built upon a house set out nothing of their own. Crates also come to a household that has fields, not only one with a farmer or fisher by trade. View only: the simulation is unchanged (tests 519 passed, 0 failed). Checked by stills of two houses in valley 1 at year 40.
+
+Measured for the owner's question about animals (not changed yet): in valley 1, plains 1, lakeland 1 and forest 2, deer fall from about 90 to 5-20 within 20 years and wolves from about 45 to 5. In valley 1's first 20 years 163 deer starved and 60 were eaten. The grass stays near 0.2 across the map, grazed short by 150-500 rabbits, and deer starve in the first winters. Kinds stay on the map only because a few wander in from the edge. Tried and reverted:
+- fewer wolves: no help;
+- letting deer browse grown trees freely: 18 000 deer by year 14;
+- browse that costs the tree a little: deer last longer in woods but still starve out by year 50 to 60, the woods thin, and valley 1 held 113 people at year 60 against about 326.
+
+This needs its own balancing step.
