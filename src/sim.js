@@ -668,6 +668,8 @@ function create(seed, opt) {
       { /* who trades with whom, for the record: a fishing household has a fisher or lives mostly on fish; a farming one has a farmer or fields */
         const fishing = q => P.some(b => b.house === q.id && b.job === 'fisher') || mixOf(q, 'larder').fish > q.larder * 0.4, farming = q => P.some(b => b.house === q.id && b.job === 'farmer') || (q.fields || 0) > 0;
         if ((give === 'fish' && get === 'grain' && fishing(h) && farming(partner)) || (give === 'grain' && get === 'fish' && farming(h) && fishing(partner))) T.fishForGrain = (T.fishForGrain || 0) + 1; }
+      /* H4: where there is a market, the trade is made there: one grown person of each household goes */
+      if (T.market) for (const q of [h, partner]) { const t = P.find(b => b.house === q.id && b.age >= GROWN && b.age <= 60 && !b.toMarket); if (t) t.toMarket = true; }
       T.trades2 = (T.trades2 || 0) + 1; if (!T.given) T.given = {}; T.given[give] = (T.given[give] || 0) + 1; const tk = give + '>' + get; if (!T.swaps) T.swaps = {}; T.swaps[tk] = (T.swaps[tk] || 0) + 1;
       if (!T.barterTold) { T.barterTold = true; const a = P.find(b => b.house === h.id && b.age >= WED), b = P.find(c => c.house === partner.id && c.age >= WED); if (a && b) tell(a.name + ' has traded ' + GOODS[give].says + ' for ' + GOODS[get].says + ' with ' + b.name + '\'s household. Each had too much of one and too little of the other.'); }
     }
@@ -1199,7 +1201,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- people
   // Trips. Each working step of a grown member of a household is one trip, counted by where it went and how far, for the
   // year; last year's counts are what a household knows about its own days (phase I weighs where to live with them).
-  const TRIP_OF = { gather: 'forage', fish: 'forage', hunt: 'hunt', chop: 'timber', quarry: 'stone', build: 'build', fence: 'build', wood: 'wood', eat: 'store', guard: 'guard', patrol: 'guard' };
+  const TRIP_OF = { gather: 'forage', fish: 'forage', hunt: 'hunt', chop: 'timber', quarry: 'stone', build: 'build', fence: 'build', wood: 'wood', eat: 'store', guard: 'guard', patrol: 'guard', market: 'market' };
   function tally(a) {
     if (S.night || a.age < GROWN || a.age > 46 || !a.alive) return; const h = homeSite(a); if (!h) return;
     const k = a.act ? (a.act.k === 'haul' ? (a.act.item === 'stone' ? 'stone' : 'timber') : TRIP_OF[a.act.k] || 'home') : 'home';
@@ -1221,6 +1223,7 @@ function create(seed, opt) {
         b.e += got * 1.5; fed += got; }
       a.act = { k: 'craft', j, at: 'pen' }; sound(j % N, (j / N) | 0, 2, 'work'); return 0; }
     /* F7: a ditch dug a tile further from the well toward the fields */
+    if (kind === 'market') { a.act = { k: 'market', x: a.x, y: a.y }; sound(a.x, a.y, 3, 'talk'); S.stat.marketTrips = (S.stat.marketTrips || 0) + 1; return 0; }
     if (kind === 'dig') { if (!water[j]) T.ditch[j] = 1; for (let k = 0; k < 2; k++) { const n2 = ditchNext(a); if (n2 < 0 || Math.max(Math.abs(n2 % N - a.x), Math.abs(((n2 / N) | 0) - a.y)) > 2) break; T.ditch[n2] = 1; }   /* a day's digging: a few tiles on from where they stand */
       a.act = { k: 'dig', j }; sound(j % N, (j / N) | 0, 2, 'work'); return 0; }
     if (kind === 'craft') { const q = T.sites.find(h => I(h.x, h.y) === j && raised(h)), K = q && BUILDINGS[q.kind]; if (q && K && !K.makes) { a.act = { k: 'craft', j, at: q.kind }; return 0; } if (!K || !K.makes) return 0;
@@ -1257,7 +1260,7 @@ function create(seed, opt) {
     const T = S.tribe;
     if (tr.kind === 'timber') { T.wood += tr.load; S.stat.woodBack = (S.stat.woodBack || 0) + tr.load; } else if (tr.kind === 'stone') T.stone += tr.load;
     else if (tr.kind === 'fuel') { const h = doorOf(a); h.fuel = (h.fuel || 0) + tr.load; }
-    else if (tr.kind === 'craft' || tr.kind === 'dig') { /* what was made or dug stays where it is */ }
+    else if (tr.kind === 'craft' || tr.kind === 'dig' || tr.kind === 'market') { /* what was made or dug stays where it is */ }
     else { bring(a, tr.load, tr.kind === 'fish' ? 'fish' : 'fruit'); S.stat.forageD += tr.walked / 2; S.stat.forageN++; }
   }
   // Fetching timber, stone or firewood is a trip like any other: out along the route to the stand or the stone, the work
@@ -1355,6 +1358,8 @@ function create(seed, opt) {
     /* the hungry look for food first; building, felling and hauling are for the fed */
     /* the chance to turn to building is weighed each step; someone away on trips weighs it on coming home, for all the steps away */
     const pBuild = Math.min(1, dt * 12 * a.skill.build * (!a.job ? 1 : trade ? 2.4 : 0.3) * (hasTool(a) ? 1.3 : 1)), away = Math.max(1, S.tickNo - (a.freeT || S.tickNo - 1)); a.freeT = S.tickNo;
+    /* H4: someone whose household has a trade to make goes to the market by the fire */
+    if (a.toMarket && !a.trip && able && T.market) { if (startHaul(a, 'market', I(T.market.x, T.market.y), doorOf(a))) { a.toMarket = false; return; } if (S.tickNo % (DAY || 1) === 0) a.toMarket = false; }
     /* a smith, potter or wright goes to the place where the trade is worked, while there is something to make it from */
     if (able && a.e > 0.5 && CRAFT_AT[a.job] && !a.trip) { const q = standing(CRAFT_AT[a.job]); if (q && startHaul(a, 'craft', I(q.x, q.y), doorOf(a))) { practise(a, 'build'); return; } }
     /* a farmer who knows irrigation and has the well to draw on digs the ditch on a tile further toward the household's dry fields */
@@ -1575,6 +1580,7 @@ function create(seed, opt) {
       const dc = mass[i] === mass[I(T.x, T.y)] ? Math.hypot(x - T.x, y - T.y) : wayDist(T.x, T.y, x, y).d;
       if (!isFinite(dc)) { if (!across && !T.sites.some(q => q.x === x && q.y === y) && !water[i]) { const wh = wayDist(T.x, T.y, x, y, true); if (wh.ford) across = wh.ford; } continue; }
       if (T.sites.some(q => q.x === x && q.y === y)) continue;                                                // one roof to a lot, for now
+      if (T.market && Math.abs(x - T.market.x) <= PITCH && Math.abs(y - T.market.y) <= PITCH) continue;   /* the lots round the fire are the market's (H4) */
       if (T.wall && T.wall.cells.includes(i)) continue;
       let wet = 0, timber = 0, crops = 0, way = 0, theirs = false;
       for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) { const j = I(x + nx, y + ny); if (water[j]) wet++; timber += tree[j]; crops += field[j]; if ((owner[j] && !mayUse.has(owner[j])) || pit[j] > 0.1) theirs = true; }
@@ -1833,7 +1839,7 @@ function create(seed, opt) {
        that good is coin. Failures are counted over about the last year */
     { const fy = T.failYear || 0; T.failRate = (T.failRate || 0) * 0.5 + fy * 0.5; T.failYear = 0;
       if (!T.coin && (T.trades2 || 0) > 30 && T.failRate > 15 && T.given) { let best = null, bv = 0; for (const g in T.given) if (T.given[g] > bv) { bv = T.given[g]; best = g; }
-        if (best) { T.coin = best; T.coinAt = { trades: T.trades2, failRate: Math.round(T.failRate), year: Math.floor(S.t) }; tell('Too many trades come to nothing. Now ' + GOODS[best].says + ' is taken by everyone as payment, whether they need it that day or not: it has become the measure of things.'); } } }
+        if (best) { T.market = { x: T.x, y: T.y }; T.coin = best; T.coinAt = { trades: T.trades2, failRate: Math.round(T.failRate), year: Math.floor(S.t) }; tell('Too many trades come to nothing. Now ' + GOODS[best].says + ' is taken by everyone as payment, whether they need it that day or not: it has become the measure of things. The open ground round the fire is kept for a market.'); } } }
     /* debts: a tenth forgiven each year; those of a household that is gone are gone with it */
     if (T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); T.debts[key] *= 0.9; if (T.debts[key] < 0.05 || !T.sites.some(h => h.id === from) || !T.sites.some(h => h.id === to)) delete T.debts[key]; }
   }

@@ -670,6 +670,15 @@ UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)'
   [[1, 'lakeland'], [1, 'valley']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(2) + ' field tiles a hand sown after a normal year, ' + b.toFixed(2) + ' after a blighted one'); if (!(b > a)) ok = false; });
   return ok ? '' : out.join('; ');
 }]);
+UNITS.push(['once there is a market, trips to it show up in the households\' trip counts (H4)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96 }), T = W.S.tribe, i;
+  for (i = 0; i < 24 * 70; i++) W.tick();
+  if (!T.market) return 'no market by year 70 (coin ' + T.coin + ')';
+  var n = 0; T.sites.forEach(function (q) { n += (q.tripsLast && q.tripsLast.market) || 0; });
+  if (!n) return 'a market since then, but no household counted a trip to it last year';
+  var open = T.sites.filter(function (q) { return q.stage === 0 && Math.abs(q.x - T.market.x) <= W.PITCH && Math.abs(q.y - T.market.y) <= W.PITCH && W.BUILDINGS[q.kind] && W.BUILDINGS[q.kind].room; });
+  return open.length ? 'a house begun on the market ground at ' + open[0].x + ',' + open[0].y : '';
+}]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
   for (var i = 0; i < 48; i++) W.tick();

@@ -451,9 +451,9 @@ function wantProps() {
       if ((q.fuel || 0) >= 1.2 && P.firewood_stack) want.set('wp' + q.id, { kind: 'woodpile', x: q.x + 1.4, y: q.y - 0.2, base: 'wpb', img: P.firewood_stack, dy: 4 });
       if ((q.garden || 0) > 0.3 && P.planter) want.set('pl' + q.id, { kind: 'prop', x: q.x + 0.1, y: q.y + 1.2, base: 'pl', img: (q.garden || 0) > 0.7 && P.bench_flowers ? P.bench_flowers : P.planter, dy: 4 });
     }
-    /* by the fire and the store: stalls once there is trade to stand at them (phase G/H; none yet), a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
-    if (T0.trade && T0.store > 8 && P.stall_red) want.set('stall1', { kind: 'prop', x: store.x + 1.3, y: store.y - 1.1, base: 'stall', img: P.stall_red, dy: 4 });
-    if (T0.trade && T0.store > 25 && P.stall_green) want.set('stall2', { kind: 'prop', x: store.x - 1.1, y: store.y - 1.4, base: 'stall', img: P.stall_green, dy: 4 });
+    /* by the fire and the store: market stalls once there is a market (H4), a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
+    /* H4: once there is coin, the four lots round the fire are the market, a stall on each */
+    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N || W.water[y * N + x]) return; want.set('mk' + n, { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }); });
     if ((T0.hunts || 0) > 0 && P.cooking_spit) want.set('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
     if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) want.set('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
     { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) want.set('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
@@ -781,6 +781,7 @@ function planPerson(r, phase, pi) {
       P.go(st.x, st.y, sp); P.wait(0.22, 'work', { fx: 'dust', lx: st.lx, ly: st.ly });
       P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
     }
+    case 'market': { const m = T0.market || camp, sx = m.x + 0.5 + (pi % 2 ? 1.6 : -1.6), sy = m.y + 0.5 + ((pi >> 1) % 2 ? 1.6 : -1.6); P.go(sx, sy, sp); P.wait(0.5, 'idle', { chat: 1, lx: sx, ly: sy }); break; }   // at a stall, trading
     case 'dig': { const tx = act.j % N + 0.5, ty = ((act.j / N) | 0) + 0.5; P.go(tx + 0.3, ty + 0.3, sp); P.wait(0.5, 'work', { fx: 'dirt', lx: tx, ly: ty }); break; }   // digging the ditch a tile further
     case 'craft': { const tx = act.j % N + 0.5, ty = ((act.j / N) | 0) + 0.5; P.go(tx + 0.4, ty + 0.4, sp); P.wait(0.6, 'work', { fx: act.at === 'kiln' ? 'dust' : 'hammer', lx: tx, ly: ty }); break; }   // a day at the kiln, the anvil or the bench
     case 'walkto': P.go(act.x + 0.5, act.y + 0.5, sp); break;                               // on the way out: as far as the simulation has them
@@ -985,6 +986,8 @@ function onTick() {
   if (camp.x !== T0.x + 0.5 || camp.y !== T0.y + 0.5) { camp.x = T0.x + 0.5; camp.y = T0.y + 0.5; fire.x = camp.x + 0.55; fire.y = camp.y + 0.15; store.x = camp.x - 0.45; store.y = camp.y + 0.35; }
   if (S.tickNo % W.TPY === 0 && !window.EDEN_NOSAVE) { try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }   /* autosave once a game year */
   takeEvents(false); syncHuts();
+  /* the dead are shown falling for a while on screen; when steps run faster than the screen (a long jump, a slow device) they are let go after a few steps all the same */
+  for (const [id, r] of actors) if (r.dead) { if (r.dead.tick === undefined) r.dead.tick = S.tickNo; else if (S.tickNo - r.dead.tick > 3) actors.delete(id); }
   for (const a of S.agents) { if (!a.alive) continue; let r = recOf(a.id); if (!r) { const e = endOf(a); r = newRec(a, e.x, e.y, { alpha: 0 }); } r.a = a; }
   const phase = S.tickNo % DAY;
   /* seats round the fire go out by friendship (G1): each person beside the one they are closest to, so friends sit together */

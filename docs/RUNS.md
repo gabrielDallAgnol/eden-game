@@ -962,3 +962,30 @@ Size 96, seeds 1 and 2:
 | mean |  | 16.8 | 67.5 | 162.6 | 177.7 | 50 | 153.8 | 0.3 | 12.2 |  | 2.6 | 7.9 | 18.7 | 5.6 | 63.1 | 1 | 4414 | 104 | 26.1 | 4.6 |  |  | 50.4 | 6.5 | 19.3 | 0.4 | 0 | 20746.2 |
 
 Year 100 mean 162.6 (156.6 at H2), dwellings 50.0 (51.6), hunger deaths 153.8 (185.1), 3 resettles (forest 1), as before.
+
+
+## H4: the market
+
+When coin comes (H1) the place gets a market (`T.market`, at the fire): the four lots round the fire are not built on from then on (houses already there stay), and a stall stands on each that is dry and free (the stall sprites made earlier, which were waiting for trade). A trade is now made at the market: each trading household sends one grown person, who walks there on a real trip (`market` work). It counts as a trip of its own kind in the household's year (B8's trip counts), and people are drawn at a stall chatting.
+
+Also fixed in the view: someone who died was only let go after 30 seconds of game time on screen, so when steps run faster than frames (a long jump, a slow device) the dead piled up; a 70-year jump left frames taking 5 to 11 seconds each. The dead are now also let go three steps after dying.
+
+Checks. New unit (the plan's): plains 1 has a market by year 70 and its households counted trips to it the year before; no house has been begun on the market lots. Lakeland 1 over 100 years: 1432 market trips; 37 in households' counts in its last year. Tests 491 passed, 0 failed; scenarios 23 passed. Still checked in the game at year 70 (plains 1): stall by the fire, people at the market.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 92 | 225 | 229 | 81 | 194 | 0 | 13 | 7/120/5 | 2.6 | 24 | 25 | 5.2 | 95 | 1.1 | 3864 | 236 | 34.2 | 4.4 |  | 87/0/2/0/10 | 64 | 5.2 | 25 | 3 | 0 | 26553 |
+| valley | 2 | 7 | 62 | 127 | 128 | 43 | 130 | 0 | 11 | 19/198/5 | 2.6 | 0 | 25.8 | 3.8 | 35 | 1.1 | 600 | 137 | 33.9 | 4.5 |  | 79/0/3/0/17 | 46 | 4.1 | 17 | 0 | 0 | 19235 |
+| plains | 1 | 19 | 119 | 198 | 205 | 65 | 198 | 0 | 13 | 5/173/0 | 2.3 | 19.1 | 23.7 | 7 | 87 | 1 | 1884 | 90 | 33.5 | 4.9 |  | 88/0/1/0/7 | 48 | 8.2 | 25 | 0 | 0 | 26224 |
+| plains | 2 | 26 | 96 | 166 | 166 | 49 | 178 | 0 | 12 | 8/276/0 | 2.4 | 23.6 | 17.9 | 7.7 | 65 | 1 | 1069 | 41 | 20.8 | 5.7 |  | 73/0/0/0/24 | 52 | 4.4 | 21 | 0 | 0 | 17918 |
+| forest | 1 | 3 | 10 | 134 | 135 | 32 | 57 | 3 | 10 | 15/91/8 | 2.6 | 13.5 | 19.5 | 3.8 | 23 | 1 | 493 | 57 | 25 | 7.3 |  | 81/3/2/0/11 | 36 | 4.6 | 17 | 0 | 0 | 12010 |
+| forest | 2 | 25 | 109 | 92 | 130 | 36 | 165 | 0 | 13 | 25/252/0 | 2.5 | 0 | 20.3 | 3.7 | 41 | 1.1 | 359 | 42 | 22 | 5.3 | 0 (3) | 83/1/3/0/11 | 31 | 3.9 | 13 | 0 | 0 | 18698 |
+| lakeland | 1 | 13 | 81 | 240 | 268 | 85 | 144 | 0 | 13 | 1/74/5 | 2.6 | 0 | 23.4 | 4.7 | 33 | 1.1 | 2904 | 159 | 31.8 | 5.2 | 1.5 (2) | 77/1/2/0/18 | 67 | 5.7 | 25 | 0 | 0 | 26034 |
+| lakeland | 2 | 10 | 64 | 165 | 187 | 54 | 150 | 0 | 12 | 5/74/5 | 2.5 | 0 | 19 | 4.4 | 40 | 1 | 1121 | 123 | 26.8 | 4.5 | 0 (1) | 81/0/3/0/15 | 43 | 5.1 | 25 | 0 | 0 | 17102 |
+| highland | 1 | 23 | 47 | 61 | 61 | 27 | 65 | 0 | 12 | 1/75/5 | 2.8 | 0 | 18.7 | 6.7 | 15 | 1.1 | 99 | 89 | 24.6 | 3.2 | 0 (1) | 73/0/3/0/20 | 52 | 6.3 | 13 | 0 | 0 | 10528 |
+| highland | 2 | 14 | 12 | 17 | 23 | 2 | 65 | 0 | 11 | 3/92/0 | 2.9 | 2 | 6.3 | 5.6 | 0 |  | 15 | 18 | 12.6 | 2.2 |  | 58/7/0/0/35 | 27 | 5.7 | 8 | 0 | 0 | 5687 |
+| mean |  | 16.8 | 69.2 | 142.5 | 153.2 | 47.4 | 134.6 | 0.3 | 12 |  | 2.6 | 8.2 | 20 | 5.3 | 43.4 | 1.1 | 1240.8 | 99.2 | 26.5 | 4.7 |  |  | 46.6 | 5.3 | 18.9 | 0.3 | 0 | 17998.9 |
+
+Year 100 mean 142.5 (162.6 at H3), dwellings 47.4 (50.0), hunger deaths 134.6 (153.8), 3 resettles (forest 1), as before. Trading households give a person's day to the walk, which is likely most of the drop.
