@@ -2260,7 +2260,7 @@ function create(seed, opt) {
     /* the common store at this time last year: people see whether the granary is fuller or emptier than a year ago */
     const slotY = S.tickNo % TPY; if (!T.storeRing) T.storeRing = []; const storeYearAgo = T.storeRing[slotY]; T.storeRing[slotY] = T.store; T.storeFalling = T.store < storeYearAgo;
     /* less than about a year's food for everyone in the store, and less than a year ago: it has to be rationed */
-    T.storeShort = T.storeFalling && T.store < 2.2 * S.popPeople;
+    T.storeShort = !!T.skills.farm && T.storeFalling && T.store < 2.2 * S.popPeople;   /* only a granary that must last until the next harvest is rationed, not a camp's day of gathering */
     /* a full store is plenty to raise a child on only while it is not running down: a store eaten into year on year is not counted on */
     const storePlenty = n => T.store >= 1.1 * n + 1 && !(T.store < storeYearAgo);
     {
