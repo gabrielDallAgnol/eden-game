@@ -10,6 +10,23 @@ Three sets of numbers are stronger, because the researcher read the data files d
 
 The evidence on what "worked" is mostly forum opinion, small-outlet reviews and one designer's claim about playtests. No measured comparison of tech systems was found. The proposal at the end is design work built on this evidence; none of it has been run in Eden.
 
+### Added 2026-11-23: Humankind's tree checked against an image
+
+After this report was written, tech tree images were fetched from the public file listings of the Humankind and Civilization wikis (Google Images itself answered with a "prove you are human" check and was not used). One of them, `File:Tech tree-Victor.png` on humankind.fandom.com, is a fan-drawn chart of the whole tree in the pre-release "Victor" test build, from the Ancient to the Industrial age. Read box by box, it shows:
+
+| Age | Technologies in the chart | Fan ruleset used above |
+|---|---|---|
+| Ancient | 12 | 12 |
+| Classical | 12 | 12 |
+| Medieval | 10 | 10 |
+| Early Modern | 11 | 11 |
+| Industrial | 17 | 18 |
+| Contemporary | not in the chart | 28 |
+
+So the first four counts are now confirmed by a second source, for a pre-release build; the Industrial count differs by one, and the Contemporary count and the released game's exact total stay unverified. The chart also shows the prerequisite links the fan ruleset lacked: three loose lanes run the whole width (knowledge at the top: Calendar, Writing, Philosophy, Rhetoric, Theology, Alchemy, Movable Typeface, Encyclopedia; trade and sea in the middle; war at the bottom), and they cross at a few technologies (Wheel, Guilds, Centralized Power, Steam Engine, Scientific Method). About 30 of the 62 boxes are about armies, forts or rule, which Eden has no use for as they stand.
+
+Other images fetched the same way and used only for viewing: the full trees of Civilization I, IV, V (Brave New World) and VI, the Civilization VI civics screen, two in-game Humankind research screens, and the science victory screens of Civilization V and VII. They are game screenshots owned by their publishers, so they are not stored in this repository; their file names on civilization.fandom.com are `Official tech tree (Civ1).jpg`, `Tech Tree for Civ 4 & Warlords (Civ4).png`, `Tech Tree (BNW).png`, `Tech Tree (Civ6).jpg`, `Civics tree screenshot (Civ6).png`, `Science victory (Civ5).png` and `Modern Science Victory Screen (Civ7).png`.
+
 ## The big games sell 68 to 90 technologies for points, in 7 to 9 ages
 
 The shape is very stable across the series. One tree runs left to right. A technology needs one to three earlier ones. Science points pay for it. Civilization VI has 68 technologies in 8 ages and 90 links between them, about 1.3 prerequisites each ([Civ6Scripts](https://github.com/kebnoa/Civ6Scripts)). Civilization V has 80 in 9 ages, tied together more tightly ([Unciv ruleset](https://github.com/yairm210/Unciv/blob/master/android/assets/jsons/Civ%20V%20-%20Gods%20%26%20Kings/Techs.json)). The count per age is flat: Civ V has 12, 9, 10, 10, 10, 9, 8 and 11; Civ VI has 11, 8, 7, 9, 8, 7, 8 and 10. Humankind is the exception. In the fan copy it has 12, 12, 10 and 11 in its first four research ages, then 18 and 28, so most of its content sits at the end ([Humankind Cultures](https://github.com/Kurwizimi/Humankind-Cultures)). Cost is set by column, not by content, and rises steeply: the last column of Civ V costs 440 times the first, and Civ VI's about 86 times.
