@@ -581,7 +581,7 @@ function create(seed, opt) {
     const single = a.age >= WED && others.length <= 1 ? others.find(b => b.age >= WED && !b.partner && b.fem !== undefined) : null;
     if (single) { a.fem = !single.fem; a.partner = single.id; single.partner = a.id; }   // those who arrive together are a couple already
     else a.fem = a.age >= WED && !others.length ? false : rnd() < 0.5;
-    a.name = nameFor(a); a.partner = a.partner || 0; a.dad = a.dad || 0; a.house = 0; a.grief = 0; a.bond = {};
+    a.name = nameFor(a); a.partner = a.partner || 0; a.dad = a.dad || 0; a.house = 0; a.grief = 0; a.bond = {}; a.ties = {};
     a.likes = [LIKE_KEYS[(rnd() * LIKE_KEYS.length) | 0]]; if (rnd() < 0.4) { const k = LIKE_KEYS[(rnd() * LIKE_KEYS.length) | 0]; if (!a.likes.includes(k)) a.likes.push(k); } a.joy = 0.5;
     a.skill = {}; for (const k of CRAFTS) a.skill[k] = R(0.8, 1.1);
     // how they look: skin and hair come down from the parents, clothes are their own (the view turns these numbers into colours)
@@ -615,6 +615,22 @@ function create(seed, opt) {
   const childrenOf = a => folk().filter(b => b.mom === a.id || b.dad === a.id);
   const tell = text => S.log.push({ t: S.t, text });
   // a few words about one person, for whoever stops to look
+  /* G1. Ties beyond kin: two people grow close by doing things together (one hunt, one building site, one fire to eat, sing,
+     hear a story or mourn at) and drift apart slowly when they do not. A friend is someone a tie of 0.5 or more binds them to */
+  const tieOf = (a, b) => (a.ties && a.ties[b.id]) || 0;
+  const friend = (a, b) => tieOf(a, b) >= 0.5;
+  const friendsOf = a => { if (!a.ties) return []; const out = []; for (const id in a.ties) { if (a.ties[id] < 0.5) continue; const b = S.byId.get(+id); if (b && b.alive) out.push(b); } return out.sort((p, q) => tieOf(a, q) - tieOf(a, p)).slice(0, 4); };
+  function togetherness(P, dt) {
+    const groups = new Map();
+    for (const a of P) { const k = a.act && a.act.k; if (!k || a.age < SMALL) continue;
+      const key = k === 'hunt' && a.act.id ? 'h' + a.act.id : (k === 'build' || k === 'haul' || k === 'chop') && a.act.site ? 'b' + a.act.site
+        : (k === 'eat' || k === 'mourn' || k === 'music' || k === 'story' || k === 'dance' || k === 'watch' || k === 'shelter') ? 'f' + I(a.x, a.y) : k === 'craft' ? 'c' + a.act.j
+        : k === 'play' ? 'p' : (k === 'gather' || k === 'fish' || k === 'wood' || k === 'quarry' || k === 'chop') ? 'w' + ((a.x >> 2) * 64 + (a.y >> 2)) : null;   /* working the same patch of ground counts too */
+      if (!key) continue; let g = groups.get(key); if (!g) groups.set(key, g = []); g.push(a); }
+    for (const g of groups.values()) if (g.length >= 2 && g.length <= 12) for (const a of g) for (const b of g) if (a !== b) { if (!a.ties) a.ties = {}; a.ties[b.id] = Math.min(2, (a.ties[b.id] || 0) + 0.06); }
+    /* ties fade: a year apart takes away a quarter of what was there; the dead and the gone are let go */
+    if (S.tickNo % 4 === 0) for (const a of P) { if (!a.ties) { a.ties = {}; continue; } for (const id in a.ties) { const b = S.byId.get(+id); const v = a.ties[id] * (1 - 0.25 * dt * 4); if (!b || !b.alive || v < 0.02) delete a.ties[id]; else a.ties[id] = v; } }
+  }
   function describe(a) {
     if (!a.d.people || !a.name) return '';
     const age = Math.floor(a.age), p = S.byId.get(a.partner), kids = childrenOf(a).map(b => b.name);
@@ -626,12 +642,14 @@ function create(seed, opt) {
     const hh = homeSite(a),
       keeps = hh && hh.members ? ' The household of ' + hh.members + ' has ' + (hh.larder > hh.members * 1.5 ? 'a full larder' : hh.larder > hh.members * 0.5
           ? 'enough put by' : 'an empty larder') + (hh.fields ? ' and ' + hh.fields + ' field' + (hh.fields > 1 ? 's' : '') : '') + '.' : '';
+    const fr = friendsOf(a).map(b => b.name), friends = fr.length ? ' Friends: ' + fr.join(', ') + '.' : '';
     return a.name + ', ' + age + ', ' + what + '. ' + (p && p.alive ? (a.fem ? 'Her' : 'His') + ' partner is ' + p.name + '. ' : a.age >= WED ? 'On ' + (a.fem ? 'her' : 'his') + ' own. ' : '')
-      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps;
+      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps;
   }
   // Once in each step the camp's ties are looked over: who has grown close, who needs a roof, who has no one to choose
   function society(dt) {
     const T = S.tribe, P = folk(); if (!P.length) return;
+    togetherness(P, dt);
     const evening = !DAY || S.tickNo % DAY === DAY - 2;
     T.kidsHungry = P.some(b => b.age < GROWN && b.e < 0.7);
     for (const q of T.sites) q.members = 0; for (const b of P) { const h = homeSite(b); if (h) h.members++; }
@@ -1474,6 +1492,7 @@ function create(seed, opt) {
   function choosePlot(kind, who) {
     const T = S.tribe, well = !!(BUILDINGS[kind] && !BUILDINGS[kind].room), P = folk(), craft = who ? (who.job || craftOf(who)) : '';
     const kinHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && kin(b, who))) : [];
+    const friendHomes = who ? T.sites.filter(q => live(q) && !kinHomes.includes(q) && P.some(b => b.house === q.id && friend(who, b))) : [];
     /* ground a household may take: common ground, or what is already its own or its kin's */
     const mayUse = new Set(kinHomes.map(q => q.id)); if (who && who.house) mayUse.add(who.house); { const pt = who && S.byId.get(who.partner); if (pt && pt.house) mayUse.add(pt.house); }
     /* how far out a lot is looked for: as far as the place has had to look before (it grows when no lot was found) */
@@ -1501,6 +1520,7 @@ function create(seed, opt) {
         if (craft === 'farmer') sc += crops * 0.5;
         if (craft === 'woodcutter' || craft === 'builder' || craft === 'build') sc += timber * 0.3;
         if (kinHomes.length) { let dk = 99; for (const q of kinHomes) dk = Math.min(dk, Math.hypot(q.x - x, q.y - y)); sc -= Math.min(dk, 12) * 0.2; }
+      if (friendHomes.length) { let df = 99; for (const q of friendHomes) df = Math.min(df, Math.hypot(q.x - x, q.y - y)); sc -= Math.min(df, 12) * 0.2; }   /* near friends as near kin (G1) */
       }
       if (sc > bs) { bs = sc; bestI = i; }
     }
@@ -1530,8 +1550,10 @@ function create(seed, opt) {
     grass[bestI] = Math.min(grass[bestI], 0.08); fruit[bestI] = 0;
     return s;
   }
-  function plotFor() {
-    const T = S.tribe; let s = T.sites.find(q => BUILDINGS[q.kind] && !raised(q)); if (s) return s;          // finish what is begun
+  function plotFor(a) {
+    const T = S.tribe, open = T.sites.filter(q => BUILDINGS[q.kind] && !raised(q));
+    /* finish what is begun: a friend's or kinsman's house first (G1), else the first begun */
+    let s = a ? open.find(q => folk().some(b => b.house === q.id && b !== a && (friend(a, b) || kin(a, b)))) : null; if (!s) s = open[0]; if (s) return s;          // finish what is begun
     const homes = T.sites.filter(isHome);
     if (homes.length < households()) {                                                  // a household without a roof
       const who = folk().find(a => a.age >= WED && !a.house && (!a.partner || a.fem));
@@ -1570,7 +1592,7 @@ function create(seed, opt) {
     a.act = { k: 'fetch', x: lp.p.x, y: lp.p.y, item: kind === 'wood' ? 'log' : 'stone' }; walk(x, y, lp.p.x, lp.p.y, 0.05); a.tripD = lp.d; return true;
   }
   function construct(a) {
-    const T = S.tribe, s = plotFor(); if (!s) return false;
+    const T = S.tribe, s = plotFor(a); if (!s) return false;
     if (s === T.bridge) {                                             // timber carried to the ford and laid across it, a few planks at a time
       if (T.wood >= 1) { const c = Math.min(T.wood, s.need - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'bridgework', x: s.ax, y: s.ay }; walk(T.x, T.y, s.ax, s.ay, 0.12); sound(s.ax, s.ay, 3, 'work'); }
       else {

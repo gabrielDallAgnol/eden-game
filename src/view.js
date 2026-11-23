@@ -986,11 +986,15 @@ function onTick() {
   if (S.tickNo % W.TPY === 0 && !window.EDEN_NOSAVE) { try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }   /* autosave once a game year */
   takeEvents(false); syncHuts();
   for (const a of S.agents) { if (!a.alive) continue; let r = recOf(a.id); if (!r) { const e = endOf(a); r = newRec(a, e.x, e.y, { alpha: 0 }); } r.a = a; }
-  const phase = S.tickNo % DAY; let pi = 0;
+  const phase = S.tickNo % DAY;
+  /* seats round the fire go out by friendship (G1): each person beside the one they are closest to, so friends sit together */
+  const seatOf = new Map(); { const folk = S.agents.filter(a => a.alive && a.d.people), best = a => { let b = 0, v = 0.5; for (const id in a.ties || {}) if (a.ties[id] > v) { v = a.ties[id]; b = +id; } return b; };
+    const key = a => { const f = best(a); return f ? Math.min(a.id, f) : a.id; };
+    folk.sort((p, q) => key(p) - key(q) || p.id - q.id).forEach((a, k) => seatOf.set(a.id, k)); }
   for (const r of actors.values()) {
     if (r.dead) { if (r.dead.shown) continue; planDeath(r); continue; }
     if (r.held) continue;
-    if (r.a.d.people) planPerson(r, phase, pi++); else planAnimal(r);
+    if (r.a.d.people) planPerson(r, phase, seatOf.has(r.a.id) ? seatOf.get(r.a.id) : 0); else planAnimal(r);
   }
   preyReacts();
   wearPaths();

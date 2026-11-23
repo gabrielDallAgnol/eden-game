@@ -736,3 +736,32 @@ Size 96, seeds 1 and 2:
 | mean |  | 13.6 | 57.8 | 133.1 | 161.4 | 43.9 | 137 | 0.2 | 13.2 |  | 2.7 | 10.2 | 19.4 | 5.9 | 58.7 | 1 | 882.1 | 92.7 | 25.1 | 5.6 |  |  | 46.4 | 6.5 | 18.4 | 0.4 | 0 | 16381.7 |
 
 Year 100 mean 133.1 (129.2 at F6), year 25 13.6 (12.5), dwellings 43.9 (46.1), hunger deaths 137.0 (148.0), 2 resettles (valley 2) against 4.
+
+
+## G1: friends
+
+Each person has `ties` to others beyond kin (separate from `bond`, which is courtship). A tie grows by 0.06 for every step two people spend doing a thing together: one hunting party, one building site (building, hauling or felling for it), one fire (eating, music, a story, dancing, the night watch, sheltering from the weather, mourning), one workshop, children playing at the camp, or working the same patch of ground (gathering, fishing, felling or quarrying within the same 4x4 tiles). Ties fade by about a quarter a year and are dropped for the dead. A tie of 0.5 or more is a friend. Friends:
+- help raise each other's houses first (a builder finishes a friend's or a kinsman's begun house before others);
+- pull plot choice like kin (a lot near a friend's roof scores as one near kin's);
+- sit together of an evening (the view gives out seats round the fire in friendship order);
+- are named when a person is described ("Friends: Soren, Ivo.").
+
+Checks. New unit: at year 30 in lakeland 1 someone has a friend, describing them names their friends, and every tie is finite and within 0 to 2. In that world 7 of 12 people have at least one friend (1.5 friends each on average); in valley 2, 4 of 6. Tests 460 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 7 | 9 | 127 | 174 | 36 | 75 | 0 | 15 | 6/127/5 | 2.7 | 16.4 | 22.6 | 4.7 | 6 | 0.9 | 723 | 109 | 33.4 | 9.9 | 0 (1) | 74/0/3/0/22 | 42 | 5.2 | 17 | 3 | 0 | 12878 |
+| valley | 2 | 4 | 29 | 109 | 114 | 38 | 88 | 2 | 12 | 0/252/0 | 2.6 | 0 | 14.1 | 4.1 | 34 | 1.1 | 659 | 152 | 17.9 | 3.9 |  | 87/0/2/0/9 | 37 | 4.7 | 21 | 0 | 0 | 12213 |
+| plains | 1 | 9 | 81 | 209 | 278 | 72 | 251 | 0 | 13 | 4/90/1 | 2.7 | 26.8 | 22.7 | 8 | 122 | 1 | 2343 | 117 | 34.5 | 4.7 |  | 86/0/0/0/12 | 55 | 8.9 | 25 | 0 | 0 | 28602 |
+| plains | 2 | 18 | 103 | 140 | 206 | 39 | 217 | 0 | 12 | 0/238/5 | 3.1 | 12.8 | 17.2 | 10.5 | 71 | 0.9 | 883 | 33 | 19.4 | 5.1 |  | 77/1/3/0/16 | 66 | 15.2 | 21 | 0 | 0 | 20220 |
+| forest | 1 | 9 | 74 | 93 | 148 | 48 | 157 | 0 | 14 | 14/138/5 | 2.5 | 27.7 | 21.9 | 4.1 | 111 | 1.1 | 709 | 79 | 24.7 | 5.6 | 0 (2) | 82/0/3/2/11 | 44 | 4.5 | 17 | 0 | 0 | 18619 |
+| forest | 2 | 33 | 83 | 84 | 136 | 34 | 164 | 0 | 14 | 9/164/5 | 2.5 | 0 | 19.6 | 4 | 77 | 1 | 268 | 92 | 23.5 | 5.8 | 0 (1) | 83/0/3/0/13 | 35 | 4 | 13 | 0 | 0 | 15483 |
+| lakeland | 1 | 9 | 57 | 189 | 240 | 66 | 191 | 0 | 13 | 22/173/2 | 2.6 | 0 | 21.8 | 4.8 | 98 | 1 | 1568 | 112 | 29.9 | 5.4 | 0 (1) | 81/0/3/0/15 | 63 | 5.8 | 21 | 0 | 0 | 19585 |
+| lakeland | 2 | 19 | 77 | 170 | 170 | 55 | 109 | 0 | 13 | 2/123/5 | 2.6 | 0 | 21.2 | 4.8 | 104 | 1 | 1003 | 128 | 26 | 5.3 |  | 80/0/3/2/12 | 44 | 4 | 25 | 0 | 0 | 17643 |
+| highland | 1 | 17 | 45 | 55 | 92 | 30 | 125 | 0 | 13 | 9/42/1 | 2.9 | 0 | 18.9 | 6.5 | 41 | 1 | 249 | 123 | 24.6 | 3.5 | 0 (3) | 79/0/4/0/17 | 48 | 9 | 13 | 0 | 0 | 12077 |
+| highland | 2 | 11 | 21 | 47 | 77 | 20 | 90 | 0 | 13 | 7/31/5 | 2.8 | 13.5 | 8.1 | 6.9 | 22 | 1 | 114 | 73 | 24.5 | 7.1 | 0 (1) | 63/0/1/0/35 | 30 | 4.3 | 13 | 0 | 0 | 9924 |
+| mean |  | 13.6 | 57.9 | 122.3 | 163.5 | 43.8 | 146.7 | 0.2 | 13.2 |  | 2.7 | 9.7 | 18.8 | 5.8 | 68.6 | 1 | 851.9 | 101.8 | 25.8 | 5.6 |  |  | 46.4 | 6.6 | 18.6 | 0.3 | 0 | 16724.4 |
+
+Year 100 mean 122.3 (133.1 at F7), year 25 13.6 (13.6), dwellings 43.8 (43.9), hunger deaths 146.7 (137.0), 2 resettles (valley 2), as before.

@@ -573,6 +573,15 @@ UNITS.push(['a ditch dug from the well waters only the fields beside it (F7)', f
   if (!nN) return dug + ' ditch tiles, but none beside a field';
   return '';
 }]);
+UNITS.push(['people make friends beyond kin, and describing someone names them (G1)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), i;
+  for (i = 0; i < 24 * 30; i++) W.tick();
+  var P = W.S.agents.filter(function (a) { return a.alive && a.d.people; }), withF = P.filter(function (a) { return Object.keys(a.ties || {}).some(function (id) { return a.ties[id] >= 0.5; }); });
+  if (!withF.length) return 'nobody of ' + P.length + ' has a friend at year 30';
+  var a = withF[0], d = W.describe(a); if (d.indexOf('Friends: ') < 0) return 'a person with friends is described without them: ' + d;
+  var bad = P.filter(function (b) { return Object.keys(b.ties || {}).some(function (id) { var v = b.ties[id]; return !(isFinite(v) && v >= 0 && v <= 2); }); });
+  return bad.length ? bad[0].name + ' has a tie out of bounds' : '';
+}]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
   for (var i = 0; i < 48; i++) W.tick();
