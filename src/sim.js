@@ -383,7 +383,7 @@ function create(seed, opt) {
   function newSettlement(x, y) {
     const T = { x, y, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
       need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0, cross: 0 },
-      fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0, ditch: new Uint8Array(N * N),
+      fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0, ditch: new Uint8Array(N * N), debts: {},
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
@@ -671,19 +671,28 @@ function create(seed, opt) {
             T.need.crowd += 1;
           }
         } }
+      /* G3: what is owed is paid back first, out of plenty, before anything goes to the common store */
+      if (q.larder > q.members * 1.8 && T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); if (from !== q.id) continue; const k = T.sites.find(h => h.id === to && h.members); if (!k) continue;
+        const pay = Math.min(T.debts[key], (q.larder - q.members * 1.8) * 0.3); if (pay > 0.01) { moveFood(q, 'larder', k, 'larder', pay); T.debts[key] -= pay; T.repaid = (T.repaid || 0) + pay; } }
       if (q.larder > q.members * 2.6) { const give = (q.larder - q.members * 2.6) * 0.3; moveFood(q, 'larder', T, 'store', give); }
       else if (q.larder < q.members * 0.25) {
-        const mine = P.filter(b => b.house === q.id), kinRoof = T.sites.find(k => k !== q && k.members && k.larder > k.members * 1.2 && P.some(b => b.house === k.id && mine.some(m => kin(m, b))));
+        const mine = P.filter(b => b.house === q.id), full = k => k !== q && k.members && k.larder > k.members * 1.2;
+        /* G3: kin first; failing kin, friends; never a stranger's household (the common store is for those) */
+        const kinRoof = T.sites.find(k => full(k) && P.some(b => b.house === k.id && mine.some(m => kin(m, b))))
+          || T.sites.find(k => full(k) && P.some(b => b.house === k.id && mine.some(m => friend(m, b) && friend(b, m))));
         if (!kinRoof && evening) {   /* nobody of their own gives: those living by a full larder that gives nothing are resented (G2) */
           for (const k of T.sites) if (k !== q && k.members && k.larder > k.members * 2 && cheb(k, q) <= PITCH * 1.5) for (const b of P) if (b.house === k.id && b.age >= WED) for (const m of mine) if (m.age >= WED) grudge(m, b, 0.08);
         }
         if (kinRoof) {
           const give = Math.min(kinRoof.larder - kinRoof.members * 1.0, q.members * 0.5);
           moveFood(kinRoof, 'larder', q, 'larder', give);
+          /* remembered on both sides: a debt from the household that took to the one that gave */
+          if (give > 0) { if (!T.debts) T.debts = {}; const key = q.id + '>' + kinRoof.id; T.debts[key] = (T.debts[key] || 0) + give; T.gifts = (T.gifts || 0) + 1;
+            if (!mine.some(m => P.some(b => b.house === kinRoof.id && kin(m, b)))) T.friendGifts = (T.friendGifts || 0) + 1; }
           if (!T.gaveTold && give > 0.5) {
             T.gaveTold = true;
             const g = P.find(b => b.house === kinRoof.id && b.age >= WED), r = mine.find(b => b.age >= WED);
-            if (g && r) tell(g.name + "'s household has sent food to " + r.name + "'s. They are kin, and one larder was empty.");
+            if (g && r) tell(g.name + "'s household has sent food to " + r.name + "'s. One larder was empty, and they will not forget it.");
           }
         }
       }
@@ -1530,7 +1539,7 @@ function create(seed, opt) {
         if (craft === 'woodcutter' || craft === 'builder' || craft === 'build') sc += timber * 0.3;
         if (kinHomes.length) { let dk = 99; for (const q of kinHomes) dk = Math.min(dk, Math.hypot(q.x - x, q.y - y)); sc -= Math.min(dk, 12) * 0.2; }
       if (friendHomes.length) { let df = 99; for (const q of friendHomes) df = Math.min(df, Math.hypot(q.x - x, q.y - y)); sc -= Math.min(df, 12) * 0.2; }   /* near friends as near kin (G1) */
-      if (rivalHomes.length) { let dr = 99; for (const q of rivalHomes) dr = Math.min(dr, Math.hypot(q.x - x, q.y - y)); if (dr < 8) sc -= (8 - dr) * 0.6; }   /* and well away from a rival's door (G2) */
+      if (rivalHomes.length) { let dr = 99; for (const q of rivalHomes) dr = Math.min(dr, Math.hypot(q.x - x, q.y - y)); if (dr < 10) sc -= (10 - dr) * 1.5; }   /* and well away from a rival's door (G2) */
       }
       if (sc > bs) { bs = sc; bestI = i; }
     }
@@ -1751,6 +1760,8 @@ function create(seed, opt) {
     }
     placeJobs(able);
     quarrels();
+    /* debts: a tenth forgiven each year; those of a household that is gone are gone with it */
+    if (T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); T.debts[key] *= 0.9; if (T.debts[key] < 0.05 || !T.sites.some(h => h.id === from) || !T.sites.some(h => h.id === to)) delete T.debts[key]; }
   }
   /* G2: a household that lives next door to a bitter rival, under a roof light enough to leave (a tent or a hut), gives it up and
      builds again somewhere away from them; once in ten years at most */
@@ -1765,7 +1776,7 @@ function create(seed, opt) {
       /* the roof they leave goes to someone with none, if there is anyone; else it is taken down for its timber */
       const roofless = P.find(b => !b.house && !leaving.has(b.id) && b.age >= WED && (!b.partner || b.fem));
       if (roofless) { roofless.house = q.id; const pt = S.byId.get(roofless.partner); if (pt && pt.alive) pt.house = q.id; for (const c of childrenOf(roofless)) if (c.alive && !c.house && c.age < WED) c.house = q.id; q.movedT = S.t; }
-      else { T.wood += stageNeed(BUILDINGS[q.kind], BUILDINGS[q.kind].stages.length - 1, 'wood') * 0.5; for (let j = 0; j < N * N; j++) if (owner[j] === q.id) owner[j] = 0; T.sites.splice(T.sites.indexOf(q), 1); }
+      else { const back = stageNeed(BUILDINGS[q.kind], BUILDINGS[q.kind].stages.length - 1, 'wood') * 0.5; T.wood += back; S.stat.woodBack = (S.stat.woodBack || 0) + back;   /* timber from a roof taken down, counted with what is carried home */ for (let j = 0; j < N * N; j++) if (owner[j] === q.id) owner[j] = 0; T.sites.splice(T.sites.indexOf(q), 1); }
       T.quarrelMoves = (T.quarrelMoves || 0) + 1;
       tell(worst[0].name + '\'s household has left its ' + q.kind + ' by ' + worst[1].name + '\'s door after too many hard words, and will build again away from them.' + (roofless ? ' ' + roofless.name + ' moves in.' : ''));
       return;   /* one leaving a year is enough to talk about */
@@ -2342,6 +2353,7 @@ function create(seed, opt) {
     LANDS,
     DWELL,
     BUILDINGS,
+    kin: (a, b) => kin(a, b),
     JOB_PLACE,
     workplaces: () => workplaces(),
     GOODS,

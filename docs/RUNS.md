@@ -795,3 +795,30 @@ Size 96, seeds 1 and 2:
 | mean |  | 13.6 | 57.5 | 115.4 | 161.9 | 43.4 | 153.2 | 0.2 | 13.4 |  | 2.7 | 10.3 | 18.9 | 5.7 | 65.3 | 1 | 3653.3 | 104.6 | 26.1 | 5.5 |  |  | 45.9 | 5.7 | 17.8 | 0.3 | 0 | 17108.6 |
 
 Year 100 mean 115.4 (122.3 at G1), year 25 13.6 (13.6), dwellings 43.4 (43.8), hunger deaths 153.2 (146.7), 2 resettles (valley 2), as before. Valley 2 ends at 40 (109 at G1) and lakeland 1 at 188 (189); most of the drop is valley 2.
+
+
+## G3: giving and debts
+
+A household with an empty larder is given to by kin with plenty first, and only failing kin by a household where someone is a friend both ways; a stranger's household never gives directly (the common store is for those with no one). Every gift is a debt in `T.debts` ("taker>giver": amount). A household with more than 1.8 a head pays back what it owes, before anything goes to the common store. A tenth of every debt is forgiven each year, and a debt goes when either household does. The first gift is told ("... has sent food to ...'s. One larder was empty, and they will not forget it.").
+
+Also: the pull away from a rival's door in choosing a lot is stronger (within 10 tiles, 1.5 a tile), since in one history the G2 test found a move that did not take them further off. Timber from a roof taken down after a quarrel is counted with what is carried home, so the "timber only from chopping" check accepts it.
+
+Checks. New unit: in lakeland 1 at year 30, a household emptied with a kin household and a stranger one both full; after a step the debt is to the kin household and none to the stranger. New yearly invariant: every debt is finite and not negative. By year 60: lakeland 1 166 gifts (4 between friends), 49 open debts, 30 repaid; plains 2 275 gifts (17 between friends), 62 open, 118.6 repaid. Tests 474 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 7 | 9 | 136 | 141 | 37 | 56 | 0 | 14 | 11/128/5 | 2.7 | 16.6 | 26.1 | 5.2 | 6 | 1.2 | 603 | 144 | 34.1 | 11.6 |  | 80/0/2/4/12 | 44 | 5.1 | 17 | 3 | 0 | 15349 |
+| valley | 2 | 4 | 30 | 86 | 94 | 31 | 83 | 2 | 12 | 6/121/0 | 2.4 | 0 | 14.8 | 3.7 | 43 | 1.1 | 507 | 121 | 20.1 | 4.1 |  | 89/0/3/0/8 | 37 | 4.5 | 17 | 0 | 0 | 13407 |
+| plains | 1 | 9 | 73 | 307 | 316 | 89 | 213 | 0 | 13 | 0/125/5 | 2.5 | 29.2 | 24.3 | 7.3 | 113 | 1 | 4028 | 88 | 32 | 5 |  | 89/0/1/0/9 | 67 | 10.7 | 29 | 0 | 0 | 38530 |
+| plains | 2 | 18 | 101 | 66 | 172 | 34 | 210 | 0 | 13 | 0/238/5 | 3 | 17.5 | 17.1 | 11.1 | 86 | 1.1 | 648 | 64 | 17.4 | 4.4 | 0 (1) | 74/1/2/0/21 | 67 | 14.6 | 17 | 0 | 0 | 21545 |
+| forest | 1 | 9 | 69 | 92 | 134 | 42 | 166 | 0 | 14 | 12/164/5 | 2.7 | 27.7 | 23.4 | 4.1 | 39 | 1 | 925 | 77 | 27.5 | 4.3 | 14.5 (2) | 80/1/4/0/15 | 43 | 4.4 | 17 | 0 | 0 | 18616 |
+| forest | 2 | 38 | 118 | 97 | 121 | 39 | 163 | 0 | 13 | 10/223/5 | 2.4 | 0 | 22 | 3.8 | 32 | 1.1 | 300 | 55 | 22.9 | 5.1 | 1 (1) | 88/0/4/0/8 | 31 | 4.7 | 13 | 0 | 0 | 19028 |
+| lakeland | 1 | 9 | 67 | 214 | 246 | 77 | 142 | 0 | 13 | 26/120/6 | 2.7 | 0 | 22 | 4.7 | 20 | 1.1 | 2229 | 152 | 29 | 4.7 | 3 (4) | 82/1/3/1/13 | 65 | 5.5 | 21 | 0 | 0 | 21551 |
+| lakeland | 2 | 17 | 99 | 171 | 173 | 54 | 102 | 0 | 14 | 17/93/2 | 2.5 | 0 | 18.9 | 5.1 | 62 | 1.1 | 982 | 126 | 24.4 | 4.1 | 0 (2) | 84/0/3/0/10 | 43 | 5 | 25 | 0 | 0 | 17905 |
+| highland | 1 | 21 | 31 | 50 | 53 | 18 | 65 | 0 | 13 | 5/69/0 | 2.8 | 0 | 17.9 | 6.5 | 16 | 1.1 | 84 | 79 | 16.6 | 2.7 | 1.3333333333333333 (6) | 75/0/5/1/17 | 49 | 7.6 | 13 | 0 | 0 | 9762 |
+| highland | 2 | 11 | 24 | 47 | 59 | 15 | 82 | 0 | 12 | 2/33/0 | 2.9 | 2.3 | 9.3 | 6.6 | 18 | 1 | 66 | 71 | 23.3 | 11 | 36 (2) | 67/0/2/0/30 | 27 | 5.2 | 9 | 0 | 0 | 8480 |
+| mean |  | 14.3 | 62.1 | 126.6 | 150.9 | 43.6 | 128.2 | 0.2 | 13.1 |  | 2.7 | 9.3 | 19.6 | 5.8 | 43.5 | 1.1 | 1037.2 | 97.7 | 24.7 | 5.7 |  |  | 47.3 | 6.7 | 17.8 | 0.3 | 0 | 18417.3 |
+
+Year 100 mean 126.6 (115.4 at G2), year 25 14.3 (13.6), dwellings 43.6 (43.4), hunger deaths 128.2 (153.2), 2 resettles (valley 2), as before.

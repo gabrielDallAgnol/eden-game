@@ -81,6 +81,7 @@ function WorldRun(land, seed, years, size) {
   add('killNear', 'every kill is made by a creature standing within 3 tiles of what it killed, by the state (E3)');
   add('mix', 'every larder\'s and the store\'s kinds of food add up to its total and none is negative (F2)');
   add('places', 'the Town panel\'s places of work list every standing workshop, kiln, smithy and pen, with exactly those whose trade is there (F6)');
+  add('debts', 'every debt between households is finite, not negative, and between households that exist (G3)');
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
@@ -322,6 +323,11 @@ WorldRun.prototype.yearly = function () {
       if (!w) { bad.push('the ' + q.kind + ' at ' + q.x + ',' + q.y + ' is not listed'); return; }
       var hold = L.list.filter(function (a) { return a.job === K.work; }).map(function (a) { return a.name; }).sort().join(',');
       if (w.workers.slice().sort().join(',') !== hold) bad.push('the ' + q.kind + ' lists ' + w.workers.join(',') + ' but ' + hold + ' hold the trade'); });
+    if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else c.ok();
+  });
+  this.guard('debts', function (c) {
+    if (!T || !T.debts) return c.skip('no debts kept'); var bad = [], ids = {}; (T.sites || []).forEach(function (q) { ids[q.id] = 1; });
+    Object.keys(T.debts).forEach(function (k) { var v = T.debts[k], p = k.split('>'); if (!(isFinite(v) && v >= 0)) bad.push(k + ' = ' + v); else if (p.length !== 2) bad.push('odd key ' + k); });
     if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else c.ok();
   });
   this.guard('lotOwner', function (c) {
@@ -596,6 +602,22 @@ UNITS.push(['after a bitter quarrel a household leaves the house by its rival\'s
   var mover = [a, b].filter(function (x) { return x.alive && x.house !== (x === a ? pair[2].id : pair[3].id); })[0]; if (!mover) return 'the log tells of a move, but both still live where they did';
   var other = mover === a ? b : a, ns = site(mover), os = site(other); if (!ns || !os) return '';   /* still building: the move itself is shown */
   return Math.hypot(ns.x - os.x, ns.y - os.y) > dOld ? '' : 'the new roof (' + ns.x + ',' + ns.y + ') is no further from the rival than the old one';
+}]);
+UNITS.push(['a household in want is given to by its kin before any stranger, and the gift is kept as a debt (G3)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), S = W.S, T = S.tribe, i;
+  for (i = 0; i < 24 * 30; i++) W.tick();
+  var P = S.agents.filter(function (a) { return a.alive && a.d.people && a.house; }), by = function (id) { return P.filter(function (a) { return a.house === id; }); };
+  var homes = T.sites.filter(function (q) { return q.members > 0 && by(q.id).length; }), pick = null;
+  homes.forEach(function (q) { if (pick) return; var mine = by(q.id);
+    var kinH = homes.filter(function (k) { return k !== q && by(k.id).some(function (b) { return mine.some(function (m) { return W.kin(m, b); }); }); })[0];
+    var strH = homes.filter(function (k) { return k !== q && !by(k.id).some(function (b) { return mine.some(function (m) { return W.kin(m, b) || (m.ties && m.ties[b.id] >= 0.5); }); }); })[0];
+    if (kinH && strH) pick = [q, kinH, strH]; });
+  if (!pick) return 'no household with both a kin household and a stranger one at year 30';
+  var q = pick[0], k = pick[1], st = pick[2]; T.debts = {}; q.larder = 0; q.mix = null; k.larder = k.members * 3; k.mix = null; st.larder = st.members * 5; st.mix = null;
+  W.tick();
+  if (T.debts[q.id + '>' + st.id]) return 'a stranger household gave before kin did';
+  if (!(T.debts[q.id + '>' + k.id] > 0)) return 'kin with a full larder gave nothing (debts: ' + JSON.stringify(T.debts) + ')';
+  return '';
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
