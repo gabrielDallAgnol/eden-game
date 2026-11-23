@@ -746,7 +746,7 @@ UNITS.push(['a couple with no roof who went short leave the valley at sowing wit
   if (!T.skills.farm) return 'no farming in 40 years in three worlds';
   P = S.agents.filter(function (b) { return b.alive && b.d.people; });
   a = P.find(function (b) { return b.fem && b.partner && b.house && b.age >= 16; }); if (!a) return 'no couple under a roof';
-  q = S.byId.get(a.partner); var kids = P.filter(function (b) { return b.age < 13 && (b.mom === a.id || b.dad === q.id); });
+  q = S.byId.get(a.partner); var kids = P.filter(function (b) { return b.age < b.d.mature && (b.mom === a.id || b.dad === q.id); });
   var stay = T.sites.find(function (h) { return h.members > 0 && h.id !== a.house && h.fields > 0; });
   var deaths0 = Object.keys(S.deaths).reduce(function (p, k) { return p + (/^human/.test(k) ? S.deaths[k] : 0); }, 0), year = T.sownYear;
   for (i = 0; i < 24 * 2 && T.sownYear === year; i++) { [a, q].concat(kids).forEach(function (b) { if (b.alive) { b.house = 0; b.shortT = 1; } }); W.tick(); }
