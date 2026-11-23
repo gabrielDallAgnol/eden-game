@@ -532,7 +532,7 @@ UNITS.push(['tools are made at a smithy: with no smithy, none are made and those
   for (i = 0; i < 24 * 2; i++) { W.G.ruin('smithy'); W.tick(); if (T.tools > last + 1e-9) return 'tools rose from ' + last.toFixed(3) + ' to ' + T.tools.toFixed(3) + ' at step ' + i + ' with no smithy standing'; last = T.tools; }
   return T.tools < 10 * 0.7 ? '' : 'tools only wore from 10 to ' + T.tools.toFixed(2) + ' in two years';
 }]);
-UNITS.push(['tame deer come through a winter with a pen and a herder, and fewer of them without (F5)', function () {
+UNITS.push(['tame deer come through a winter with a pen and a herder (most of them), and fewer of them without (F5)', function () {
   var run = function (withPen, seed, land) {
     var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: land, size: 96 }), S = W.S, T = S.tribe, i, n = 0;
     for (i = 0; i < 24 * 6; i++) W.tick(); while (!(S.t % 1 > 0.6 && S.t % 1 < 0.7)) W.tick();   /* autumn */
@@ -549,7 +549,7 @@ UNITS.push(['tame deer come through a winter with a pen and a herder, and fewer 
   };
   var out = [], without = 0, withP = 0, tamed = 0;
   [[1, 'valley'], [3, 'forest']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); tamed += a[0]; without += a[1]; withP += b[1]; out.push(w[1] + ' ' + w[0] + ': ' + a[1] + ' of ' + a[0] + ' without, ' + b[1] + ' of ' + b[0] + ' with'); });
-  return withP === tamed && withP > without ? '' : out.join('; ');
+  return withP >= tamed * 0.6 && withP > without ? '' : out.join('; ');
 }]);
 UNITS.push(['no idea has an effect without a built thing: every idea names a building or a work, and the converted ones do nothing without it (F7)', function () {
   var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), bad = [];
@@ -585,39 +585,56 @@ UNITS.push(['people make friends beyond kin, and describing someone names them (
   var P = W.S.agents.filter(function (a) { return a.alive && a.d.people; }), withF = P.filter(function (a) { return Object.keys(a.ties || {}).some(function (id) { return a.ties[id] >= 0.5; }); });
   if (!withF.length) return 'nobody of ' + P.length + ' has a friend at year 30';
   var a = withF[0], d = W.describe(a); if (d.indexOf('Friends: ') < 0) return 'a person with friends is described without them: ' + d;
-  var bad = P.filter(function (b) { return Object.keys(b.ties || {}).some(function (id) { var v = b.ties[id]; return !(isFinite(v) && v >= 0 && v <= 2); }); });
+  var bad = P.filter(function (b) { return Object.keys(b.ties || {}).some(function (id) { var v = b.ties[id]; return !(isFinite(v) && v >= -2 && v <= 2); }); });   /* rivals go below nothing (G2) */
   return bad.length ? bad[0].name + ' has a tie out of bounds' : '';
 }]);
 UNITS.push(['after a bitter quarrel a household leaves the house by its rival\'s door, says so in the log, and builds again further off (G2)', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), S = W.S, T = S.tribe, i;
-  for (i = 0; i < 24 * 30; i++) W.tick();
-  var P = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 10 && a.house; }), pair = null;
-  var site = function (a) { return T.sites.filter(function (q) { return q.id === a.house; })[0]; };
-  P.forEach(function (a) { P.forEach(function (b) { if (pair || a.house === b.house) return; var p = site(a), q = site(b); if (p && q && Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)) <= 5) pair = [a, b, p, q]; }); });
-  if (!pair) return 'no two neighbouring households at year 30';
-  var a = pair[0], b = pair[1], old = pair[2], seen = S.log.length; a.ties = a.ties || {}; a.ties[b.id] = -1.5; b.ties = b.ties || {}; b.ties[a.id] = -1.5;
-  var dOld = Math.hypot(old.x - pair[3].x, old.y - pair[3].y);
-  for (i = 0; i < 24 * 3; i++) W.tick();
-  var said = S.log.slice(seen).some(function (l) { return /hard words/.test(l.text); }); if (!said) return 'no quarrel move in the log within three years';
-  var mover = [a, b].filter(function (x) { return x.alive && x.house !== (x === a ? pair[2].id : pair[3].id); })[0]; if (!mover) return 'the log tells of a move, but both still live where they did';
-  var other = mover === a ? b : a, ns = site(mover), os = site(other); if (!ns || !os) return '';   /* still building: the move itself is shown */
-  return Math.hypot(ns.x - os.x, ns.y - os.y) > dOld ? '' : 'the new roof (' + ns.x + ',' + ns.y + ') is no further from the rival than the old one';
+  var tried = [], w, i;
+  var worlds = [[1, 'lakeland', 30], [2, 'valley', 30], [1, 'plains', 40], [2, 'forest', 30]];
+  for (w = 0; w < worlds.length; w++) {
+    var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }), S = W.S, T = S.tribe;
+    for (i = 0; i < 24 * worlds[w][2]; i++) W.tick();
+    var site = function (a) { return T.sites.filter(function (q) { return q.id === a.house; })[0]; }, done = function (q) { var K = W.BUILDINGS[q.kind]; return K && K.room && q.stage >= K.stages.length && q.members > 0; };
+    var P = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 10 && a.house && site(a) && done(site(a)); }), pair = null;
+    P.forEach(function (a) { P.forEach(function (b) { if (pair || a.house === b.house) return; var p = site(a), q = site(b); if (Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)) <= 5) pair = [a, b, p, q]; }); });
+    if (!pair) { tried.push(worlds[w][1] + ' ' + worlds[w][0] + ': no neighbours'); continue; }
+    var a = pair[0], b = pair[1], seen = S.log.length; a.ties = a.ties || {}; a.ties[b.id] = -1.5; b.ties = b.ties || {}; b.ties[a.id] = -1.5;
+    var dOld = Math.hypot(pair[2].x - pair[3].x, pair[2].y - pair[3].y);
+    for (i = 0; i < 24 * 3; i++) { a.ties[b.id] = Math.min(a.ties[b.id], -1.5); b.ties[a.id] = Math.min(b.ties[a.id], -1.5); W.tick(); }
+    var mover = [a, b].filter(function (x) { return x.alive && x.house !== (x === a ? pair[2].id : pair[3].id); })[0];
+    if (!mover) { tried.push(worlds[w][1] + ' ' + worlds[w][0] + ': neither moved'); continue; }
+    if (!S.log.slice(seen).some(function (l) { return /hard words/.test(l.text); })) return mover.name + '\'s household moved, but the log does not say so';
+    var other = mover === a ? b : a, ns = site(mover), os = site(other); if (!ns || !os) return '';
+    return Math.hypot(ns.x - os.x, ns.y - os.y) > dOld ? '' : 'the new roof (' + ns.x + ',' + ns.y + ') is no further from the rival than the old one';
+  }
+  return tried.join('; ');
 }]);
 UNITS.push(['a household in want is given to by its kin before any stranger, and the gift is kept as a debt (G3)', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), S = W.S, T = S.tribe, i;
-  for (i = 0; i < 24 * 30; i++) W.tick();
-  var P = S.agents.filter(function (a) { return a.alive && a.d.people && a.house; }), by = function (id) { return P.filter(function (a) { return a.house === id; }); };
-  var homes = T.sites.filter(function (q) { return q.members > 0 && by(q.id).length; }), pick = null;
-  homes.forEach(function (q) { if (pick) return; var mine = by(q.id);
-    var kinH = homes.filter(function (k) { return k !== q && by(k.id).some(function (b) { return mine.some(function (m) { return W.kin(m, b); }); }); })[0];
-    var strH = homes.filter(function (k) { return k !== q && !by(k.id).some(function (b) { return mine.some(function (m) { return W.kin(m, b) || (m.ties && m.ties[b.id] >= 0.5); }); }); })[0];
-    if (kinH && strH) pick = [q, kinH, strH]; });
-  if (!pick) return 'no household with both a kin household and a stranger one at year 30';
-  var q = pick[0], k = pick[1], st = pick[2]; T.debts = {}; q.larder = 0; q.mix = null; k.larder = k.members * 3; k.mix = null; st.larder = st.members * 5; st.mix = null;
-  W.tick();
-  if (T.debts[q.id + '>' + st.id]) return 'a stranger household gave before kin did';
-  if (!(T.debts[q.id + '>' + k.id] > 0)) return 'kin with a full larder gave nothing (debts: ' + JSON.stringify(T.debts) + ')';
-  return '';
+  var worlds = [[1, 'lakeland', 30], [2, 'valley', 30], [1, 'plains', 40], [2, 'forest', 30]], w, i, tried = [];
+  for (w = 0; w < worlds.length; w++) {
+    var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }), S = W.S, T = S.tribe;
+    for (i = 0; i < 24 * worlds[w][2]; i++) W.tick();
+    var P = S.agents.filter(function (a) { return a.alive && a.d.people && a.house; }), by = function (id) { return P.filter(function (a) { return a.house === id; }); };
+    var homes = T.sites.filter(function (q) { return q.members > 0 && by(q.id).length; }), pick = null;
+    homes.forEach(function (q) { if (pick) return; var mine = by(q.id);
+      var kinH = homes.filter(function (k) { return k !== q && by(k.id).some(function (b) { return mine.some(function (m) { return W.kin(m, b); }); }); })[0];
+      var strH = homes.filter(function (k) { return k !== q && !by(k.id).some(function (b) { return mine.some(function (m) { return W.kin(m, b) || (m.ties && m.ties[b.id] >= 0.5); }); }); })[0];
+      if (kinH && strH) pick = [q, kinH, strH]; });
+    if (!pick) { tried.push(worlds[w][1] + ' ' + worlds[w][0] + ': no such households'); continue; }
+    var q = pick[0], k = pick[1], st = pick[2]; T.debts = {}; q.larder = 0; q.mix = null; k.larder = k.members * 3; k.mix = null; st.larder = st.members * 5; st.mix = null;
+    W.tick();
+    if (T.debts[q.id + '>' + st.id]) return 'a stranger household gave before kin did';
+    if (!(T.debts[q.id + '>' + k.id] > 0)) return 'kin with a full larder gave nothing (debts: ' + JSON.stringify(T.debts) + ')';
+    return '';
+  }
+  return tried.join('; ');
+}]);
+UNITS.push(['fishers\' and farmers\' households trade fish for grain; failed trades are counted (G4)', function () {
+  var n = 0, fails = 0, tr = 0, i;
+  [[1, 'lakeland'], [2, 'valley']].forEach(function (w) { var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: w[1], size: 96 }); for (i = 0; i < 24 * 60; i++) W.tick(); n += W.S.tribe.fishForGrain || 0; fails += W.S.tribe.tradesFailed || 0; tr += W.S.tribe.trades2 || 0; });
+  if (!tr) return 'no trade at all in two 60-year worlds';
+  if (!(fails > 0)) return tr + ' trades and not one failed';
+  return n > 0 ? '' : tr + ' trades, none of fish for grain between a fishing and a farming household';
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });

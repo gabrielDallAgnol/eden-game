@@ -383,7 +383,7 @@ function create(seed, opt) {
   function newSettlement(x, y) {
     const T = { x, y, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
       need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0, cross: 0 },
-      fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0, ditch: new Uint8Array(N * N), debts: {},
+      fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0, ditch: new Uint8Array(N * N), debts: {}, trades2: 0, tradesFailed: 0, swaps: {},
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
@@ -623,6 +623,44 @@ function create(seed, opt) {
   /* G2. Grievances: a tie can go below nothing. A rival is someone it has gone to -0.5 or below with */
   const rival = (a, b) => tieOf(a, b) <= -0.5;
   const grudge = (a, b, v) => { if (!a || !b || a === b || !a.alive || !b.alive) return; if (!a.ties) a.ties = {}; a.ties[b.id] = Math.max(-2, (a.ties[b.id] || 0) - v); };
+  /* G4. How varied a larder is: 0 when it holds one kind of food, 1 when all four alike; a varied one goes a little further */
+  const variety = q => { const m = mixOf(q, 'larder'), t = q.larder || 0; if (t <= 0.01) return 0; let s2 = 0; for (const g of FOODS) s2 += (m[g] / t) * (m[g] / t); return Math.max(0, (1 - s2) / 0.75); };
+  const nourish = q => 1 + 0.1 * variety(q);   /* a varied larder goes a little further; one kind alone is food as before */
+  /* how much a household wants more of a kind (it has less than its share of a varied table), and what it can spare of one */
+  const wantOf = (q, g) => { const t = q.larder || 0; if (t <= 0.01) return 0.25; return Math.max(0, 0.25 - mixOf(q, 'larder')[g] / t); };
+  const spareOf = (q, g) => { const t = q.larder || 0; if (t < q.members * 0.5) return 0; const m = mixOf(q, 'larder'); return Math.max(0, m[g] - t * 0.3); };
+  /* G4. Barter, of an evening: a household with plenty of one kind and short of another offers a swap to a neighbour who has the
+     other to spare and wants the first. How much changes hands is set by how badly each wants what the other has; an offer
+     that finds the food but no want for what is offered is a failed trade */
+  function barter(P) {
+    const T = S.tribe, homes = T.sites.filter(q => isHome(q) && q.members > 0 && q.larder > 0.5);
+    for (const h of homes) {
+      let give = null, gv = 0;
+      for (const g of FOODS) { const sp = spareOf(h, g); if (sp > gv) { gv = sp; give = g; } }
+      if (!give || gv < 0.15) continue;
+      /* each kind they are short of, the most wanted first, until someone near has it to spare and wants what they offer */
+      let partner = null, get = null, wv = 0, failed = false;
+      for (const g of FOODS.filter(k => k !== give && wantOf(h, k) >= 0.05).sort((p, q) => wantOf(h, q) - wantOf(h, p))) {
+        let best = 0;
+        for (const n of homes) { if (n === h || cheb(n, h) > PITCH * 2) continue; const has = spareOf(n, g); if (has < 0.15) continue;
+          const theirWant = wantOf(n, give); if (theirWant < 0.03) { failed = true; continue; }
+          const v = Math.min(has, gv) * theirWant; if (v > best) { best = v; partner = n; } }
+        if (partner) { get = g; wv = wantOf(h, g); break; }
+      }
+      if (!partner) { if (failed) T.tradesFailed = (T.tradesFailed || 0) + 1; continue; }
+      /* the rate: what is given for one of what is got, as each wants the other's food */
+      const rate = clamp((wv + 0.02) / (wantOf(partner, give) + 0.02), 0.5, 2), gotAmt = Math.min(spareOf(partner, get), gv / rate, h.members * 0.8), gaveAmt = gotAmt * rate;
+      if (!(gotAmt > 0.05)) continue;
+      const mh = mixOf(h, 'larder'), mp = mixOf(partner, 'larder');
+      mh[give] -= gaveAmt; h.larder -= gaveAmt; mp[give] += gaveAmt; partner.larder += gaveAmt;
+      mp[get] -= gotAmt; partner.larder -= gotAmt; mh[get] += gotAmt; h.larder += gotAmt;
+      { /* who trades with whom, for the record: a fishing household has a fisher or lives mostly on fish; a farming one has a farmer or fields */
+        const fishing = q => P.some(b => b.house === q.id && b.job === 'fisher') || mixOf(q, 'larder').fish > q.larder * 0.4, farming = q => P.some(b => b.house === q.id && b.job === 'farmer') || (q.fields || 0) > 0;
+        if ((give === 'fish' && get === 'grain' && fishing(h) && farming(partner)) || (give === 'grain' && get === 'fish' && farming(h) && fishing(partner))) T.fishForGrain = (T.fishForGrain || 0) + 1; }
+      T.trades2 = (T.trades2 || 0) + 1; const tk = give + '>' + get; if (!T.swaps) T.swaps = {}; T.swaps[tk] = (T.swaps[tk] || 0) + 1;
+      if (!T.barterTold) { T.barterTold = true; const a = P.find(b => b.house === h.id && b.age >= WED), b = P.find(c => c.house === partner.id && c.age >= WED); if (a && b) tell(a.name + ' has traded ' + GOODS[give].says + ' for ' + GOODS[get].says + ' with ' + b.name + '\'s household. Each had too much of one and too little of the other.'); }
+    }
+  }
   function togetherness(P, dt) {
     const groups = new Map();
     for (const a of P) { const k = a.act && a.act.k; if (!k || a.age < SMALL) continue;
@@ -653,6 +691,7 @@ function create(seed, opt) {
   function society(dt) {
     const T = S.tribe, P = folk(); if (!P.length) return;
     togetherness(P, dt);
+    if (!DAY || S.tickNo % DAY === DAY - 2) barter(P);
     const evening = !DAY || S.tickNo % DAY === DAY - 2;
     T.kidsHungry = P.some(b => b.age < GROWN && b.e < 0.7);
     for (const q of T.sites) q.members = 0; for (const b of P) { const h = homeSite(b); if (h) h.members++; }
@@ -1244,7 +1283,7 @@ function create(seed, opt) {
     const hm = homeSite(a), mouths = hm ? hm.members || 1 : pop, short = a.age >= GROWN && T.kidsHungry && (hm ? (hm.larder || 0) < mouths * 0.5 : T.store < pop * 0.5);
     if (a.e < (short ? 0.4 : 0.85)) {
       let want = Math.min(1 - a.e, 0.5);
-      if (hm && hm.larder > 0.05) { const t = Math.min(hm.larder, want); hm.larder -= t; a.e += t; want -= t; }
+      if (hm && hm.larder > 0.05) { const t = Math.min(hm.larder, want), nv = nourish(hm); hm.larder -= t; a.e += t * nv; want -= t; }   /* a mixed larder feeds a little better than one kind alone (G4) */
       if (want > 0.05 && T.store > 0.05 && dist <= 2) { const t = Math.min(T.store, want); T.store -= t; a.e += t; }
       else if (want > 0.05 && a.e < 0.4 && T.store > want && a.age >= SMALL && !S.night) {
         if (route(a.x, a.y, T.x, T.y, a, 80).reached) { a.x = T.x; a.y = T.y; const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return; }   /* only if there is a way to the fire */
@@ -1719,7 +1758,7 @@ function create(seed, opt) {
     if (T.skills.palisade && (T.wall || T.threat >= 2)) planWall();
     const able = P.filter(a => a.age >= GROWN && a.age <= 46), n = able.length; for (const a of P) if (a.age > 46 || a.age < GROWN) a.job = '';
     const spare = Math.floor(n * clamp((T.plenty - 0.7) / 4, 0, 0.45));           // hands the food supply can free from getting food
-    if (n < 3 || (spare < 1 && !able.some(a => a.job))) { for (const a of able) a.job = ''; placeJobs(able); return; }
+    if (n < 3 || (spare < 1 && !able.some(a => a.job))) { for (const a of able) a.job = ''; placeJobs(able); yearlyTies(); return; }
     const N_ = T.need, unroofed = Math.max(0, households() - T.sites.filter(isHome).length), work = T.sites.some(q => !raised(q)) || (T.wall && !T.wall.done) || unroofed > 0;
     // wants, strongest first, each asking for hands
     const asks = [['guard', T.threat >= 1.5 ? Math.max(1, Math.round(T.threat / 4)) : 0, T.threat], ['builder', work ? 1 + Math.round(unroofed / 2) : 0, 1 + N_.crowd + N_.cold],
@@ -1759,6 +1798,11 @@ function create(seed, opt) {
       }
     }
     placeJobs(able);
+    yearlyTies();
+  }
+  /* once a year, whatever the work: quarrels come to a head (G2), and debts are forgiven a little (G3) */
+  function yearlyTies() {
+    const T = S.tribe;
     quarrels();
     /* debts: a tenth forgiven each year; those of a household that is gone are gone with it */
     if (T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); T.debts[key] *= 0.9; if (T.debts[key] < 0.05 || !T.sites.some(h => h.id === from) || !T.sites.some(h => h.id === to)) delete T.debts[key]; }

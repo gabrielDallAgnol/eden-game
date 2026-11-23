@@ -822,3 +822,32 @@ Size 96, seeds 1 and 2:
 | mean |  | 14.3 | 62.1 | 126.6 | 150.9 | 43.6 | 128.2 | 0.2 | 13.1 |  | 2.7 | 9.3 | 19.6 | 5.8 | 43.5 | 1.1 | 1037.2 | 97.7 | 24.7 | 5.7 |  |  | 47.3 | 6.7 | 17.8 | 0.3 | 0 | 18417.3 |
 
 Year 100 mean 126.6 (115.4 at G2), year 25 14.3 (13.6), dwellings 43.6 (43.4), hunger deaths 128.2 (153.2), 2 resettles (valley 2), as before.
+
+
+## G4: barter
+
+A household wants more of a kind of food when it is under a quarter of its larder, and can spare one when it is over 0.3 of a larder of at least half a ration a head. Each evening a household with a kind to spare tries the kinds it is short of, most wanted first. For each, it offers a neighbour within two lots who has that kind to spare and wants what is offered. The rate (what is given for one of what is got) is how much more one side wants than the other, between 0.5 and 2. A neighbour who has the food but no want for what is offered is a failed trade (`T.tradesFailed`). Trades are counted by what went for what (`T.swaps`); the first is told.
+
+What a trade is for: a varied larder goes further. Food eaten from a household's larder gives up to 10% more when it holds all four kinds alike (`nourish`). One kind alone is food as before. The first version took up to 8% off a single-kind larder: year 100 fell to 92.8 and plains collapsed, because early on every larder is one kind. It was changed to a bonus only.
+
+Also fixed: quarrels (G2) and the yearly forgiving of debts (G3) only ran in years when the food supply could spare hands; they now run every year. The G2 and G3 unit tests now look across four worlds for the households they need, since one world's history changes with every step.
+
+Checks. New unit: in lakeland 1 and valley 2 over 60 years, trades happen, some fail, and a fishing household (a fisher, or a larder mostly fish) swaps fish for grain with a farming household (a farmer, or fields), or the other way round. Lakeland 1 by year 60: 63 trades, 532 failed, swaps of grain for fish 18, fish for grain 9, fruit for fish 14 and others. Tests 473 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 161 | 205 | 231 | 74 | 236 | 0 | 15 | 16/86/0 | 2.7 | 14.1 | 23.3 | 5.9 | 100 | 1 | 1838 | 219 | 43.7 | 4.8 | 2 (2) | 80/1/3/1/14 | 57 | 7.4 | 25 | 3 | 0 | 32376 |
+| valley | 2 | 6 | 47 | 122 | 132 | 40 | 115 | 0 | 13 | 10/150/5 | 2.7 | 0 | 26.2 | 4 | 34 | 1.1 | 487 | 139 | 34.8 | 4.8 | 1.8 (5) | 82/2/4/0/11 | 47 | 5.7 | 17 | 0 | 0 | 21364 |
+| plains | 1 | 29 | 171 | 296 | 354 | 88 | 371 | 0 | 13 | 32/227/6 | 2.7 | 23.8 | 24.4 | 8.6 | 113 | 1 | 4041 | 119 | 34.3 | 5.3 |  | 85/1/0/0/13 | 69 | 9.6 | 29 | 0 | 0 | 41663 |
+| plains | 2 | 27 | 151 | 188 | 188 | 61 | 215 | 0 | 12 | 0/210/5 | 2.5 | 23 | 21.1 | 7.7 | 42 | 0.9 | 2243 | 61 | 17.6 | 4.9 |  | 87/0/1/0/9 | 58 | 7.2 | 25 | 0 | 0 | 21993 |
+| forest | 1 | 3 | 10 | 164 | 164 | 43 | 74 | 3 | 13 | 19/97/5 | 2.7 | 13.5 | 21.1 | 4.2 | 18 | 0.9 | 839 | 65 | 28.2 | 5.8 | 2 (2) | 73/0/1/2/24 | 39 | 3.9 | 17 | 0 | 0 | 12688 |
+| forest | 2 | 26 | 129 | 99 | 130 | 36 | 143 | 0 | 14 | 9/146/0 | 2.5 | 0 | 25 | 3.7 | 29 | 1.1 | 293 | 77 | 22.1 | 3.9 | 0 (4) | 85/0/1/0/12 | 31 | 4.5 | 13 | 0 | 0 | 17671 |
+| lakeland | 1 | 11 | 60 | 180 | 219 | 56 | 137 | 0 | 11 | 14/71/1 | 2.7 | 0 | 20.3 | 4.5 | 66 | 0.9 | 1175 | 176 | 28 | 4.6 |  | 87/0/3/0/9 | 57 | 7.8 | 21 | 0 | 0 | 16731 |
+| lakeland | 2 | 19 | 118 | 159 | 173 | 52 | 187 | 0 | 13 | 5/160/5 | 2.6 | 0 | 18.2 | 4.6 | 52 | 1 | 1097 | 145 | 33 | 6.4 | 19 (2) | 84/0/3/0/12 | 49 | 6.2 | 25 | 0 | 0 | 18459 |
+| highland | 1 | 20 | 40 | 45 | 82 | 25 | 107 | 0 | 14 | 5/125/5 | 2.9 | 0 | 16.7 | 6.6 | 24 | 1 | 170 | 79 | 18.2 | 3.2 | 0 (1) | 78/0/2/0/17 | 53 | 8.6 | 13 | 0 | 0 | 11865 |
+| highland | 2 | 15 | 27 | 26 | 38 | 7 | 81 | 0 | 12 | 9/91/5 | 3.2 | 2 | 5.4 | 6.1 | 0 | 1.1 | 385 | 28 | 9.8 | 42 | 4.5 (2) | 72/4/2/3/19 | 26 | 5.2 | 9 | 0 | 0 | 8153 |
+| mean |  | 18.4 | 91.4 | 148.4 | 171.1 | 48.2 | 166.6 | 0.3 | 13 |  | 2.7 | 7.6 | 20.2 | 5.6 | 47.8 | 1 | 1256.8 | 110.8 | 27 | 8.6 |  |  | 48.6 | 6.6 | 19.4 | 0.3 | 0 | 20296.3 |
+
+Year 100 mean 148.4 (126.6 at G3), year 25 18.4 (14.3), dwellings 48.2 (43.6), hunger deaths 166.6 (128.2), 3 resettles (forest 1) against 2. Run time 20.3 s a world (18.4).
