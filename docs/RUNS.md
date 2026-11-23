@@ -1117,3 +1117,48 @@ Size 96, seeds 1 and 2:
 | mean |  | 15.6 | 73 | 139.7 | 149.9 | 44.3 | 140.7 | 0.3 | 12.1 |  | 2.7 | 8 | 18.9 | 5.9 | 57.7 | 1 | 937.9 | 104.3 | 26.5 | 5.1 |  |  | 48.1 | 6.1 | 18.2 | 0.3 | 0 | 18240.8 |
 
 Year 100 mean 139.7 (122.1 at I4), dwellings 44.3 (41.5), hunger deaths 140.7 (131.7), 3 resettles (forest 1), as before.
+
+
+## Owner's questions: where the food comes from; more from the fields; two crops; harvests seen and logged
+
+Measured first. Every piece of food that comes in is now counted by kind (grain and greens from the fields, fruit gathered, fish, meat), each year (`T.foodLast`, shown in the Town panel as "Food last year", with food a head). Before this change, over the first 60 years of valley 1, plains 1 and lakeland 1:
+- food coming in was only 2.0 to 2.8 a head a year, about what people eat;
+- the fields gave 35 to 55% of it, fish 15 to 45%, gathering 15 to 50%, and hunting almost nothing;
+- a sown tile gave about 0.3 a year, so a farming household barely fed itself, nobody could be spared for a trade, and larders stayed empty (which is also why the small furniture never showed: it waits for full larders and trades).
+
+Changes:
+- A sown tile gives three times what it did (`FIELD_YIELD`). Households sow half as many tiles, so a household still grows about one and a half times what it did, on less ground.
+- A second crop: greens and beans (`veg`, a fifth food, keeping better than fruit). Each spring a household sows its new lots with whichever of grain and greens it has less of, in the larder and in the ground together, then the other, lot by lot. So households differ and trade.
+- Bug: the fields were harvested twice a year in three of four worlds. Resting fields counted as sown, so the first frost "harvested" what had regrown. Now one harvest a year, and sowing waits for spring.
+- Each household's harvest rises from its fields as a picture of the crop with "+N", and the year's harvest is told in the log ("Harvest: 157 grain and 101 greens from 220 sown tiles."). Grain is drawn as stalks turning gold; greens are the leafy plant.
+- A floor is only built when it is clearly (10%) cheaper than a free lot: a roof of one's own is worth a little.
+- The bad-harvest price test now blights only the grain fields, waits for prices to see the harvest, and compares grain with fish and fruit, whatever the coin is.
+
+After: the fields give 60 to 80% of the food (valley 1 at year 40: 79%), food a head is 2.0 to 4.2, and trades are held by many (valley 1: 42 people at year 40, 173 at year 60). Places grow much larger: valley 1 has 704 people at year 100.
+
+The view was too slow for that many: 6 frames a second at year 100 in valley 1. Fixed:
+- every house asked every creature whether anyone worked on it, every frame;
+- every drawn burrow and house counted its sleepers the same way;
+- the code that keeps bodies apart compared everyone standing round the fire with each other, and worked on hidden and off-screen creatures too.
+
+Now 45 frames a second at 1x and 87 at 4x with 704 people. A year of steps takes 1.8 s there.
+
+Checks. New unit: in plains 1 over 40 years, never two harvests in one year, each shown rising from the fields, and at year 40 the fields give over 30% of the food with both crops coming in. Tests 518 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 30 | 175 | 704 | 704 | 119 | 549 | 0 | 14 | 17/82/5 | 3 | 14.7 | 22.7 | 7.5 | 47 | 1 | 4650 | 317 | 44.2 | 5.3 | 2 (2) | 78/0/2/0/17 | 77 | 7.7 | 33 | 3 | 0 | 65063 |
+| valley | 2 | 8 | 74 | 559 | 804 | 169 | 451 | 0 | 14 | 16/86/5 | 3.2 | 0 | 27.8 | 7.1 | 52 | 0.9 | 4647 | 417 | 42 | 4.4 | 3 (2) | 73/0/3/0/20 | 88 | 8.7 | 33 | 0 | 0 | 72390 |
+| plains | 1 | 34 | 191 | 262 | 562 | 88 | 688 | 0 | 12 | 12/107/6 | 3.1 | 21.3 | 23.4 | 9.5 | 103 | 1 | 2541 | 155 | 36.6 | 5.5 |  | 83/0/0/0/13 | 65 | 11.3 | 25 | 0 | 0 | 50279 |
+| plains | 2 | 20 | 132 | 295 | 382 | 53 | 379 | 0 | 12 | 1/198/5 | 3.4 | 23.1 | 19.6 | 12.6 | 118 | 0.9 | 1037 | 80 | 19.9 | 4.5 |  | 74/0/2/0/18 | 79 | 15 | 21 | 0 | 0 | 31461 |
+| forest | 1 | 3 | 5 | 90 | 90 | 22 | 18 | 5 | 12 | 19/121/6 | 2.4 | 13.5 | 12.9 | 3.4 | 4 |  | 198 | 70 | 13.9 | 3.3 | 0 (1) | 47/1/3/5/34 | 27 | 3.5 | 13 | 0 | 0 | 8162 |
+| forest | 2 | 15 | 83 | 243 | 454 | 106 | 431 | 0 | 13 | 7/105/5 | 2.9 | 0 | 24.1 | 5.1 | 32 | 0.9 | 1554 | 168 | 30.4 | 4.9 | 0 (1) | 74/1/4/0/14 | 62 | 7.5 | 29 | 0 | 0 | 38202 |
+| lakeland | 1 | 18 | 137 | 556 | 756 | 149 | 579 | 0 | 14 | 17/110/2 | 3.4 | 0 | 24.7 | 7.7 | 218 | 0.9 | 4547 | 237 | 32.8 | 5.5 | 0.8333333333333334 (6) | 79/0/1/0/18 | 82 | 9.7 | 33 | 6 | 0 | 76210 |
+| lakeland | 2 | 8 | 57 | 511 | 779 | 136 | 393 | 0 | 13 | 10/51/8 | 3 | 0 | 24.8 | 6.5 | 39 | 0.8 | 4079 | 252 | 41.3 | 5.3 | 0 (2) | 79/0/3/0/16 | 74 | 9.3 | 45 | 0 | 0 | 44235 |
+| highland | 1 | 31 | 176 | 187 | 213 | 46 | 298 | 0 | 14 | 5/15/0 | 3.4 | 26.2 | 18.6 | 9.9 | 138 | 1 | 400 | 178 | 25.1 | 3 | 0 (5) | 64/0/3/1/26 | 63 | 11.9 | 17 | 2 | 0 | 31500 |
+| highland | 2 | 14 | 7 | 10 | 31 | 1 | 65 | 0 | 11 | 5/45/5 | 2.9 | 2 | 4.7 | 4.9 | 0 |  | 6 | 12 | 8.7 | 2 |  | 42/17/0/0/42 | 28 | 3.3 | 8 | 0 | 0 | 5348 |
+| mean |  | 18.1 | 103.7 | 341.7 | 477.5 | 88.9 | 385.1 | 0.5 | 12.9 |  | 3.1 | 10.1 | 20.3 | 7.4 | 75.1 | 0.9 | 2365.9 | 188.6 | 29.5 | 4.4 |  |  | 64.5 | 8.8 | 25.7 | 1.1 | 0 | 42285 |
+
+Year 100 mean 341.7 (139.7 before), hunger deaths 385.1 (140.7; there are many more people), 5 resettles (forest 1). Run time 42 s a world.

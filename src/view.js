@@ -369,8 +369,9 @@ function wantProps() {
     }
     /* what is sown comes up on the field, as far on as the season's warmth has brought it; each plant a little ahead or behind its neighbours */
     if (W.field[i] && A.crop && ripe > 0 && !snowy) {
-      const r = clamp(ripe + (hash(i, 11) - 0.5) * 0.12, 0, 1), k = r < 0.2 ? 0 : r < 0.45 ? 1 : r < 0.8 ? 2 : 3, img = k === 2 && W.soil[i] < 0.26 && A.cropDry ? A.cropDry : A.crop[k];
-      want.set('c' + i, { kind: 'crop', i, x: x + 0.5 + jx * 0.3, y: y + 0.5 + jy * 0.3, base: 'c' + k + (img === A.cropDry), img, dy: 3 });
+      const r = clamp(ripe + (hash(i, 11) - 0.5) * 0.12, 0, 1), k = r < 0.2 ? 0 : r < 0.45 ? 1 : r < 0.8 ? 2 : 3, isGrain = !(W.crop && W.crop[i]) && A.grainCrop;   /* grain as stalks, greens as the leafy plant */
+      const img = isGrain ? A.grainCrop[k] : k === 2 && W.soil[i] < 0.26 && A.cropDry ? A.cropDry : A.crop[k];
+      want.set('c' + i, { kind: 'crop', i, x: x + 0.5 + jx * 0.3, y: y + 0.5 + jy * 0.3, base: 'c' + k + (img === A.cropDry) + (isGrain ? 'g' : 'v'), img, dy: 3 });
     }
     if (inCamp || W.field[i] || T0.road[i] || built.has(i)) continue;   /* no bush or rock drawn on a field, a made road or under a building */
     if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) {
@@ -966,6 +967,7 @@ function planDeath(r) {
 
 // ================================================================== events from the engine, turned into things you can see
 function say2(r, b) { if (now - r.bubT > 6000) { r.bub = b; r.bubT = now + Math.random() * 600; } }
+const pops = [];
 function takeEvents(instant) {
   for (const f of S.fx.splice(0)) {
     if (f.kind === 'death') {
@@ -975,6 +977,8 @@ function takeEvents(instant) {
         const g = near(camp.x - 2.6, camp.y - 1.6, 1.2); graves.push({ x: g.x, y: g.y, born: now }); if (graves.length > 14) graves.shift();
         for (const o of actors.values()) if (o !== r && !o.dead && o.a.d.people && Math.hypot(o.x - r.x, o.y - r.y) < 6) { o.bub = 'grief'; o.bubT = now + 1200 + Math.random() * 3000; }
       }
+    } else if (f.kind === 'harvest') {   /* a household's harvest rises from its fields */
+      if (pops.length < 40) pops.push({ x: f.x + 0.5, y: f.y + 0.5, t: now + Math.random() * 600, grain: Math.round(f.grain), veg: Math.round(f.veg) });
     } else if (f.kind === 'birth') {
       const a = S.byId.get(f.id), m = f.mom && recOf(f.mom); if (!a) continue;
       const r = newRec(a, m ? m.x + R(-0.15, 0.15) : a.x + 0.5, m ? m.y + R(-0.1, 0.15) : a.y + 0.5, { born: now, newborn: 1, alpha: 0 });
@@ -1290,10 +1294,14 @@ function frame(t) {
   }
   // the camp: houses going up, the fire, graves
   syncHuts();
+  /* who is at work on which house, and who is tucked away in which burrow, den or house: counted once a frame, not once a house */
+  const workingOn = new Set(), hidHome = new Map(), hidHomeGrazer = new Map(), hidHut = new Map();
+  for (const r of actors.values()) { if (r.step && r.step.pose === 'work' && r.step.site !== undefined) workingOn.add(r.step.site);
+    if (r.pose === 'hidden') { const h = r.a.home; if (h) { hidHome.set(h, (hidHome.get(h) || 0) + 1); if (!r.a.d.eats.meat) hidHomeGrazer.set(h, (hidHomeGrazer.get(h) || 0) + 1); } if (r.step && r.step.hut) hidHut.set(r.step.hut, (hidHut.get(r.step.hut) || 0) + 1); } }
   for (let k = 0; k < huts.length; k++) {
     const h = huts[k]; if (!h) continue; const wx = isoX(h.x, h.y), wy = isoY(h.x, h.y) + 20;
     let al = 1; if (h.die) { al = 1 - (now - h.die) / 2500; if (al <= 0) { huts[k] = null; continue; } }
-    const working = [...actors.values()].some(r => r.step && r.step.site === h.k && r.step.pose === 'work');
+    const working = workingOn.has(h.k);
     if (h.p < h.target && dts > 0) h.p = Math.min(h.target, h.p + dts * (working ? 1 / 10 : 1 / 45));
     const snowy = W.snow[(h.y | 0) * N + (h.x | 0)] > 0.08;
     /* a house turns its door toward the fire and the way its people walk: the drawing has the door on its left, so a house
@@ -1322,17 +1330,20 @@ function frame(t) {
   const bins = new Map();
   for (const r of actors.values()) {
     if (r.dead && r.dead.shown || r.pose === 'hidden' || r.pose === 'carried' || r.held) continue;
-    const key = ((r.x + r.ox) | 0) + ',' + ((r.y + r.oy) | 0);
+    const key = ((r.y + r.oy) | 0) * N + ((r.x + r.ox) | 0);
     let b = bins.get(key);
     if (!b) bins.set(key, b = []);
     b.push(r);
   }
   for (const r of actors.values()) {
-    r.ox *= 0.985; r.oy *= 0.985; if (!bins.size) break; const bx0 = (r.x + r.ox) | 0, by0 = (r.y + r.oy) | 0, rr = BODY[kind(r.a)];
+    r.ox *= 0.985; r.oy *= 0.985; if (!bins.size) break; if (r.dead && r.dead.shown || r.pose === 'hidden' || r.pose === 'carried' || r.held) continue;
+    { const wx = isoX(r.x, r.y), wy = isoY(r.x, r.y); if (wx < vx0 || wx > vx1 || wy < vy0 || wy > vy1) continue; }   /* only those on screen are nudged apart */
+    const bx0 = (r.x + r.ox) | 0, by0 = (r.y + r.oy) | 0, rr = BODY[kind(r.a)];
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      const b = bins.get((bx0 + dx) + ',' + (by0 + dy));
+      const b = bins.get((by0 + dy) * N + bx0 + dx);
       if (!b) continue;
-      for (const o of b) {
+      /* in a crowd, a body feels only the nearest few round it: ten from each tile is enough to keep apart */
+      for (let bi = 0, bn = Math.min(b.length, 10); bi < bn; bi++) { const o = b[(bi + (r.id % b.length)) % b.length];
         if (o === r) continue;
         const ddx = (r.x + r.ox) - (o.x + o.ox), ddy = (r.y + r.oy) - (o.y + o.oy), d = Math.hypot(ddx, ddy), m = rr + BODY[kind(o.a)];
         if (d < m && d > 1e-4) {
@@ -1513,12 +1524,12 @@ function frame(t) {
     if (d.rod) drawRod(d);
     if (d.peek) {
       let n = 0;
-      for (const r of actors.values()) if (r.pose === 'hidden' && r.a.home === d.peek.home && !r.a.d.eats.meat) n++;
+      n += hidHomeGrazer.get(d.peek.home) || 0;
       if (n && ((t / 2200 + d.peek.home) | 0) % 3 !== 0) cx.drawImage(A.peek, Math.round(d.peek.x - 5), Math.round(d.peek.y - 4));
     }
     if (d.eyes) {
       let n = 0;
-      for (const r of actors.values()) if (r.pose === 'hidden' && r.a.home === d.eyes.home) n++;
+      n += hidHome.get(d.eyes.home) || 0;
       if (n) {
         cx.fillStyle = '#f2d24a';
         const blink = ((t / 3100) | 0) % 5 === 0;
@@ -1531,7 +1542,7 @@ function frame(t) {
     }
     if (d.hut) {
       let n = 0;
-      for (const r of actors.values()) if (r.pose === 'hidden' && r.step && r.step.hut === d.hut.k + 1) n++;
+      n += hidHut.get(d.hut.k + 1) || 0;
       d.hut.sleepers = n;
       if (n && dts > 0 && Math.random() < dts * 0.4) spawn('zz', d.x + w * 0.7, d.top + 8, { vy: -0.012, vx: 0.006, max: 2000, z: 1 });
     }
@@ -1598,6 +1609,14 @@ function frame(t) {
   }
   // ---- thoughts, above everything; hidden when far away so the valley stays calm
   if (z / dpr > 0.42) { let shown = 0; for (const d of draws) if (d.bub && A.bubble[d.bub] && shown++ < 24) cx.drawImage(A.bubble[d.bub], Math.round(d.bx - 13), d.top - 30, 26, 28); }
+  /* harvest: what each household brought in, rising from its fields and fading */
+  for (let k = pops.length - 1; k >= 0; k--) { const p = pops[k], age = (now - p.t) / 3000; if (age > 1) { pops.splice(k, 1); continue; } if (age < 0) continue;
+    const wx = isoX(p.x, p.y), wy = isoY(p.x, p.y) - 10 - age * 26; cx.globalAlpha = age < 0.75 ? 1 : (1 - age) * 4;
+    const parts = []; if (p.grain > 0) parts.push(['grain', p.grain]); if (p.veg > 0) parts.push(['veg', p.veg]);
+    parts.forEach(([g, n], i) => { const im = g === 'grain' ? (A.grainCrop && A.grainCrop[3]) : (A.crop && A.crop[2]), ox = (i - (parts.length - 1) / 2) * 24;
+      if (im) cx.drawImage(im, Math.round(wx + ox - 14), Math.round(wy - 12), 14, 14 * im.height / im.width);
+      cx.font = 'bold 8px monospace'; cx.lineWidth = 2; cx.strokeStyle = '#2a1c16'; cx.fillStyle = g === 'grain' ? '#f6d16b' : '#b8e07a'; cx.strokeText('+' + n, Math.round(wx + ox + 1), Math.round(wy)); cx.fillText('+' + n, Math.round(wx + ox + 1), Math.round(wy)); });
+    cx.globalAlpha = 1; }
   // ---- the touch of a power
   if (act && tool !== 'hand' && tool !== 'strike') {
     const c = toCell(act.x, act.y), wx = c.wx, wy = c.wy, cold = W.tempAt((c.y | 0) * N + (c.x | 0)) < 0;
@@ -1833,6 +1852,8 @@ bS2.onclick = () => {
     el.innerHTML = '<b>' + names[T0.level] + ' of ' + S.popPeople + '</b>, year ' + Math.floor(S.t) + '<br>' + T0.huts + ' roofs' + (T0.wall ? (T0.wall.done
         ? ', fenced' : ', fence going up') : '') + (T0.carts ? ', ' + T0.carts + ' cart' + (T0.carts > 1 ? 's' : '') : '')
       + '<p><b>What weighs on them</b><br>' + (felt.length ? felt.map(k => bar(T0.need[k]) + ' ' + WANT[k]).join('<br>') : 'nothing much: a good season') + '</p>'
+      + (() => { const f = T0.foodLast || {}, src = [['grain', 'the fields, grain'], ['veg', 'the fields, greens'], ['fruit', 'gathered'], ['fish', 'fished'], ['meat', 'hunted']], tot = src.reduce((p, [k]) => p + (f[k] || 0), 0); if (!tot) return '';
+          return '<p><b>Food last year</b> (' + (tot / Math.max(1, S.popPeople)).toFixed(1) + ' a head)<br>' + src.filter(([k]) => f[k] > 0.5).map(([k, w]) => Math.round(100 * f[k] / tot) + '% ' + w).join('<br>') + '</p>'; })()
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
       /* F6: every place of work standing, and who works there */
       + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');

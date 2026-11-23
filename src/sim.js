@@ -57,7 +57,7 @@ function create(seed, opt) {
   const water = new Uint8Array(N * N), fert = F(), bank = F(), cells = [];
   // what lies on it and in it
   const soil = F(), snow = F(), heat = F(), burn = F(), flood = new Uint8Array(N * N);
-  const grass = F(), tree = F(), fruit = F(), fish = F(), warmSum = F(), field = new Uint8Array(N * N);
+  const grass = F(), tree = F(), fruit = F(), fish = F(), warmSum = F(), field = new Uint8Array(N * N), crop = new Uint8Array(N * N);   /* crop: what a field is sown with, 0 grain, 1 greens */
 
   // The kind of country. Same rules everywhere; only the lie of the land differs: how much water, how much wood, how much stone, how cold.
   const LANDS = {
@@ -202,16 +202,16 @@ function create(seed, opt) {
      hearth, tools as know-how (F4 makes them things). */
   const GOODS = {
     grain: { food: true, spoil: 0.12, says: 'grain' }, meat: { food: true, spoil: 0.6, says: 'meat' },
-    fish: { food: true, spoil: 0.7, says: 'fish' }, fruit: { food: true, spoil: 0.4, says: 'fruit and roots' },
+    fish: { food: true, spoil: 0.7, says: 'fish' }, fruit: { food: true, spoil: 0.4, says: 'fruit and roots' }, veg: { food: true, spoil: 0.3, says: 'greens and beans' },
     timber: { food: false, spoil: 0 }, stone: { food: false, spoil: 0 }, firewood: { food: false, spoil: 0 }, tools: { food: false, spoil: 0 }
   };
-  const FOODS = ['grain', 'meat', 'fish', 'fruit'];
+  const FOODS = ['grain', 'meat', 'fish', 'fruit', 'veg'];
   /* the mix of what a holder (a household's site, field 'larder', or the settlement, field 'store') has, scaled to its total now */
-  function mixOf(o, f) { const tot = Math.max(0, o[f] || 0); let m = o.mix; if (!m) m = o.mix = { grain: 0, meat: 0, fish: 0, fruit: 0 };
-    let sum = m.grain + m.meat + m.fish + m.fruit; if (tot <= 1e-9) { m.grain = m.meat = m.fish = m.fruit = 0; return m; }
+  function mixOf(o, f) { const tot = Math.max(0, o[f] || 0); let m = o.mix; if (!m) m = o.mix = {}; for (const g of FOODS) if (!(m[g] >= 0)) m[g] = 0;   /* a kind added since (greens) starts at nothing */
+    let sum = 0; for (const g of FOODS) sum += m[g]; if (tot <= 1e-9) { for (const g of FOODS) m[g] = 0; return m; }
     if (sum <= 1e-9) { m.fruit = tot; return m; }   /* food of no known kind (an old save, the first store) counts as gathered */
-    const k = tot / sum; if (Math.abs(k - 1) > 1e-12) { m.grain *= k; m.meat *= k; m.fish *= k; m.fruit *= k; } return m; }
-  function addFood(o, f, kind, amt) { if (!(amt > 0)) return; const m = mixOf(o, f); o[f] = (o[f] || 0) + amt; m[kind] += amt; }
+    const k = tot / sum; if (Math.abs(k - 1) > 1e-12) for (const g of FOODS) m[g] *= k; return m; }
+  function addFood(o, f, kind, amt) { if (!(amt > 0)) return; const m = mixOf(o, f); o[f] = (o[f] || 0) + amt; m[kind] += amt; if (S.foodIn) S.foodIn[kind] = (S.foodIn[kind] || 0) + amt; }   /* every bit of food that comes in, by kind, for the year's tally */
   /* food moved from one holder to another goes as it is mixed */
   function moveFood(a, fa, b, fb, amt) { if (!(amt > 0)) return; const ma = mixOf(a, fa), mb = mixOf(b, fb), tot = Math.max(1e-9, a[fa]), k = Math.min(1, amt / tot);
     for (const g of FOODS) { const x = ma[g] * k; ma[g] -= x; mb[g] += x; } a[fa] -= amt; b[fb] = (b[fb] || 0) + amt; }
@@ -625,7 +625,7 @@ function create(seed, opt) {
   const rival = (a, b) => tieOf(a, b) <= -0.5;
   const grudge = (a, b, v) => { if (!a || !b || a === b || !a.alive || !b.alive) return; if (!a.ties) a.ties = {}; a.ties[b.id] = Math.max(-2, (a.ties[b.id] || 0) - v); };
   /* G4. How varied a larder is: 0 when it holds one kind of food, 1 when all four alike; a varied one goes a little further */
-  const variety = q => { const m = mixOf(q, 'larder'), t = q.larder || 0; if (t <= 0.01) return 0; let s2 = 0; for (const g of FOODS) s2 += (m[g] / t) * (m[g] / t); return Math.max(0, (1 - s2) / 0.75); };
+  const variety = q => { const m = mixOf(q, 'larder'), t = q.larder || 0; if (t <= 0.01) return 0; let s2 = 0; for (const g of FOODS) s2 += (m[g] / t) * (m[g] / t); return Math.min(1, Math.max(0, (1 - s2) / 0.75)); };
   const nourish = q => 1 + 0.1 * variety(q);   /* a varied larder goes a little further; one kind alone is food as before */
   /* how much a household wants more of a kind (it has less than its share of a varied table), and what it can spare of one */
   const wantOf = (q, g) => { const t = q.larder || 0; if (t <= 0.01) return 0.25; return Math.max(0, 0.25 - mixOf(q, 'larder')[g] / t); };
@@ -636,8 +636,8 @@ function create(seed, opt) {
   /* H2. Prices, once a season: for each kind of food, what is wanted (a quarter of a year's eating for every mouth) against what is
      held in every larder and the store. A price moves half-way toward that each season, and is counted in coin when there is one */
   function prices() {
-    const T = S.tribe, P = folk(); if (!P.length) return; if (!T.price) T.price = { grain: 1, meat: 1, fish: 1, fruit: 1 };
-    const held = { grain: 0, meat: 0, fish: 0, fruit: 0 }, m = mixOf(T, 'store'); for (const g of FOODS) held[g] += m[g];
+    const T = S.tribe, P = folk(); if (!P.length) return; if (!T.price) T.price = {}; for (const g of FOODS) if (!(T.price[g] > 0)) T.price[g] = 1;
+    const held = {}; for (const g of FOODS) held[g] = 0; const m = mixOf(T, 'store'); for (const g of FOODS) held[g] += m[g];
     for (const q of T.sites) if (q.larder > 0) { const k = mixOf(q, 'larder'); for (const g of FOODS) held[g] += k[g]; }
     const want = P.length * 0.25;
     for (const g of FOODS) { const target = clamp(want / Math.max(0.2, held[g]), 0.05, 20); T.price[g] = T.price[g] * 0.5 + target * 0.5; }
@@ -1592,7 +1592,7 @@ function create(seed, opt) {
       const own = q.id === who.house || P.some(b => b.house === q.id && kin(b, who));
       const fl = floorsOf(q); if (fl >= floorCap()) continue;
       const walkHere = walkYear(q.x, q.y, who, 1.5 * fl);
-      if (own) { const c = buildWork(q.kind) * 1.6 / H + walkHere; if (c < bc) { bc = c; best = q; rentOf = 0; } continue; }
+      if (own) { const c = buildWork(q.kind) * 1.6 / H + walkHere; if (c < bc && c < freeCost * 0.9) { bc = c; best = q; rentOf = 0; } continue; }   /* a roof of one's own is worth a little: a floor must be clearly cheaper */
       /* I3: above a stranger's roof, for rent. The owner builds if ten years of what the tenant would pay covers the building; the
          tenant pays half of what it saves against its next best option (the free lot), each year */
       const save = freeCost - walkHere, rent = save * 0.5;
@@ -2012,6 +2012,8 @@ function create(seed, opt) {
     if (pond) { findMasses(); S.stat.ponds++; }
   }
   function reckonYear() {
+    /* the year's food, by where it came from, kept for the Town panel and the tests; a new count begins */
+    { const T0 = S.tribe; T0.foodLast = S.foodIn || {}; S.foodIn = {}; }
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
     // wants that are only seen over a year
     N_.crowd += Math.max(0, households() - T.sites.filter(isHome).length);
@@ -2072,17 +2074,19 @@ function create(seed, opt) {
   // Fields. Sown once the ground is warm, reaped when the crop has had its warmth, or in a hurry when frost comes. Every
   // field belongs to a roof: the household clears the best ground near its own door, as much as its hands can work and its
   // mouths need, and what grows there goes into its own larder.
+  const FIELD_YIELD = 7.8;   /* food a sown tile gives at a full harvest, per unit of growth on it */
   function farm(dt) {
     const T = S.tribe, pop = S.popPeople; if (!T.skills.farm || !pop) return;
     const ct = tempAt(I(T.x, T.y));
-    if (!T.sown && ct > 4 && ct > T.lastCampT) {
+    if (!T.sown && ct > 4 && ct > T.lastCampT && daysLengthen() && T.sownYear !== Math.floor(S.t)) {   /* sown once a year, in spring as the days lengthen: one crop a year, not a second cut down by frost */
+      T.sownYear = Math.floor(S.t);
       const P = folk(), homes = T.sites.filter(q => live(q) && q.members > 0), ids = new Set(homes.map(q => q.id)); let total = 0;
       for (let i = 0; i < N * N; i++) if (field[i] && !ids.has(owner[i])) { field[i] = 0; owner[i] = 0; }      // nobody's any more: it goes back to grass
       for (const h of homes) {
         const mine = P.filter(b => b.house === h.id), hands = mine.filter(b => b.age >= GROWN && b.age <= 60).length, farmers = mine.filter(b => b.job === 'farmer').length;
         /* H3: when grain is dear against the other foods, a household puts more of its hands to the fields; when it is cheap, fewer */
         const dear = T.price ? clamp(Math.sqrt(T.price.grain / Math.max(0.05, (T.price.fish + T.price.fruit) / 2)), 0.7, 1.6) : 1;
-        const want = Math.round((hands * 2 + farmers * 1.5 + mine.length * 0.7) * dear); let have = 0;
+        const want = Math.round((hands * 2 + farmers * 1.5 + mine.length * 0.7) * dear * 0.5); let have = 0;   /* half the ground it took before: a tile now gives three times as much */
         for (let k = 0; k < N * N; k++) if (field[k] && owner[k] === h.id) have++;
         /* Fields are laid out like houses: a household takes whole lots of the lattice next to its own (the middle 3 x 3 of
            each lot, with the ways round it left open), the nearest and best ground first, as many as its hands and mouths
@@ -2097,10 +2101,13 @@ function create(seed, opt) {
           lots.push([cx, cy, Math.hypot(cx - h.x, cy - h.y) * 0.22 - fe / ok]);
         }
         lots.sort((p, q) => p[2] - q[2]);
+        /* what to sow on each new lot: whichever of grain and greens the household has less of, then the other, lot by lot */
+        const hm = mixOf(h, 'larder'); let gv = 0, vv = 0; for (let t = 0; t < N * N; t++) if (field[t] && owner[t] === h.id) { if (crop[t]) vv++; else gv++; }
+        let sowVeg = (hm.veg + vv < hm.grain + gv) ? 0 : 1;   /* flipped before the first lot: the first new lot is of what it has less of, in the larder and the ground together */
         for (const [cx, cy] of lots) {
-          if (have >= want) break;
+          if (have >= want) break; sowVeg = 1 - sowVeg;
           for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = I(cx + dx, cy + dy); if (field[t] || water[t] || pit[t] > 0.1 || rock[t] > 0.4 || tree[t] > 0.3 || mass[t] !== mass[I(h.x, h.y)] || (T.wall && T.wall.cells.includes(t))) continue;
-            field[t] = 1; owner[t] = h.id; tree[t] = 0; grass[t] = Math.max(grass[t], 0.15); have++; }
+            field[t] = 1; owner[t] = h.id; crop[t] = sowVeg; tree[t] = 0; grass[t] = Math.max(grass[t], 0.15); have++; }
         }
         h.fields = have; total += have;
       }
@@ -2109,22 +2116,29 @@ function create(seed, opt) {
     if (T.sown) {
       T.cropWarm += Math.max(0, ct) * dt;
       const ripe = T.cropWarm > 5.6, frost = ct < 0;
-      if (ripe || frost) {
-        let dry = 0, nf = 0, got = 0; const by = new Map(T.sites.map(q => [q.id, q])), P = folk();
+      if ((ripe || frost) && !T.resting) {   /* fields resting after the harvest are not harvested again by the first frost */
+        let dry = 0, nf = 0, got = 0; const by = new Map(T.sites.map(q => [q.id, q])), P = folk(), harvested = new Map(), gotK = { grain: 0, veg: 0 };
         const boost = (T.carts ? 1.3 : 1) * (T.skills.plough && standing('workshop') && S.agents.some(b => b.alive && b.tame) ? 1.4 : 1);   /* the share is made at the workshop (F7) */
         for (const i of fieldTiles()) if (field[i]) {
           nf++; if (soil[i] < 0.32) dry++;
-          const h = by.get(owner[i]); let y = flood[i] ? 0 : Math.max(0, grass[i] - 0.1) * 2.6 * (ripe ? 1 : 0.5) * boost; grass[i] = Math.min(grass[i], 0.1);
+          /* a sown tile gives three times what it did: one pair of hands on its fields grows more than it eats */
+          const h = by.get(owner[i]), kind = crop[i] ? 'veg' : 'grain'; let y = flood[i] ? 0 : Math.max(0, grass[i] - 0.1) * FIELD_YIELD * (ripe ? 1 : 0.5) * boost * (crop[i] ? 0.9 : 1); grass[i] = Math.min(grass[i], 0.1);
           if (h) {
             if (h.farmer === undefined || h.farmerT !== S.tickNo) {
               h.farmer = P.some(b => b.house === h.id && b.job === 'farmer');
               h.farmerT = S.tickNo;
             }
             if (h.farmer) y *= 1.3;
-            addFood(h, 'larder', 'grain', y);
-          } else addFood(T, 'store', 'grain', y);
-          got += y; T.hay += y * 0.3;   /* the straw is put by for the beasts (F5) */
+            addFood(h, 'larder', kind, y);
+            const hv = harvested.get(h.id) || { x: 0, y: 0, n: 0, grain: 0, veg: 0 }; hv.x += i % N; hv.y += (i / N) | 0; hv.n++; hv[kind] += y; harvested.set(h.id, hv);
+          } else addFood(T, 'store', kind, y);
+          got += y; if (kind === 'grain') T.hay += y * 0.3;   /* the straw is put by for the beasts (F5) */
+          gotK[kind] += y;
         }
+        /* each household's harvest is seen coming in from its fields, and the year's is told */
+        for (const [id, hv] of harvested) S.fx.push({ kind: 'harvest', id, x: hv.x / hv.n, y: hv.y / hv.n, grain: hv.grain, veg: hv.veg });
+        if (nf) tell('Harvest: ' + Math.round(gotK.grain) + ' grain and ' + Math.round(gotK.veg) + ' greens from ' + nf + ' sown tiles' + (frost && !ripe ? ', cut short by frost' : '') + '.');
+        T.harvestLog = (T.harvestLog || []).concat([[Math.floor(S.t), Math.round(gotK.grain), Math.round(gotK.veg), nf]]).slice(-50);
         if (nf && dry / nf > 0.3) T.need.water += 1.5;
         T.lastHarvest = got; T.got.farm += got; T.eff.farm += Math.max(4, P.filter(b => b.job === 'farmer').length * TPY * 0.5); T.sown = false; T.resting = true;
       }
@@ -2155,8 +2169,8 @@ function create(seed, opt) {
     {
       /* what rots is seen rotting, in every larder: each kind of food at its own pace (F2). The common store keeps as well as
          the best storehouse or granary standing lets it (F3); no pot or granary helps from a distance */
-      const keeps = { grain: 1, meat: 1, fish: 1, fruit: 1 };
-      for (const q of T.sites) { const K = BUILDINGS[q.kind]; if (K && K.keeps && raised(q)) for (const g of FOODS) keeps[g] = Math.min(keeps[g], K.keeps[g]); }
+      const keeps = {}; for (const g of FOODS) keeps[g] = 1;
+      for (const q of T.sites) { const K = BUILDINGS[q.kind]; if (K && K.keeps && raised(q)) for (const g of FOODS) keeps[g] = Math.min(keeps[g], K.keeps[g] !== undefined ? K.keeps[g] : K.keeps.fruit); }
       const rot = (o, f, k, by) => { if (!(o[f] > 0)) return 0; const m = mixOf(o, f); let l = 0; for (const g of FOODS) { const x = m[g] * GOODS[g].spoil * k * (by ? by[g] : 1) * dt; m[g] -= x; l += x; } o[f] = Math.max(0, o[f] - l); return l; };
       let lost = rot(T, 'store', 1, keeps);
       for (const q of T.sites) lost += rot(q, 'larder', ((q.was || q.kind) === 'tent' ? 1 : 0.75) * (hasPots(q) ? 0.7 : 1));   /* fired pots in the house keep it longer (F4) */
@@ -2421,7 +2435,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- save and load
   // The world is plain data: the land arrays, S, the random stream and the noises still in the air. Typed arrays travel as
   // base64, Maps as their entries, and a creature names its species row instead of holding it.
-  const FIELDS = { cut, height, known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner };
+  const FIELDS = { cut, height, known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner, crop };
   const b64 = ta => {
     const u = new Uint8Array(ta.buffer, ta.byteOffset, ta.byteLength);
     let str = '';
@@ -2489,6 +2503,7 @@ function create(seed, opt) {
     onWay,
     hear,
     owner,
+    crop,
     allFood,
     TECHS,
     IDEAS,

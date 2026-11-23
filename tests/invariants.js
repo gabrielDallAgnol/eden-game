@@ -315,8 +315,8 @@ WorldRun.prototype.yearly = function () {
   });
   this.guard('mix', function (c) {
     if (!W.mixOf || !T) return c.skip('W.mixOf is missing'); var bad = [];
-    var look = function (o, f, lab) { if (!(o[f] > 0.01) || !o.mix) return; var m = o.mix, sum = m.grain + m.meat + m.fish + m.fruit;
-      if (m.grain < -1e-6 || m.meat < -1e-6 || m.fish < -1e-6 || m.fruit < -1e-6) bad.push(lab + ' holds a negative kind ' + JSON.stringify(m));
+    var look = function (o, f, lab) { if (!(o[f] > 0.01) || !o.mix) return; var m = o.mix, ks = Object.keys(m), sum = ks.reduce(function (p, k) { return p + m[k]; }, 0);
+      if (ks.some(function (k) { return !(m[k] >= -1e-6); })) bad.push(lab + ' holds a negative kind ' + JSON.stringify(m));
       else if (Math.abs(sum - o[f]) > 0.02 * o[f] + 0.05 && sum > 1e-9) bad.push(lab + ' kinds add to ' + sum.toFixed(2) + ' of ' + o[f].toFixed(2)); };
     W.mixOf(T, 'store'); look(T, 'store', 'the store');
     (T.sites || []).forEach(function (q) { if (q.larder > 0.01) { W.mixOf(q, 'larder'); look(q, 'larder', q.kind + ' ' + q.id); } });
@@ -666,8 +666,9 @@ UNITS.push(['fishers\' and farmers\' households trade fish for grain; failed tra
 UNITS.push(['a bad harvest raises the price of grain (H2)', function () {
   var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: land, size: 96 }), S = W.S, N = W.N, i, j;
     for (i = 0; i < 24 * 40; i++) W.tick(); while (S.t % 1 > 0.05) W.tick();
-    for (i = 0; i < 24; i++) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j]) W.grass[j] = 0; W.tick(); }
-    var p = S.tribe.price; return S.tribe.coin === 'grain' ? p.grain / ((p.fruit + p.fish) / 2) : p.grain; };   /* where grain is the coin, its price is against the rest */
+    for (i = 0; i < 24; i++) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j] && !(W.crop && W.crop[j])) W.grass[j] = 0; W.tick(); }   /* the grain fails; greens come in */
+    for (i = 0; i < 7; i++) W.tick();   /* one more season, so the prices have seen the harvest */
+    var p = S.tribe.price; return p.grain / ((p.fruit + p.fish) / 2); };   /* grain against fish and fruit, which the blight does not touch (whatever the coin is) */
   var out = [], ok = true;
   [[1, 'lakeland'], [2, 'valley']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(3) + ' normal, ' + b.toFixed(3) + ' blighted'); if (!(b > a)) ok = false; });
   return ok ? '' : 'grain no dearer after a blighted year: ' + out.join('; ');
@@ -690,6 +691,17 @@ UNITS.push(['once there is a market, trips to it show up in the households\' tri
   if (!n) return 'a market since then, but no household counted a trip to it last year';
   var open = T.sites.filter(function (q) { return q.stage === 0 && Math.abs(q.x - T.market.x) <= W.PITCH && Math.abs(q.y - T.market.y) <= W.PITCH && W.BUILDINGS[q.kind] && W.BUILDINGS[q.kind].room; });
   return open.length ? 'a house begun on the market ground at ' + open[0].x + ',' + open[0].y : '';
+}]);
+UNITS.push(['one harvest a year, each logged and shown rising from the fields; the fields feed people (grain and greens)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96 }), S = W.S, i, years = {}, pops = 0;
+  for (i = 0; i < 24 * 40; i++) { W.tick(); (S.fx || []).forEach(function (f) { if (f.kind === 'harvest' && !f.seen) { f.seen = 1; pops++; } }); }
+  var H = S.log.filter(function (l) { return /^Harvest/.test(l.text); }); H.forEach(function (l) { var y = Math.floor(l.t); years[y] = (years[y] || 0) + 1; });
+  var twice = Object.keys(years).filter(function (y) { return years[y] > 1; }); if (twice.length) return 'two harvests in year ' + twice[0];
+  if (!H.length) return 'no harvest logged in 40 years'; if (!pops) return 'no harvest shown rising from a field';
+  var f = S.tribe.foodLast || {}, tot = Object.keys(f).reduce(function (p, k) { return p + f[k]; }, 0), fields = (f.grain || 0) + (f.veg || 0);
+  if (!(fields > 0.3 * tot)) return 'the fields gave only ' + Math.round(100 * fields / Math.max(1e-9, tot)) + '% of the food at year 40';
+  if (!(f.veg > 0 && f.grain > 0)) return 'only one crop came in: ' + JSON.stringify(f);
+  return '';
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
