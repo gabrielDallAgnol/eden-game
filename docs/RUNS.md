@@ -1318,3 +1318,30 @@ The first cow pictures had holes (background removal cut out the white patches) 
 | mean |  | 20.5 | 138.9 | 574.9 | 798.1 | 131.1 | 653.9 | 0.3 | 17.2 |  | 3.4 | 6 | 24.5 | 8.7 | 129.7 | 0.9 | 6378.7 | 236.5 | 31.1 | 4.9 |  |  | 75.6 | 9.9 | 36.7 | 0.6 | 0 | 129409.8 |
 
 Tests 522 passed, 0 failed. Game loads with a clean console; cows checked in lakeland 1 at year 25 (8 tame cows by the pen).
+
+## Lean years: no more mass famines
+
+The 654 hunger deaths per run were famines, not a trickle: a village grew for 10 to 15 years on a full store, the store drained, and hundreds starved in one or two years (plains 2: 506 in years 80 and 81). Four causes added:
+
+- **Births follow the store, not its size.** A couple counts the common store as plenty only while it is not lower than at this time last year. A full larder of their own still counts.
+- **Rationing.** When the store is lower than a year ago and holds less than about a year's food, a meal from it fills only part way. Those rationed remember it as a lean time.
+- **Sowing after lean years.** A household that went hungry or was rationed, or sees the store emptier than a year ago, sows more ground next spring (up to three times its old want, never more than its hands can work); after a year without either it lets a little go. Field lots are looked for up to 4 lots from the door (was 3).
+- **The landless leave.** At sowing, a household that found no ground near its door after a lean year, or a couple with no roof who went short, leaves the valley with its small children to find land of its own. It is told in the log, is not a death and leaves no grave. This is the first half of J2: they leave the map for now; founding a hamlet on it comes with J1.
+
+Results, 10 standard worlds: hunger deaths 654 to 8.2 per run; 681 people per run left instead (from 2 in valley 1 to 1,222 in valley 2); year 100 mean 575 to 716, peak 798 to 842. Leaving comes in waves after lean years (plains 2 lost about 470 in one spring in an earlier trial run).
+
+New test: a couple with no roof who went short leave at sowing with their small children; not counted as deaths; a fed household with fields stays; it is told. New table column: left.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 3 | 11 | 328 | 328 | 62 | 10 | 2 | 2 | 17 | 36/189/5 | 2.6 | 2 | 22 | 4 | 4 | 1.2 | 3524 | 216 | 28.5 | 3.8 |  | 68/1/2/1/25 | 36 | 4.6 | 21 | 0 | 0 | 27919 |
+| valley | 2 | 26 | 153 | 845 | 983 | 178 | 3 | 1222 | 0 | 15 | 6/79/5 | 3.8 | 0 | 26.2 | 9.4 | 15 | 1.2 | 7102 | 556 | 23.3 | 4.4 | 0 (4) | 66/0/2/0/27 | 96 | 10.1 | 33 | 0 | 0 | 162415 |
+| plains | 1 | 31 | 173 | 667 | 852 | 96 | 8 | 806 | 0 | 17 | 6/207/6 | 3.9 | 20.4 | 22.2 | 6.9 | 49 | 1 | 6366 | 91 | 26.9 | 4.1 |  | 69/0/0/0/30 | 66 | 5.2 | 29 | 0 | 0 | 108876 |
+| plains | 2 | 19 | 133 | 1165 | 1170 | 149 | 13 | 748 | 0 | 16 | 6/89/0 | 3.7 | 21.7 | 26.2 | 9 | 39 | 1.5 | 17945 | 111 | 40.6 | 6.2 |  | 69/0/0/0/30 | 88 | 6.6 | 45 | 0 | 0 | 168541 |
+| forest | 1 | 18 | 118 | 789 | 1015 | 128 | 11 | 919 | 0 | 18 | 24/110/5 | 3.5 | 4.2 | 24.9 | 6.4 | 19 | 1.2 | 3925 | 266 | 27.6 | 5.5 | 8 (2) | 70/0/1/0/28 | 72 | 6.7 | 45 | 0 | 0 | 128929 |
+| forest | 2 | 24 | 156 | 1061 | 1310 | 178 | 11 | 1027 | 0 | 18 | 24/75/3 | 3.8 | 0 | 26.2 | 8.3 | 19 | 1 | 7286 | 176 | 39.5 | 5 | 1.5 (2) | 68/0/2/0/27 | 97 | 9.4 | 41 | 0 | 0 | 264657 |
+| lakeland | 1 | 30 | 166 | 824 | 887 | 154 | 4 | 1136 | 0 | 17 | 24/90/5 | 3.2 | 3 | 26.1 | 7.4 | 23 | 0.9 | 6653 | 190 | 25.4 | 5.5 |  | 79/0/0/1/17 | 82 | 10.9 | 41 | 2 | 0 | 140431 |
+| lakeland | 2 | 10 | 59 | 944 | 1275 | 156 | 7 | 384 | 0 | 18 | 17/58/5 | 3.2 | 0 | 26 | 6.2 | 16 |  | 10487 | 222 | 44.3 | 4.7 | 19 (1) | 72/0/2/0/26 | 80 | 6.7 | 57 | 0 | 0 | 99519 |
+| highland | 1 | 12 | 96 | 176 | 217 | 38 | 6 | 328 | 0 | 17 | 1/26/6 | 3.6 | 23.8 | 23.1 | 10.5 | 1 | 1.2 | 278 | 153 | 23.7 | 3.8 | 0 (2) | 63/1/2/0/29 | 61 | 14.6 | 17 | 0 | 0 | 40555 |
+| highland | 2 | 1 | 19 | 358 | 382 | 78 | 9 | 234 | 3 | 17 | 11/4/0 | 3.5 | 0 | 21.5 | 9.2 | 11 | 1.1 | 1725 | 260 | 24 | 3.8 | 0 (2) | 70/1/1/0/20 | 58 | 13.5 | 25 | 3 | 0 | 34085 |
+| mean |  | 17.4 | 108.4 | 715.7 | 841.9 | 121.7 | 8.2 | 680.6 | 0.5 | 17 |  | 3.5 | 7.5 | 24.4 | 7.7 | 19.6 | 1.1 | 6529.1 | 224.1 | 30.4 | 4.7 |  |  | 73.6 | 8.8 | 35.4 | 0.5 | 0 | 117592.7 |
