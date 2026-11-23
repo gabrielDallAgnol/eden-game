@@ -701,3 +701,38 @@ Size 96, seeds 1 and 2:
 | mean |  | 12.5 | 66.2 | 129.2 | 163.7 | 46.1 | 148 | 0.4 | 13.2 |  | 2.6 | 8.6 | 19.1 | 5.1 | 56.3 | 1 | 974 | 95 | 27.6 | 5.5 |  |  | 42.7 | 5.7 | 17.8 | 0.4 | 0 | 14201.9 |
 
 Year 100 mean 129.2 (155.9 before), year 25 12.5 (15.0), dwellings 46.1 (49.8), hunger deaths 148.0 (158.5), 4 resettles (valley 2 and plains 2) against 2. These worlds swing hard on small changes, so 15 more (seeds 3 to 5 of each land, 100 years) were run on both versions: year 100 mean 120.3 against 126.4, 9 wipe-outs against 10. Over all 25 the drop is about 10%.
+
+
+## F7: no idea works without a built thing
+
+The last ideas that acted as switches now act through places and works:
+- Masonry: a mason's yard (2 timber, 3 stone). Only while it stands are walls 0.05 warmer and the streets set with stone.
+- Medicine: a healer's house with its herb garden; a healer takes up the place (F6 rules) while there are old people. Lives run 15% longer only while a healer works there.
+- Concrete: a lime kiln (2 timber, 4 stone), raised once a flood has been seen. A house finished while it stands is set in concrete and stands the flood; before, knowing concrete protected every house.
+- Writing: a tally house. The want of reckoning stops growing only while it stands.
+- Irrigation: ditch tiles (`T.ditch`). Grown people of households with dry fields dig from the well, a few tiles a day, toward their own driest field; water seeps two tiles out from a ditch. Before, every field by a well was watered once irrigation was known.
+- Plough: the share is made at the workshop; the plough's help with the harvest needs one standing.
+
+`IDEA_VIA` names, for every idea, the building or the work it acts through (`WORKS`: hearth, fields, ditches, bridge). Code-drawn sprites for the four new places; ditches are drawn as a water-filled cut in the ground; a 'dig' pose.
+
+Checks. New units: every idea names a row of `BUILDINGS` or a work. In a world that knows masonry, medicine, concrete and writing with their places kept ruined for two years, roofs are only as warm as their kinds and the streets are not paved. Once irrigation is known (lakeland 1, from year 40) ditches are dug from the well and run beside fields within four years. F2's diet check was too fragile; it now takes the widest spread between households in any kind of food at years 20, 30 and 40. Tests 459 passed, 0 failed; scenarios 23 passed.
+
+Balance. The first version cut year 100 by about 22% (93.9 against 120.3 on the extra 15 worlds). Trying the parts one at a time: watering only along ditches was the main cost (making it global again gave 106.9); the plough change made no difference; not building the new places at all was worse (80.9). After letting a day's digging go a few tiles, any grown person of a household with dry fields dig, and water seep two tiles: 111.6 on the extra 15 worlds (7 wipe-outs against 9), and the table below.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 7 | 9 | 193 | 194 | 45 | 18 | 0 | 14 | 17/86/2 | 2.8 | 17.9 | 25.1 | 4.8 | 1 |  | 980 | 141 | 33.5 | 8.3 |  | 86/0/3/0/9 | 43 | 5.1 | 21 | 3 | 0 | 12913 |
+| valley | 2 | 4 | 29 | 80 | 111 | 32 | 99 | 2 | 12 | 7/206/12 | 2.4 | 0 | 12.4 | 4 | 12 | 1.1 | 345 | 102 | 15.9 | 3.2 |  | 93/0/2/0/4 | 38 | 5.1 | 15 | 0 | 0 | 11186 |
+| plains | 1 | 9 | 81 | 209 | 278 | 72 | 251 | 0 | 13 | 4/90/1 | 2.7 | 26.8 | 22.7 | 8 | 122 | 1 | 2343 | 117 | 34.5 | 4.7 |  | 86/0/0/0/12 | 55 | 8.9 | 25 | 0 | 0 | 27242 |
+| plains | 2 | 18 | 103 | 140 | 206 | 39 | 217 | 0 | 12 | 0/238/5 | 3.1 | 12.8 | 17.2 | 10.5 | 71 | 0.9 | 883 | 33 | 19.4 | 5.1 |  | 77/1/3/0/16 | 66 | 15.2 | 21 | 0 | 0 | 20838 |
+| forest | 1 | 9 | 74 | 93 | 148 | 48 | 157 | 0 | 14 | 14/138/5 | 2.5 | 27.7 | 21.9 | 4.1 | 111 | 1.1 | 709 | 79 | 24.7 | 5.6 | 0 (2) | 82/0/3/2/11 | 44 | 4.5 | 17 | 0 | 0 | 17888 |
+| forest | 2 | 33 | 82 | 102 | 115 | 35 | 177 | 0 | 14 | 6/150/5 | 2.5 | 0 | 21.6 | 3.9 | 65 | 1.1 | 246 | 42 | 24.5 | 6 | 0 (3) | 88/0/3/0/8 | 30 | 4.9 | 13 | 0 | 0 | 15546 |
+| lakeland | 1 | 9 | 57 | 231 | 249 | 72 | 151 | 0 | 14 | 24/142/0 | 2.6 | 0 | 22.9 | 4.6 | 60 | 1 | 2010 | 102 | 30.1 | 5.5 | 0 (1) | 84/0/2/0/13 | 66 | 4.8 | 21 | 1 | 0 | 21090 |
+| lakeland | 2 | 19 | 77 | 170 | 170 | 55 | 109 | 0 | 13 | 2/123/5 | 2.6 | 0 | 21.2 | 4.8 | 104 | 1 | 1003 | 128 | 26 | 5.3 |  | 80/0/3/2/12 | 44 | 4 | 25 | 0 | 0 | 17648 |
+| highland | 1 | 17 | 45 | 48 | 78 | 19 | 122 | 0 | 13 | 5/28/5 | 3 | 0 | 18.6 | 6.8 | 20 | 1 | 126 | 94 | 21.7 | 3.8 | 0 (4) | 69/0/1/0/30 | 48 | 5.8 | 13 | 0 | 0 | 9906 |
+| highland | 2 | 11 | 21 | 65 | 65 | 22 | 69 | 0 | 13 | 10/50/0 | 2.9 | 16.4 | 10.7 | 7.2 | 21 | 1 | 176 | 89 | 21 | 8.7 | 0 (2) | 75/1/5/0/16 | 30 | 6.5 | 13 | 0 | 0 | 9560 |
+| mean |  | 13.6 | 57.8 | 133.1 | 161.4 | 43.9 | 137 | 0.2 | 13.2 |  | 2.7 | 10.2 | 19.4 | 5.9 | 58.7 | 1 | 882.1 | 92.7 | 25.1 | 5.6 |  |  | 46.4 | 6.5 | 18.4 | 0.4 | 0 | 16381.7 |
+
+Year 100 mean 133.1 (129.2 at F6), year 25 13.6 (12.5), dwellings 43.9 (46.1), hunger deaths 137.0 (148.0), 2 resettles (valley 2) against 4.

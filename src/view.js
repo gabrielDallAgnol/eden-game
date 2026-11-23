@@ -193,6 +193,7 @@ function colorAt0(pxx, py) {
   const m = bM[b] + jn * 0.18, g = bG[b];
   col = m < 0.28 ? (n2 > 215 ? C.dry2 : C.dry1) : m < 0.78 ? (n2 > 215 ? C.earth2 : C.earth1) : m < 1.08 ? (n2 > 215 ? C.wet2 : C.wet1) : (n2 > 150 ? C.puddle2 : C.puddle);
   if (w > 0.36) col = m > 0.85 ? C.sandWet : C.sand;
+  else if (T0.ditch && T0.ditch[ci] && (((pxx + py * 2) >> 2) & 3) === 1) col = n2 > 160 ? C.puddle2 : C.puddle;   /* a ditch, water running in its cut (F7) */
   else if (W.field[ci]) {
     const row = ((pxx + py * 2) >> 2) & 3; col = row === 0 ? C.furrow : C.tilled;
     if (row !== 0 && g * 1.5 + jn * 0.4 > 0.35) col = gRipe > 0.8 ? C.crop3 : gRipe > 0.45 ? C.crop2 : gRipe > 0 ? C.crop1 : C.stubble;
@@ -240,7 +241,7 @@ function chunkSig(ch) {
   let h = (gRipe * 8 | 0) * 7 + (gWarm ? 3 : 0) + (campOn ? 5 : 0) + T0.pave * 11;
   /* what grows and lies on the ground: the chunk's average of each, in steps of 1/24; things that are or are not there
      (ways, fields, pits, water): tile by tile */
-  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field, W.known, lotMask], sum = new Float64Array(soft.length + 1);
+  const soft = [W.grass, W.snow, W.soil, W.tree, W.flood, scar, trail], hard = [roadF, waterF, W.field, W.known, lotMask, T0.ditch || waterF], sum = new Float64Array(soft.length + 1);
   let n = 0;
   for (let y = ch.j * CT; y < Math.min(N, (ch.j + 1) * CT + 1); y++) for (let x = ch.i * CT; x < Math.min(N, (ch.i + 1) * CT + 1); x++) {
     const i = y * N + x; n++;
@@ -780,6 +781,7 @@ function planPerson(r, phase, pi) {
       P.go(st.x, st.y, sp); P.wait(0.22, 'work', { fx: 'dust', lx: st.lx, ly: st.ly });
       P.go(to.x, to.y, sp * 0.7, 'carry', { item: 'stone' }); P.wait(0.04, 'work', { drop: 1 }); break;
     }
+    case 'dig': { const tx = act.j % N + 0.5, ty = ((act.j / N) | 0) + 0.5; P.go(tx + 0.3, ty + 0.3, sp); P.wait(0.5, 'work', { fx: 'dirt', lx: tx, ly: ty }); break; }   // digging the ditch a tile further
     case 'craft': { const tx = act.j % N + 0.5, ty = ((act.j / N) | 0) + 0.5; P.go(tx + 0.4, ty + 0.4, sp); P.wait(0.6, 'work', { fx: act.at === 'kiln' ? 'dust' : 'hammer', lx: tx, ly: ty }); break; }   // a day at the kiln, the anvil or the bench
     case 'walkto': P.go(act.x + 0.5, act.y + 0.5, sp); break;                               // on the way out: as far as the simulation has them
     case 'carryhome': P.go(act.x + 0.5, act.y + 0.5, sp * 0.85, 'carry', { item: act.item || 'basket' }); break;   // on the way back with a load: fish, a basket, logs, stone, sticks

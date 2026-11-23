@@ -40,9 +40,9 @@ const SKILLS = {
 // Things people may work out for themselves. Why and when is not written here: see IDEAS inside create(), where each is tied
 // to a want that has actually been felt and to the means lying at hand.
 const TECHS = { bridge: 1, pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, tools: 1, medicine: 1, masonry: 1, writing: 1, concrete: 1 };
-const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt', smith: 'build', potter: 'build', wright: 'build' };
+const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt', smith: 'build', potter: 'build', wright: 'build', healer: 'gather' };
 /* F6: every trade is work in a place: on the land, at the water, on the building plots, or in a building (named by its kind) */
-const JOB_PLACE = { farmer: 'the fields', hunter: 'the wild', fisher: 'the water', gatherer: 'the wild', builder: 'the plots', woodcutter: 'the woods', mason: 'the quarry', guard: 'the camp', herder: 'pen', smith: 'smithy', potter: 'kiln', wright: 'workshop' };
+const JOB_PLACE = { farmer: 'the fields', hunter: 'the wild', fisher: 'the water', gatherer: 'the wild', builder: 'the plots', woodcutter: 'the woods', mason: 'the quarry', guard: 'the camp', herder: 'pen', smith: 'smithy', potter: 'kiln', wright: 'workshop', healer: 'healerhouse' };
 function create(seed, opt) {
   opt = opt || {};
   const SP = opt.species || SPECIES, HUMAN = Object.values(SP).find(d => d.people) || SPECIES.human;
@@ -383,7 +383,7 @@ function create(seed, opt) {
   function newSettlement(x, y) {
     const T = { x, y, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
       need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0, cross: 0 },
-      fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0,
+      fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0, ditch: new Uint8Array(N * N),
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
       well: false, roofT: 0, trades: {}, party: null, kidsHungry: false, watchDay: -1, watcher: 0, noHunt: 0, hunts: 0, fireT: -9, fuel: 0, lit: -1, gaveTold: false,
@@ -1134,7 +1134,10 @@ function create(seed, opt) {
         const want = (0.85 - b.e) / 1.5; let got = Math.min(want, T.hay); T.hay -= got; if (got < want && T.store > S.popPeople * 0.8) { const s2 = Math.min(want - got, T.store - S.popPeople * 0.8); T.store -= s2; got += s2; }
         b.e += got * 1.5; fed += got; }
       a.act = { k: 'craft', j, at: 'pen' }; sound(j % N, (j / N) | 0, 2, 'work'); return 0; }
-    if (kind === 'craft') { const q = T.sites.find(h => I(h.x, h.y) === j && raised(h)), K = q && BUILDINGS[q.kind]; if (!K || !K.makes) return 0;
+    /* F7: a ditch dug a tile further from the well toward the fields */
+    if (kind === 'dig') { if (!water[j]) T.ditch[j] = 1; for (let k = 0; k < 2; k++) { const n2 = ditchNext(a); if (n2 < 0 || Math.max(Math.abs(n2 % N - a.x), Math.abs(((n2 / N) | 0) - a.y)) > 2) break; T.ditch[n2] = 1; }   /* a day's digging: a few tiles on from where they stand */
+      a.act = { k: 'dig', j }; sound(j % N, (j / N) | 0, 2, 'work'); return 0; }
+    if (kind === 'craft') { const q = T.sites.find(h => I(h.x, h.y) === j && raised(h)), K = q && BUILDINGS[q.kind]; if (q && K && !K.makes) { a.act = { k: 'craft', j, at: q.kind }; return 0; } if (!K || !K.makes) return 0;
       /* a day at the bench: what is left of it after the walk there, and the rest of the day's light */
       const day = budget + (DAY ? Math.max(0, DAY - 2 - S.tickNo % DAY) : 0);
       let n = day * (K.makes === 'carts' ? 0.2 : K.makes === 'tools' ? 0.6 : 1.2) * (0.6 + 0.4 * a.skill.build);
@@ -1168,7 +1171,7 @@ function create(seed, opt) {
     const T = S.tribe;
     if (tr.kind === 'timber') { T.wood += tr.load; S.stat.woodBack = (S.stat.woodBack || 0) + tr.load; } else if (tr.kind === 'stone') T.stone += tr.load;
     else if (tr.kind === 'fuel') { const h = doorOf(a); h.fuel = (h.fuel || 0) + tr.load; }
-    else if (tr.kind === 'craft') { /* what was made stays where it is used */ }
+    else if (tr.kind === 'craft' || tr.kind === 'dig') { /* what was made or dug stays where it is */ }
     else { bring(a, tr.load, tr.kind === 'fish' ? 'fish' : 'fruit'); S.stat.forageD += tr.walked / 2; S.stat.forageN++; }
   }
   // Fetching timber, stone or firewood is a trip like any other: out along the route to the stand or the stone, the work
@@ -1268,6 +1271,8 @@ function create(seed, opt) {
     const pBuild = Math.min(1, dt * 12 * a.skill.build * (!a.job ? 1 : trade ? 2.4 : 0.3) * (hasTool(a) ? 1.3 : 1)), away = Math.max(1, S.tickNo - (a.freeT || S.tickNo - 1)); a.freeT = S.tickNo;
     /* a smith, potter or wright goes to the place where the trade is worked, while there is something to make it from */
     if (able && a.e > 0.5 && CRAFT_AT[a.job] && !a.trip) { const q = standing(CRAFT_AT[a.job]); if (q && startHaul(a, 'craft', I(q.x, q.y), doorOf(a))) { practise(a, 'build'); return; } }
+    /* a farmer who knows irrigation and has the well to draw on digs the ditch on a tile further toward the household's dry fields */
+    if (able && a.e > 0.6 && (a.job === 'farmer' || !a.job) && T.skills.irrigation && !a.trip && rnd() < 0.4) { const j = ditchNext(a); if (j >= 0 && startHaul(a, 'dig', j, doorOf(a))) return; }
     if (able && a.e > 0.6 && rnd() < 1 - Math.pow(1 - pBuild, away) && construct(a)) { practise(a, 'build'); return; }   /* building, felling and hauling take the day */
     // a guard keeps to the camp and its edges, fed from the store, and goes for whatever comes hunting
     if (a.job === 'guard' && a.e > 0.4) {
@@ -1409,7 +1414,14 @@ function create(seed, opt) {
     smithy:   { lots: 1, stages: [{ wood: 3, stone: 2 }, { wood: 2, stone: 2 }], roof: 0.7, room: false, needsIdea: 'tools',   next: null, work: 'smith',  makes: 'tools', from: { ore: 0.25, wood: 0.3 } },
     workshop: { lots: 1, stages: [{ wood: 4, stone: 0 }, { wood: 3, stone: 1 }], roof: 0.7, room: false, needsIdea: 'wheel',   next: null, work: 'wright', makes: 'carts', from: { wood: 4 } },
     /* F5: a pen of stakes where tame beasts are kept, brought in at night and fed in the lean months by whoever herds them */
-    pen:      { lots: 1, stages: [{ wood: 3, stone: 0 }], roof: 0.7, room: false, needsIdea: 'herd', next: null, work: 'herder', keepsBeasts: true }
+    pen:      { lots: 1, stages: [{ wood: 3, stone: 0 }], roof: 0.7, room: false, needsIdea: 'herd', next: null, work: 'herder', keepsBeasts: true },
+    /* F7: the last ideas that were switches become places. A mason's yard where stone is dressed (warmer walls, paved streets);
+       a healer's house with its herb garden (longer lives, while a healer works there); a lime kiln (houses finished while it
+       stands are set in concrete and stand the flood); a tally house where the marks are kept (the place no longer loses track) */
+    masonsyard:  { lots: 1, stages: [{ wood: 2, stone: 3 }], roof: 0.7, room: false, needsIdea: 'masonry', next: null },
+    healerhouse: { lots: 1, stages: [{ wood: 3, stone: 1 }, { wood: 2, stone: 1 }], roof: 0.7, room: false, needsIdea: 'medicine', next: null, work: 'healer' },
+    limekiln:    { lots: 1, stages: [{ wood: 2, stone: 4 }], roof: 0.7, room: false, needsIdea: 'concrete', next: null },
+    tallyhouse:  { lots: 1, stages: [{ wood: 3, stone: 1 }], roof: 0.7, room: false, needsIdea: 'writing', next: null }
   };
   const CRAFT_AT = {}; for (const k in BUILDINGS) if (BUILDINGS[k].work) CRAFT_AT[BUILDINGS[k].work] = k;   /* trade -> where it is worked */
   /* what must lie on the plot before stage n (counted from 0) can be finished: everything up to and including it */
@@ -1434,6 +1446,21 @@ function create(seed, opt) {
   let toolT = -1, toolSet = null, potT = -1, potSet = null;
   const hasTool = a => { const T = S.tribe; if (!(T.tools >= 1)) return false; if (toolT !== S.tickNo) { toolT = S.tickNo; toolSet = new Set(folk().filter(b => b.age >= GROWN && b.age <= 46).sort((p, q) => p.id - q.id).slice(0, Math.floor(T.tools)).map(b => b.id)); } return toolSet.has(a.id); };
   const hasPots = q => { const T = S.tribe; if (!(T.pots >= 1)) return false; if (potT !== S.tickNo) { potT = S.tickNo; potSet = new Set(T.sites.filter(h => isHome(h) && h.members > 0).sort((p, r) => p.id - r.id).slice(0, Math.floor(T.pots)).map(h => h.id)); } return potSet.has(q.id); };
+  /* F7 helpers: a healer at work; whether a ditch runs on or beside a tile */
+  const healing = () => !!standing('healerhouse') && folk().some(b => b.job === 'healer');
+  const ditchBy = i => { const D = S.tribe.ditch; if (!D) return false; const x = i % N, y = (i / N) | 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {   /* the water seeps two tiles out from the cut */ const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N && D[ny * N + nx]) return true; } return false; };
+  /* the next tile of ditch: from the well, or the end of the ditch nearest, one step toward the nearest of the household's
+     fields that is dry and has no water running by it; never through water or on a building's own tile */
+  function ditchNext(a) {
+    const T = S.tribe, wl = T.sites.find(q => q.kind === 'well' && raised(q)); if (!wl || !a.house) return -1;
+    let f = -1, fd = 1e9; for (const i of fieldTiles()) if (field[i] && owner[i] === a.house && soil[i] < 0.6 && !ditchBy(i)) { const d = Math.max(Math.abs(i % N - wl.x), Math.abs(((i / N) | 0) - wl.y)); if (d < fd) { fd = d; f = i; } }
+    if (f < 0) return -1; const fx = f % N, fy = (f / N) | 0;
+    let hx = wl.x, hy = wl.y, hd = Math.max(Math.abs(fx - hx), Math.abs(fy - hy));
+    for (let i = 0; i < N * N; i++) if (T.ditch[i]) { const x = i % N, y = (i / N) | 0, d = Math.max(Math.abs(fx - x), Math.abs(fy - y)); if (d < hd) { hd = d; hx = x; hy = y; } }
+    const sx = Math.sign(fx - hx), sy = Math.sign(fy - hy);
+    for (const [dx, dy] of [[sx, sy], [sx, 0], [0, sy]]) { if (!dx && !dy) continue; const j = I(hx + dx, hy + dy); if (!water[j] && !T.ditch[j] && !T.sites.some(q => q.x === hx + dx && q.y === hy + dy)) return j; }
+    return -1;
+  }
   const best = () => ROOMS.find(k => !BUILDINGS[k].needsIdea || S.tribe.skills[BUILDINGS[k].needsIdea]);
   const NEXT = {}; for (const k in BUILDINGS) if (BUILDINGS[k].next) NEXT[k] = BUILDINGS[k].next;
   // The plot. Close to the middle of the camp but not in it (the fire and the stores keep that), with room between it and the
@@ -1523,7 +1550,8 @@ function create(seed, opt) {
     /* a place to make what is wanted and known how to make: pots while households keep food without them, tools while hands go
        without, a cart while a tame beast stands with nothing to draw */
     { const hands = folk().filter(b => b.age >= GROWN && b.age <= 46).length, beasts = S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length, roofs = T.sites.filter(q => isHome(q) && q.members > 0).length;
-      for (const [k, short] of [['pen', S.agents.some(b => b.alive && b.tame)], ['kiln', T.pots < roofs], ['smithy', T.tools < hands], ['workshop', T.cartsMade < beasts]]) if (short && T.skills[BUILDINGS[k].needsIdea] && !T.sites.some(q => q.kind === k)) return choosePlot(k, null); }
+      for (const [k, short] of [['pen', S.agents.some(b => b.alive && b.tame)], ['kiln', T.pots < roofs], ['smithy', T.tools < hands], ['workshop', T.cartsMade < beasts],
+        ['masonsyard', T.sites.some(q => q.kind === 'house')], ['healerhouse', folk().some(b => b.age > 40)], ['limekiln', T.floodSeen && T.sites.some(q => q.kind === 'house')], ['tallyhouse', households() > 3]]) if (short && T.skills[BUILDINGS[k].needsIdea] && !T.sites.some(q => q.kind === k)) return choosePlot(k, null); }
     s = homes.filter(q => NEXT[q.kind] && T.skills[NEXT[q.kind]] && raised(q) && q.cold > 0.12 && (q.larder
         || 0) >= q.members * 0.6).sort((p, q) => q.cold - p.cold)[0];   // something better is known: the household that has felt the cold most, and can feed itself meanwhile, rebuilds first
     if (s) { s.was = s.kind; s.kind = NEXT[s.kind]; s.stage = 0; s.wood *= RUBBLE_WOOD; s.stone *= RUBBLE_STONE; s.qtrips = 0; s.lake = T.floodSeen && bank[I(s.x, s.y)] > 0.5; return s; }
@@ -1610,7 +1638,7 @@ function create(seed, opt) {
       const first = !T.sites.some(q => q !== s && q.kind === s.kind && raised(q)), rebuilt = s.was; s.was = '';
       /* quarry trips per stone dwelling: first raisings against raisings again after a flood */
       if (stageNeed(BUILDINGS[s.kind], 0, 'stone')) { if (s.flooded) { S.stat.reTrips += s.qtrips || 0; S.stat.reN++; } else if (!rebuilt) { S.stat.newTrips += s.qtrips || 0; S.stat.newN++; } }
-      s.flooded = false; s.qtrips = 0;
+      s.flooded = false; s.qtrips = 0; if (s.kind === 'house' && standing('limekiln')) s.concrete = true;   /* finished with lime from the kiln: set in concrete (F7) */
       if (s.kind === 'granary') tell('The granary stands on its posts. Grain put up there will keep through the winter.'); else if (s.kind === 'storehouse') tell('A storehouse, its pots sealed with clay. What is put by in common keeps longer now.');
       if (s.kind === 'well') { T.well = true; tell('The people have dug a well. The fields need not wait for rain.'); }
       else if (first && isHome(s)) tell({ tent: 'A tent of hides is up: the first roof in the valley.',
@@ -1695,9 +1723,9 @@ function create(seed, opt) {
      make it from), by a grown person whose household is not going hungry; the one who has it keeps it while the work is short */
   function placeJobs(able) {
     const T = S.tribe, P = folk(), roofs = T.sites.filter(q => isHome(q) && q.members > 0).length, beasts = S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length;
-    const short = { herder: S.agents.some(b => b.alive && b.tame), smith: T.tools < able.length && T.ore >= 0.25, potter: T.pots < roofs && T.wood >= 1, wright: T.cartsMade < beasts && T.wood >= 4 };
+    const short = { healer: P.some(b => b.age > 40), herder: S.agents.some(b => b.alive && b.tame), smith: T.tools < able.length && T.ore >= 0.25, potter: T.pots < roofs && T.wood >= 1, wright: T.cartsMade < beasts && T.wood >= 4 };
     const fed = a => { const h = homeSite(a); return h ? (h.larder || 0) >= h.members * 0.6 : T.store >= P.length * 0.6; };
-    for (const job of ['herder', 'smith', 'potter', 'wright']) {
+    for (const job of ['healer', 'herder', 'smith', 'potter', 'wright']) {
       const place = standing(JOB_PLACE[job]), holders = able.filter(a => a.job === job);
       /* a place's work is for when food is not short: a small or hungry place keeps its hands on food */
       if (!place || !short[job] || T.plenty < 0.6) { for (const a of holders) a.job = ''; continue; }
@@ -1706,7 +1734,7 @@ function create(seed, opt) {
       const free = able.filter(a => fed(a) && (!a.job || a.job === 'gatherer' || a.job === 'farmer' || a.job === 'fisher' || a.job === 'hunter')); if (!free.length) continue;
       const pick = free.reduce((b, a) => a.skill.build > b.skill.build ? a : b); pick.job = job;
       T.trades = T.trades || {};
-      if (!T.trades[job]) { T.trades[job] = true; tell(pick.name + { herder: ' keeps the pen now, and feeds the tame deer through the lean months.', smith: ' works at the smithy now: tools for every hand that needs one.', potter: ' fires pots at the kiln, for every household\'s larder.', wright: ' builds carts in the workshop.' }[job]); }
+      if (!T.trades[job]) { T.trades[job] = true; tell(pick.name + { healer: ' keeps the healer\'s house now, and its garden of herbs.', herder: ' keeps the pen now, and feeds the tame deer through the lean months.', smith: ' works at the smithy now: tools for every hand that needs one.', potter: ' fires pots at the kiln, for every household\'s larder.', wright: ' builds carts in the workshop.' }[job]); }
     }
   }
   /* who works where, for the Town panel: every standing place of work and the names of those whose trade is there */
@@ -1749,6 +1777,11 @@ function create(seed, opt) {
     bridge:     { need: 'cross',  at: 1.2, can: T => T.skills.hut, say: 'Bridge. Too many days lost wading the ford, and the river too high to cross half the year. Logs can be laid across it.' },
     concrete:   { need: 'flood',  at: 3.0, can: T => T.skills.masonry && T.skills.fire, say: 'Concrete. The river took the houses again. Burnt lime, sand and stone set like rock, and stay.' }
   };
+  /* F7: what each idea works through. Knowing it changes nothing by itself: it is the building, the made thing or the work on
+     the ground named here that does. The tests hold every idea to a row of BUILDINGS or to one of the works (WORKS) */
+  const WORKS = { hearth: 'a fire laid and fed at a hearth', fields: 'sown field tiles', ditches: 'ditch tiles dug from the well', bridge: 'a bridge laid across a ford' };
+  const IDEA_VIA = { fire: 'hearth', hut: 'hut', house: 'house', masonry: 'masonsyard', farm: 'fields', plough: 'workshop', pottery: 'kiln', granary: 'granary', well: 'well',
+    irrigation: 'ditches', palisade: 'fence', wheel: 'workshop', tools: 'smithy', medicine: 'healerhouse', writing: 'tallyhouse', bridge: 'bridge', concrete: 'limekiln' };
   // the ground settling, year by year, whether or not anyone lives there
   function settlePits() {
     const T = S.tribe;
@@ -1789,7 +1822,7 @@ function create(seed, opt) {
       if (on) field[i] = 0;
     }
     N_.water += Math.max(0, T.waterDist - 2) * 0.12 * Math.min(4, S.popPeople / 5) * (T.well ? 0.2 : 1);   // every bucket, carried that far, for every mouth
-    N_.reckon += Math.max(0, households() - 3) * 0.12 * (T.skills.writing ? 0 : 1);
+    N_.reckon += Math.max(0, households() - 3) * 0.12 * (standing('tallyhouse') ? 0 : 1);   /* the marks are kept at the tally house (F7) */
     N_.danger = T.threat;
     if (!opt.noIdeas) for (const k in IDEAS) {
       const d = IDEAS[k];
@@ -1817,7 +1850,7 @@ function create(seed, opt) {
     if (lvl > T.level) tell(['', 'The camp has become a hamlet, strung along a beaten track.', 'The hamlet has become a village.', 'The village has become a town.'][lvl]); T.level = lvl;
     const beasts = S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length;
     T.carts = T.skills.wheel ? Math.min(Math.floor(T.cartsMade + 1e-9), beasts) : 0;   /* a cart is a made thing, and needs a beast to draw it (F4) */
-    const pave = T.skills.masonry ? 3 : T.carts ? 2 : 1;
+    const pave = standing('masonsyard') ? 3 : T.carts ? 2 : 1;   /* streets set with stone dressed at the mason's yard (F7) */
     if (pave > T.pave) tell(pave === 3 ? 'With masons in the place, the streets are being set with stone.' : 'Cart wheels cut the track to mud: the people are laying gravel.');
     T.pave = Math.max(T.pave, pave);
   }
@@ -1861,7 +1894,7 @@ function create(seed, opt) {
       const ripe = T.cropWarm > 5.6, frost = ct < 0;
       if (ripe || frost) {
         let dry = 0, nf = 0, got = 0; const by = new Map(T.sites.map(q => [q.id, q])), P = folk();
-        const boost = (T.carts ? 1.3 : 1) * (T.skills.plough && S.agents.some(b => b.alive && b.tame) ? 1.4 : 1);
+        const boost = (T.carts ? 1.3 : 1) * (T.skills.plough && standing('workshop') && S.agents.some(b => b.alive && b.tame) ? 1.4 : 1);   /* the share is made at the workshop (F7) */
         for (const i of fieldTiles()) if (field[i]) {
           nf++; if (soil[i] < 0.32) dry++;
           const h = by.get(owner[i]); let y = flood[i] ? 0 : Math.max(0, grass[i] - 0.1) * 2.6 * (ripe ? 1 : 0.5) * boost; grass[i] = Math.min(grass[i], 0.1);
@@ -1918,7 +1951,7 @@ function create(seed, opt) {
     if (flood[campI]) { T.store *= 1 - Math.min(1, 2.5 * dt); T.need.flood += dt * 2; }
     /* a store under the flood or the fire is lost, and the food kept there rots as it did before (F3) */
     for (const w of T.sites) { const K = BUILDINGS[w.kind]; if (K && K.keeps && w.stage > 0 && (flood[I(w.x, w.y)] || burn[I(w.x, w.y)] > 0.5)) { w.stage = 0; w.wood = 0; w.stone = 0; tell('The ' + w.kind + ' is lost to the ' + (flood[I(w.x, w.y)] ? 'flood' : 'fire') + '. What it kept will rot again.'); } }
-    for (const w of T.sites) if (live(w) && flood[I(w.x, w.y)] && !w.lake && !(T.skills.concrete && w.kind === 'house' && !w.was) && rnd() < 3 * dt) {
+    for (const w of T.sites) if (live(w) && flood[I(w.x, w.y)] && !w.lake && !(w.concrete && w.kind === 'house' && !w.was) && rnd() < 3 * dt) {
       T.need.flood += 3;
       tell('The flood has taken a ' + (w.was || w.kind) + '.' + (T.floodSeen ? '' : ' Nobody will build so low again without thinking.'));
       T.floodSeen = true;
@@ -1941,7 +1974,7 @@ function create(seed, opt) {
     {
       const lv = T.sites.filter(live);
       T.huts = lv.length;
-      T.roof = lv.length ? lv.reduce((q, w) => q + ((BUILDINGS[w.was || w.kind] || {}).roof || 0.7), 0) / lv.length - (T.skills.masonry ? 0.05 : 0) : 0.7;
+      T.roof = lv.length ? lv.reduce((q, w) => q + ((BUILDINGS[w.was || w.kind] || {}).roof || 0.7), 0) / lv.length - (standing('masonsyard') ? 0.05 : 0) : 0.7;   /* walls of dressed stone, while the yard stands */
       if (S.tickNo % TPY === 3) {
         reckonYear(); settlePits();
         townLife();
@@ -1952,8 +1985,8 @@ function create(seed, opt) {
       if (!(h.fuel > 0) || tempAt(I(h.x, h.y)) >= HUMAN.comfort - 3) continue;
       h.fuel = Math.max(0, h.fuel - FUEL_BURN); h.lit = S.tickNo; T.fireT = S.t;
     }
-    if (T.well && S.popPeople) for (const i of fieldTiles()) if (field[i] && soil[i] < (T.skills.irrigation ? 0.7 : 0.45)) soil[i] = T.skills.irrigation
-        ? 0.7 : 0.45;   // carried from the well, a bucket at a time
+    /* carried from the well, a bucket at a time; and where a ditch runs beside a field, the water runs to it (F7) */
+    if (T.well && S.popPeople) for (const i of fieldTiles()) if (field[i]) { const wet = ditchBy(i) ? 0.7 : 0.45; if (soil[i] < wet) soil[i] = wet; }
     for (const a of S.agents) {
       if (!a.alive) continue; const d = a.d, i = I(a.x, a.y), Tc = tempAt(i); if (a.fear > 0) a.fear -= dt * 1.4;
       if (S.popPeople && !d.people && d.eats.meat && d.mass > 3 && cheb(a, T) <= 4 && !a.hidden) T.threat += dt * 3; /* a hunter in among the houses is remembered */
@@ -1980,7 +2013,7 @@ function create(seed, opt) {
       const asleep = d.sleepsBelow !== undefined && Tc < d.sleepsBelow;                    // some bodies sleep the cold away
       a.e -= d.metab * dt / (d.people && a.age < GROWN ? 2.5 : 1) * (asleep ? 0.12 : 1 + cold + hot);
       if (cold > 0.4) a.mood = 'cold'; else if (hot > 0.2) a.mood = 'hot';
-      if (a.age > a.life * (d.people && T.skills.medicine ? 1.15 : 1)) { die(a, 'old age'); continue; }
+      if (a.age > a.life * (d.people && healing() ? 1.15 : 1)) { die(a, 'old age'); continue; }   /* a healer at work in the healer's house (F7) */
       if (flood[i]) { a.e -= 1.2 * dt; if (rnd() < 0.6 * dt) { die(a, 'drowned'); continue; } roam(a, 3, 2); }
       if (burn[i] > 0) { if (rnd() < 0.5) { die(a, 'burned'); continue; } a.e -= 0.1; roam(a, 3, 3); }
       const e0 = a.e;
@@ -2242,6 +2275,8 @@ function create(seed, opt) {
     allFood,
     TECHS,
     IDEAS,
+    IDEA_VIA,
+    WORKS,
     ideas: () => Object.keys(IDEAS).map(k => ({ k,
       need: IDEAS[k].need,
       at: IDEAS[k].at,

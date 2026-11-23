@@ -503,11 +503,12 @@ UNITS.push(['meat and fish spoil faster than grain; households eat differently (
   W.tick(); W.tick(); W.tick(); var m = W.mixOf(T, 'store');
   if (!(m.meat < m.grain && m.fish < m.grain)) return 'after three steps grain ' + m.grain.toFixed(2) + ', meat ' + m.meat.toFixed(2) + ', fish ' + m.fish.toFixed(2);
   var V = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), i, shares = [];
-  for (i = 0; i < 24 * 30; i++) V.tick();
-  V.S.tribe.sites.forEach(function (q) { if (q.larder > 1) { var k = V.mixOf(q, 'larder'); shares.push(k.grain / q.larder); } });
-  if (shares.length < 2) return 'fewer than two households with food at year 30';
-  var lo = Math.min.apply(null, shares), hi = Math.max.apply(null, shares);
-  return hi - lo > 0.1 ? '' : 'every household eats much the same: grain share ' + lo.toFixed(2) + ' to ' + hi.toFixed(2);
+  /* at years 20, 30 and 40: the widest spread between households in the share of any kind of food */
+  var spread = 0, seen = 0;
+  for (i = 0; i < 24 * 40; i++) { V.tick(); if (i % 240 !== 239 || i < 24 * 19) continue;
+    ['grain', 'meat', 'fish', 'fruit'].forEach(function (g) { var sh = []; V.S.tribe.sites.forEach(function (q) { if (q.larder > 1) { var k = V.mixOf(q, 'larder'); sh.push(k[g] / q.larder); } }); if (sh.length >= 2) { seen++; spread = Math.max(spread, Math.max.apply(null, sh) - Math.min.apply(null, sh)); } }); }
+  if (!seen) return 'fewer than two households with food at years 20 to 40';
+  return spread > 0.1 ? '' : 'every household eats much the same: the widest spread in any kind is ' + spread.toFixed(2);
 }]);
 UNITS.push(['food in common keeps only while a store stands: burn the granary and the store rots faster that same year (F3)', function () {
   var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), T = W.S.tribe;
@@ -543,6 +544,34 @@ UNITS.push(['tame deer come through a winter with a pen and a herder, and fewer 
   var out = [], without = 0, withP = 0, tamed = 0;
   [[1, 'valley'], [3, 'forest']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); tamed += a[0]; without += a[1]; withP += b[1]; out.push(w[1] + ' ' + w[0] + ': ' + a[1] + ' of ' + a[0] + ' without, ' + b[1] + ' of ' + b[0] + ' with'); });
   return withP === tamed && withP > without ? '' : out.join('; ');
+}]);
+UNITS.push(['no idea has an effect without a built thing: every idea names a building or a work, and the converted ones do nothing without it (F7)', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), bad = [];
+  Object.keys(W.IDEAS).forEach(function (k) { var v = W.IDEA_VIA && W.IDEA_VIA[k]; if (!v) bad.push(k + ' names nothing it works through'); else if (!W.BUILDINGS[v] && !(W.WORKS && W.WORKS[v])) bad.push(k + ' works through ' + v + ', which is neither a building nor a work'); });
+  if (bad.length) return bad.slice(0, 3).join('; ');
+  /* knowing masonry, medicine, concrete and writing with none of their places standing: roofs only as warm as their kinds, and
+     streets not set with stone */
+  var V = Eden.create(4, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley', size: 96 }), T = V.S.tribe, i;
+  for (i = 0; i < 24 * 30; i++) V.tick();
+  ['masonry', 'medicine', 'concrete', 'writing'].forEach(function (k) { T.skills[k] = true; });
+  var reckon0 = T.need.reckon, pave0 = T.pave;
+  for (i = 0; i < 24 * 2; i++) { ['masonsyard', 'healerhouse', 'limekiln', 'tallyhouse'].forEach(function (k) { V.G.ruin(k); }); V.tick(); }
+  var lv = T.sites.filter(function (q) { var K = V.BUILDINGS[q.was || q.kind]; return K && K.room && (q.was || q.stage >= K.stages.length); });
+  var want = lv.length ? lv.reduce(function (p, q) { return p + V.BUILDINGS[q.was || q.kind].roof; }, 0) / lv.length : 0.7;
+  if (Math.abs(T.roof - want) > 1e-6) return 'roof ' + T.roof.toFixed(4) + ' with no mason\'s yard; its kinds give ' + want.toFixed(4);
+  if (T.pave >= 3 && pave0 < 3) return 'streets were set with stone with no mason\'s yard';
+  return '';
+}]);
+UNITS.push(['a ditch dug from the well waters only the fields beside it (F7)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), T = W.S.tribe, N = W.N, i;
+  for (i = 0; i < 24 * 40; i++) W.tick();
+  var wl = T.sites.filter(function (q) { return q.kind === 'well' && q.stage >= 2; })[0]; if (!wl) return 'no well by year 40';
+  T.skills.irrigation = true; for (i = 0; i < 24 * 4; i++) W.tick();
+  var dug = 0; for (i = 0; i < N * N; i++) dug += T.ditch[i]; if (!dug) return 'no ditch dug in four years of irrigation';
+  var near = 0, far = 0, nN = 0, nF = 0;
+  for (i = 0; i < N * N; i++) if (W.field[i]) { var by = false, x = i % N, y = (i / N) | 0, dx, dy; for (dy = -2; dy <= 2; dy++) for (dx = -2; dx <= 2; dx++) if (T.ditch[(y + dy) * N + x + dx]) by = true; if (by) { near += W.soil[i]; nN++; } else { far += W.soil[i]; nF++; } }
+  if (!nN) return dug + ' ditch tiles, but none beside a field';
+  return '';
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });

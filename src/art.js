@@ -474,6 +474,41 @@ function penSprite(snow) {
   const tr = pt(0.5, 0.45); x.fillStyle = '#7a5a3a'; x.fillRect(tr[0] - 7, tr[1] - 3, 14, 5); x.fillStyle = snow ? '#f6f9fc' : '#e2c779'; x.fillRect(tr[0] - 6, tr[1] - 4, 12, 2);   /* the trough and its hay */
   return outlineCanvas(c, OUT);
 }
+// a mason's yard: dressed blocks stacked by a lean-to, a block on the banker being worked (F7)
+function masonsyardSprite(snow) {
+  const W = 56, H = 40, c = mk(W, H), x = c.getContext('2d'), ST = ['#c9c6b8', '#a39f90', '#7d796d'];
+  const block = (bx, by, w, h) => { for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) { x.fillStyle = yy < 2 ? (snow ? '#f6f9fc' : ST[0]) : xx < w * 0.6 ? ST[1] : ST[2]; x.fillRect(bx + xx, by + yy, 1, 1); } };
+  x.fillStyle = '#5e4430'; x.fillRect(4, 10, 2, 22); x.fillRect(24, 10, 2, 22); for (let yy = 6; yy < 13; yy++) { x.fillStyle = snow && yy < 9 ? '#f6f9fc' : yy % 2 ? '#8a6a48' : '#6e5137'; x.fillRect(2, yy, 26, 1); }
+  block(30, 26, 10, 7); block(41, 26, 10, 7); block(35, 19, 10, 7); block(8, 24, 12, 6); x.fillStyle = '#5e4430'; x.fillRect(10, 30, 2, 6); x.fillRect(16, 30, 2, 6);
+  return outlineCanvas(c, OUT);
+}
+// a healer's house: a small low house with a herb garden fenced in front (F7)
+function healerhouseSprite(snow) {
+  const W = 56, H = 46, c = mk(W, H), x = c.getContext('2d'), PL = ['#b08a5c', '#957148', '#7a5a3a', '#5e4430'], TH = ['#7fae62', '#5f8f4a'];
+  for (let yy = 18; yy < 34; yy++) for (let xx = 6; xx < 34; xx++) { const left = xx < 18, plank = (xx >> 2) % 2; x.fillStyle = left ? PL[plank] : PL[plank + 2]; x.fillRect(xx, yy, 1, 1); }
+  x.fillStyle = '#3e2c1f'; x.fillRect(10, 24, 6, 10);
+  for (let yy = 4; yy < 20; yy++) { const half = 2 + (yy - 4) * 1.1; for (let xx = Math.round(20 - half); xx <= Math.round(20 + half); xx++) { x.fillStyle = snow && yy < 12 ? '#f6f9fc' : (xx < 20 ? '#c9a95a' : '#a8873f'); x.fillRect(xx, yy, 1, 1); } }
+  for (let yy = 34; yy < 44; yy++) for (let xx = 30; xx < 54; xx++) { x.fillStyle = snow ? '#e8edf2' : ((xx + yy * 3) % 5 ? TH[(xx >> 1) % 2] : '#d86fa0'); x.fillRect(xx, yy, 1, 1); }   /* the herbs, a few in flower */
+  x.fillStyle = '#6e5137'; x.fillRect(30, 33, 24, 1); x.fillRect(30, 43, 24, 1); x.fillRect(30, 33, 1, 11); x.fillRect(53, 33, 1, 11);
+  return outlineCanvas(c, OUT);
+}
+// a lime kiln: a squat stone tower with a draw-hole, white lime spilled at its foot (F7)
+function limekilnSprite(snow) {
+  const W = 40, H = 48, c = mk(W, H), x = c.getContext('2d'), ST = ['#b9b5aa', '#9a968c', '#77736a'];
+  for (let yy = 6; yy < 44; yy++) { const half = 10 + (yy - 6) * 0.18; for (let xx = Math.round(20 - half); xx <= Math.round(20 + half); xx++) { let col = ST[(xx < 18 ? 0 : xx < 24 ? 1 : 2)]; if (((xx >> 2) + (yy >> 2)) % 2 && xx > 22) col = '#5d5a53'; if (snow && yy < 10) col = '#f6f9fc'; x.fillStyle = col; x.fillRect(xx, yy, 1, 1); } }
+  x.fillStyle = '#2a1a12'; x.fillRect(16, 32, 8, 10); x.fillStyle = '#e8743a'; x.fillRect(18, 37, 4, 4);
+  x.fillStyle = '#f0eee6'; x.fillRect(6, 43, 10, 3); x.fillRect(26, 44, 8, 2);
+  return outlineCanvas(c, OUT);
+}
+// a tally house: a small timber house with a tall post notched with marks by its door (F7)
+function tallyhouseSprite(snow) {
+  const W = 48, H = 48, c = mk(W, H), x = c.getContext('2d'), PL = ['#b08a5c', '#957148', '#7a5a3a', '#5e4430'];
+  for (let yy = 20; yy < 38; yy++) for (let xx = 6; xx < 34; xx++) { const left = xx < 18, plank = (yy >> 1) % 2; x.fillStyle = left ? PL[plank] : PL[plank + 2]; x.fillRect(xx, yy, 1, 1); }
+  x.fillStyle = '#3e2c1f'; x.fillRect(10, 27, 6, 11);
+  for (let yy = 6; yy < 22; yy++) { const half = 2 + (yy - 6) * 1.05; for (let xx = Math.round(20 - half); xx <= Math.round(20 + half); xx++) { x.fillStyle = snow && yy < 13 ? '#f6f9fc' : (yy % 3 ? '#8a6a48' : '#6e5137'); x.fillRect(xx, yy, 1, 1); } }
+  x.fillStyle = '#7a5a3a'; x.fillRect(40, 8, 3, 32); x.fillStyle = '#f0e2c0'; for (let k = 0; k < 7; k++) x.fillRect(40, 11 + k * 4, 3, 1);   /* the notched post */
+  return outlineCanvas(c, OUT);
+}
 // a dwelling at the water's edge stands on posts with a landing in front, and the flood passes under it
 function onStilts(img) {
   const lift = 12, c = mk(img.width + 8, img.height + lift), x = c.getContext('2d'), w = img.width, base = img.height + lift;
@@ -699,7 +734,7 @@ function build() {
   for (const k of ['grown', 'old', 'young', 'tot']) for (const o of people[k]) o.lie = { r: rot(o.r[0]), l: flip(rot(o.r[0])) };
   A.look.human = people;
   A.hut = hutSprite(false); A.hutSnow = hutSprite(true); A.house = A.hut; A.houseSnow = A.hutSnow;   // a drawn house replaces these when its sheet is there
-  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.granary = granarySprite(false); A.granarySnow = granarySprite(true); A.storehouse = storehouseSprite(false); A.storehouseSnow = storehouseSprite(true); A.kiln = kilnSprite(false); A.kilnSnow = kilnSprite(true); A.smithy = smithySprite(false); A.smithySnow = smithySprite(true); A.workshop = workshopSprite(false); A.workshopSnow = workshopSprite(true); A.pen = penSprite(false); A.penSnow = penSprite(true); A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.garden = [1, 2, 3].map(gardenSprite); A.bench = benchSprite(false); A.benchCarved = benchSprite(true); A.woodpile = [1, 2, 3].map(woodpileSprite); A.logSeat = logSeatSprite(); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.bridgePilesX = bridgeSprite(true, true); A.bridgePilesY = bridgeSprite(false, true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
+  A.tent = tentSprite(false); A.tentSnow = tentSprite(true); A.granary = granarySprite(false); A.granarySnow = granarySprite(true); A.storehouse = storehouseSprite(false); A.storehouseSnow = storehouseSprite(true); A.kiln = kilnSprite(false); A.kilnSnow = kilnSprite(true); A.smithy = smithySprite(false); A.smithySnow = smithySprite(true); A.workshop = workshopSprite(false); A.workshopSnow = workshopSprite(true); A.pen = penSprite(false); A.penSnow = penSprite(true); for (const [k, f] of [['masonsyard', masonsyardSprite], ['healerhouse', healerhouseSprite], ['limekiln', limekilnSprite], ['tallyhouse', tallyhouseSprite]]) { A[k] = f(false); A[k + 'Snow'] = f(true); } A.well = wellSprite(false); A.wellSnow = wellSprite(true); A.garden = [1, 2, 3].map(gardenSprite); A.bench = benchSprite(false); A.benchCarved = benchSprite(true); A.woodpile = [1, 2, 3].map(woodpileSprite); A.logSeat = logSeatSprite(); A.bridgeX = bridgeSprite(true); A.bridgeY = bridgeSprite(false); A.bridgePilesX = bridgeSprite(true, true); A.bridgePilesY = bridgeSprite(false, true); A.fenceX = fenceSprite(true); A.fenceY = fenceSprite(false); A.gateX = fenceSprite(true, true); A.gateY = fenceSprite(false, true); A.onStilts = onStilts; A.burrow = burrowSprite(false); A.burrowSnow = burrowSprite(true); A.den = denSprite(false); A.denSnow = denSprite(true); A.peek = sprite(peek, RAB);
   A.fire = fire.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.flame = flame.map(f => sprite(f, FIRE, { x2: true, flat: true, noOutline: true })); A.basket = sprite(basket, BASK, { x2: true }); A.bones = sprite(bones, BONE, { x2: true });
   A.bubble = {}; for (const k in ICON) A.bubble[k] = bubble(ICON[k]);
   A.item = {}; for (const k in ITEMS) A.item[k] = sprite(ITEMS[k][0], ITEMS[k][1]); A.item.basket = sprite(basket, BASK);
