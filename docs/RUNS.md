@@ -989,3 +989,44 @@ Size 96, seeds 1 and 2:
 | mean |  | 16.8 | 69.2 | 142.5 | 153.2 | 47.4 | 134.6 | 0.3 | 12 |  | 2.6 | 8.2 | 20 | 5.3 | 43.4 | 1.1 | 1240.8 | 99.2 | 26.5 | 4.7 |  |  | 46.6 | 5.3 | 18.9 | 0.3 | 0 | 17998.9 |
 
 Year 100 mean 142.5 (162.6 at H3), dwellings 47.4 (50.0), hunger deaths 134.6 (153.8), 3 resettles (forest 1), as before. Trading households give a person's day to the walk, which is likely most of the drop.
+
+
+## I1 (with I2's height limits): where to put a roof, and upper floors
+
+A household that needs a roof now weighs, as the design note says, one cost for every option: the building work spread over ten years, plus the days lost each year walking from that door, counted from the household's own trips last year:
+- to the centre (store, market, building plots, guard);
+- to its own fields (at half weight);
+- out past the edge of the place for foraging, timber, firewood, stone and game. A door near the middle is far from those; this third part is my addition to the note, and without it everyone moved inward.
+
+Building work is counted in a person's days: 12 for each unit of timber, 18 for each of stone, 20 for each stage, so a house is about 190 days. The options are the best free lot, or an upper floor above a house of the same kind that is one's own or a kinsman's. A floor costs 1.6 times the building, and its stairs add 1.5 tiles a floor to every trip. A floor is only weighed against a free lot actually found, or once the whole map has been searched; before, the household waits while the search widens, as it did. Floors are capped by means (I2): two with timber alone, four with a mason's yard standing, six with a lime kiln.
+
+Deviation from the plan: a second ground-floor roof on a kin's lot is not an option. A lot (4 tiles, a 3x3 yard) has no room for one; the choice is a free lot or a floor up.
+
+A floor is a site of its own (its own household, larder and hearth) marked as standing `upon` a house, at its tile. It comes down with the house, is never rebuilt as a better kind on its own, and is drawn as part of the house: the house's wall band (below the eaves at 0.69 of the drawing) repeated once per floor, with scaffolding while one goes up.
+
+Checks:
+- Scenario "held at 30 people", 100 years: no lot has more than one dwelling. It failed three times on the way: floors chosen when no lot had been found yet; a cheap hut floor compared against building a whole house; outward trips not counted.
+- New yearly invariant: no house has more than two floors where masonry is not known, nor more than six anywhere.
+- The one-site-per-tile check now allows floors, and fails a floor that stands on nothing.
+- In 100-year worlds at 96: lakeland 1 has 12 upper floors, plains 1 has 3, valley 1 has 9. With an earlier weighting, houses with floors were nearer the centre than houses in general (valley 1: 10.9 against 15.2 tiles).
+- Tests 504 passed, 0 failed; scenarios 23 passed. Still: a two-floor house at plains 1, year 100.
+
+Cost: floors make the places a little smaller. On the 15 extra worlds, year 100 is 109.5 against 115.7 with floors switched off (the same code otherwise gives exactly H4's numbers). In the table below, 119.6 against 142.5 at H4. Households that move up into the centre are farther from what grows wild.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 77 | 168 | 187 | 48 | 139 | 0 | 12 | 17/67/0 | 2.8 | 20.9 | 24.8 | 6 | 29 | 1 | 3432 | 115 | 34.7 | 6.8 |  | 83/2/2/0/10 | 54 | 6.9 | 17 | 3 | 0 | 17813 |
+| valley | 2 | 7 | 63 | 104 | 120 | 35 | 119 | 0 | 10 | 13/96/6 | 2.7 | 0 | 24.7 | 3.9 | 19 | 1.1 | 434 | 143 | 30.9 | 4.9 | 0 (1) | 85/3/3/0/7 | 49 | 4.8 | 13 | 0 | 0 | 16284 |
+| plains | 1 | 19 | 119 | 242 | 346 | 71 | 346 | 0 | 14 | 0/342/5 | 2.6 | 19.1 | 21.7 | 7.5 | 81 | 1 | 2141 | 114 | 34.1 | 4.5 | 0 (1) | 83/0/1/0/13 | 56 | 7.5 | 25 | 0 | 0 | 30294 |
+| plains | 2 | 26 | 105 | 99 | 116 | 44 | 129 | 0 | 11 | 6/284/5 | 2.4 | 20.4 | 17.2 | 7.4 | 91 | 1.1 | 963 | 36 | 17.8 | 5.6 |  | 83/1/0/1/11 | 44 | 5.8 | 21 | 0 | 0 | 15700 |
+| forest | 1 | 3 | 10 | 134 | 135 | 32 | 57 | 3 | 10 | 15/91/8 | 2.6 | 13.5 | 19.5 | 3.8 | 23 | 1 | 493 | 57 | 25 | 7.3 |  | 81/3/2/0/11 | 36 | 4.6 | 17 | 0 | 0 | 12428 |
+| forest | 2 | 25 | 109 | 89 | 129 | 35 | 144 | 0 | 13 | 11/219/0 | 2.5 | 0 | 21.7 | 3.8 | 28 | 1.1 | 305 | 43 | 22 | 4.7 | 8.4 (5) | 75/0/3/1/18 | 31 | 4.2 | 13 | 0 | 0 | 18222 |
+| lakeland | 1 | 13 | 81 | 203 | 225 | 76 | 146 | 0 | 13 | 24/43/5 | 2.8 | 0 | 24 | 4.7 | 59 | 1.1 | 1805 | 145 | 29.2 | 5.6 | 1.5 (2) | 82/0/3/0/12 | 64 | 7.6 | 21 | 0 | 0 | 23185 |
+| lakeland | 2 | 10 | 57 | 87 | 105 | 35 | 96 | 0 | 12 | 7/95/2 | 2.6 | 0 | 15.8 | 4.8 | 35 | 1.1 | 591 | 90 | 21.5 | 4 | 0 (1) | 83/1/1/0/12 | 35 | 4.8 | 17 | 0 | 0 | 12898 |
+| highland | 1 | 23 | 47 | 53 | 53 | 17 | 76 | 0 | 13 | 9/51/0 | 2.8 | 0 | 18.1 | 6.1 | 10 | 1 | 44 | 53 | 20.1 | 3 |  | 75/0/1/0/23 | 47 | 6.4 | 9 | 0 | 0 | 10598 |
+| highland | 2 | 14 | 12 | 17 | 23 | 2 | 65 | 0 | 11 | 3/92/0 | 2.9 | 2 | 6.3 | 5.6 | 0 |  | 15 | 18 | 12.6 | 2.2 |  | 58/7/0/0/35 | 27 | 5.7 | 8 | 0 | 0 | 6093 |
+| mean |  | 16.8 | 68 | 119.6 | 143.9 | 39.5 | 131.7 | 0.3 | 11.9 |  | 2.7 | 7.6 | 19.4 | 5.4 | 37.5 | 1.1 | 1022.3 | 81.4 | 24.8 | 4.9 |  |  | 44.3 | 5.8 | 16.1 | 0.3 | 0 | 16351.5 |
+
+Year 100 mean 119.6 (142.5 at H4), dwellings 39.5 (47.4; floors are not counted as dwellings in this column), hunger deaths 131.7 (134.6), 3 resettles (forest 1), as before.

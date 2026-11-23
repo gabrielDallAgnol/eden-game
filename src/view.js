@@ -512,10 +512,23 @@ function syncHuts() {
       h.p = Math.min(h.p, tp);
       if (h.kind !== st.kind) h.p = 0.05;
     }   // washed out, or being rebuilt as something better
-    h.kind = st.kind; h.was = st.was; h.lake = st.lake; h.target = tp; h.live = !!(W.BUILDINGS[st.kind] || { room: 1 }).room && (!!st.was || st.stage >= n);
+    h.kind = st.kind; h.was = st.was; h.lake = st.lake; h.target = tp; h.upon = st.upon || 0;
+    /* I1: a floor built upon a house is drawn as part of it; the house below counts its floors, the finished ones and one being built */
+    h.floors = 1 + sites.filter(u => u.upon === st.id && u.stage >= W.DWELL[u.kind].stages).length; h.floorUp = sites.some(u => u.upon === st.id && u.stage < W.DWELL[u.kind].stages); h.live = !!(W.BUILDINGS[st.kind] || { room: 1 }).room && (!!st.was || st.stage >= n);
     const K = W.DWELL[st.kind]; h.wood = st.wood - st.stage * K.wood; h.stone = st.stone - st.stage * K.stone;   // lying on the plot, not yet built in
   }
   for (let k = sites.length; k < huts.length; k++) if (huts[k] && !huts[k].die) { huts[k].die = now; burst(huts[k].x, huts[k].y, 'debris', 16); }
+}
+/* a house of several floors: its own drawing with the wall band (the middle of the picture, between the eaves and the footing)
+   repeated once for every floor above the first */
+const storeyCache = new Map(); let storeyIds = new WeakMap(), storeyN = 0;
+function storeyed(im, floors) {
+  if (floors <= 1) return im; let id = storeyIds.get(im); if (!id) storeyIds.set(im, id = ++storeyN); const key = id + ':' + floors; let c = storeyCache.get(key); if (c) return c;
+  const H = im.height, top = Math.round(H * 0.69), band = Math.round(H * 0.2), add = band * (floors - 1);   /* the roof ends at about 0.69 of the drawing; the walls run below it */ c = mkC(im.width, H + add); const x = c.getContext('2d');
+  x.drawImage(im, 0, top, im.width, H - top, 0, top + add, im.width, H - top);                         /* the ground floor and footing */
+  for (let k = 0; k < floors - 1; k++) x.drawImage(im, 0, top, im.width, band, 0, top + add - band * (k + 1), im.width, band);   /* a band of wall for each floor above */
+  x.drawImage(im, 0, 0, im.width, top, 0, 0, im.width, top);                                          /* the roof on top */
+  storeyCache.set(key, c); return c;
 }
 const mirrors = new WeakMap();
 function mirrorOf(im) { let m = mirrors.get(im); if (!m) { m = mkC(im.width, im.height); const x = m.getContext('2d'); x.translate(im.width, 0); x.scale(-1, 1); x.drawImage(im, 0, 0); mirrors.set(im, m); } return m; }
@@ -1286,8 +1299,9 @@ function frame(t) {
     /* a house turns its door toward the fire and the way its people walk: the drawing has the door on its left, so a house
        with the fire off to its right on screen is drawn mirrored (straight below the fire, half each way) */
     const toFire = (camp.x - camp.y) - (h.x - h.y), flip = toFire > 0.5 || (Math.abs(toFire) <= 0.5 && h.id % 2 === 1), face = im => flip ? mirrorOf(im) : im;
-    if (h.was && h.p < 1) put(face(dwellImg(h.was, h.lake, snowy)), wx, wy, { scaf: h.p, alpha: al < 1 ? al : undefined, hut: h });   // lived in while it is rebuilt around them
-    else put(face(dwellImg(h.kind, h.lake, snowy)), wx, wy, { build: h.p < 1 ? h.p : undefined, alpha: al < 1 ? al : undefined, hut: h });
+    if (h.upon) continue;   /* drawn with the house it stands on */
+    if (h.was && h.p < 1) put(face(storeyed(dwellImg(h.was, h.lake, snowy), h.floors || 1)), wx, wy, { scaf: h.p, alpha: al < 1 ? al : undefined, hut: h });   // lived in while it is rebuilt around them
+    else put(face(storeyed(dwellImg(h.kind, h.lake, snowy), (h.floors || 1) + (h.floorUp ? 1 : 0))), wx, wy, { build: h.p < 1 ? h.p : undefined, scaf: h.floorUp ? 0.6 : undefined, alpha: al < 1 ? al : undefined, hut: h });
   }
   for (let k = huts.length - 1; k >= 0 && !huts[k]; k--) huts.pop();
   for (const g of graves) { const wx = isoX(g.x, g.y), wy = isoY(g.x, g.y); if (vis(wx, wy)) put(A.grave, wx, wy + 4, { alpha: clamp((now - g.born) / 3000, 0, 1) }); }

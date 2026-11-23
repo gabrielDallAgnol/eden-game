@@ -1563,6 +1563,40 @@ function create(seed, opt) {
   // kin, near where its work is (water for a fisher, fields for a farmer, timber for those who work wood), on ground that is
   // dry, open and not somebody's crop, with a little elbow room. Low wet ground by the water is only feared once a flood
   // has been seen to take a roof; and only then does anyone think of raising a house on posts.
+  /* the work of building a kind, in days of one person's work: felling and carrying each unit of timber (12), breaking and
+     carrying each of stone (18), and raising each stage (20). A house of three stages is about 190 days */
+  const buildWork = kind => { const K = BUILDINGS[kind]; let w = 0; for (const st of K.stages) w += 12 * (st.wood || 0) + 18 * (st.stone || 0) + 20; return w; };
+  /* how many floors a house may have here: timber alone two, with a mason's yard four, with a lime kiln six (I2) */
+  const floorCap = () => standing('limekiln') ? 6 : standing('masonsyard') ? 4 : 2;
+  const floorsOf = q => 1 + S.tribe.sites.filter(u => u.upon === q.id).length;
+  /* the days a year lost to walking from a door: the household's trips last year, each there and back at PACE tiles a step, to the
+     centre (the fire, the store, the market, the building plots, the place of work) and to its own fields; stairs add to every trip */
+  function walkYear(x, y, who, stairs) {
+    const T = S.tribe, h = homeSite(who) || (who.mom && homeSite(S.byId.get(who.mom) || {})) || null, tr = (h && h.tripsLast) || { store: 40, build: 10 };
+    const centre = (tr.store || 0) + (tr.market || 0) + (tr.build || 0) + (tr.guard || 0), fieldsT = tr.forage || 0;
+    let fx = x, fy = y, nf = 0; if (h) { let sx = 0, sy = 0; for (const i of fieldTiles()) if (field[i] && owner[i] === h.id) { sx += i % N; sy += (i / N) | 0; nf++; } if (nf) { fx = sx / nf; fy = sy / nf; } }
+    /* and out past the edge of the place for what grows wild, timber, stone and game: a door near the middle is far from all that */
+    const outward = (tr.forage || 0) + (tr.timber || 0) + (tr.wood || 0) + (tr.stone || 0) + (tr.hunt || 0);
+    let edge = 0; for (const q of T.sites) if (!q.upon) edge = Math.max(edge, Math.hypot(q.x - T.x, q.y - T.y)); edge += 4;
+    const dc = Math.hypot(x - T.x, y - T.y) + stairs, df = (nf ? Math.hypot(x - fx, y - fy) : 0) + stairs, de = Math.max(0, edge - Math.hypot(x - T.x, y - T.y)) + stairs;
+    return (centre * 2 * dc + fieldsT * 0.5 * 2 * df + outward * 2 * de) / PACE / Math.max(1, (DAY || 4) - 1);
+  }
+  function roofChoice(kind, who, freeI) {
+    const T = S.tribe, P = folk(), H = 10;
+    if (freeI < 0 && T.lotReach < N) return null;   /* no free lot in reach yet: look further first, as before; a floor only when the whole map has been looked over */
+    const freeCost = freeI >= 0 ? buildWork(kind) / H + walkYear(freeI % N, (freeI / N) | 0, who, 0) : Infinity;
+    let best = null, bc = freeCost;
+    for (const q of T.sites) { if (q.upon || !raised(q) || q.kind !== kind || !(kind === 'house' || kind === 'hut') || !q.members) continue;   /* a floor of the kind they would build anyway, at its cost */
+      if (!(q.id === who.house || P.some(b => b.house === q.id && kin(b, who)))) continue;   /* only above one's own or kin's roof */
+      const fl = floorsOf(q); if (fl >= floorCap()) continue;
+      const c = buildWork(q.kind) * 1.6 / H + walkYear(q.x, q.y, who, 1.5 * fl);
+      if (c < bc) { bc = c; best = q; } }
+    if (!best) return null;
+    const s = { id: S.nextId++, x: best.x, y: best.y, kind: best.kind, stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, fuel: 0, lit: -1, was: '', lake: best.lake, forId: who.id, upon: best.id, level: floorsOf(best) };
+    T.sites.push(s); S.stat.storeys = (S.stat.storeys || 0) + 1;
+    if (!T.storeyTold) { T.storeyTold = true; tell('No free ground near enough: ' + who.name + '\'s household is building a floor above ' + (P.find(b => b.house === best.id && b.age >= WED) || { name: 'their kin' }).name + '\'s.'); }
+    return s;
+  }
   function choosePlot(kind, who) {
     const T = S.tribe, well = !!(BUILDINGS[kind] && !BUILDINGS[kind].room), P = folk(), craft = who ? (who.job || craftOf(who)) : '';
     const kinHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && kin(b, who))) : [];
@@ -1602,6 +1636,12 @@ function create(seed, opt) {
       if (sc > bs) { bs = sc; bestI = i; }
     }
     T.lotAcross = bestI < 0 ? across : null;
+    /* I1: where to put a roof, by one cost for every option: the build work spread over ten years, plus the work lost each year
+       walking from that door, from the household's own trips last year (fire, store, market, plots, workplace: the centre;
+       its fields). An upper storey on a kin's or one's own house costs 1.6 times the building, and its stairs add 1.5 tiles a floor */
+    if (who && !well && BUILDINGS[kind] && BUILDINGS[kind].room) {
+      const choice = roofChoice(kind, who, bestI); if (choice) return choice;
+    }
     if (bestI < 0) return null;
     const s = { id: S.nextId++,
       x: bestI % N,
@@ -1651,7 +1691,7 @@ function create(seed, opt) {
     { const hands = folk().filter(b => b.age >= GROWN && b.age <= 46).length, beasts = S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length, roofs = T.sites.filter(q => isHome(q) && q.members > 0).length;
       for (const [k, short] of [['pen', S.agents.some(b => b.alive && b.tame)], ['kiln', T.pots < roofs], ['smithy', T.tools < hands], ['workshop', T.cartsMade < beasts],
         ['masonsyard', T.sites.some(q => q.kind === 'house')], ['healerhouse', folk().some(b => b.age > 40)], ['limekiln', T.floodSeen && T.sites.some(q => q.kind === 'house')], ['tallyhouse', Object.keys(T.debts || {}).length > 8]]) if (short && T.skills[BUILDINGS[k].needsIdea] && !T.sites.some(q => q.kind === k)) return choosePlot(k, null); }
-    s = homes.filter(q => NEXT[q.kind] && T.skills[NEXT[q.kind]] && raised(q) && q.cold > 0.12 && (q.larder
+    s = homes.filter(q => !q.upon && NEXT[q.kind] && T.skills[NEXT[q.kind]] && raised(q) && q.cold > 0.12 && (q.larder
         || 0) >= q.members * 0.6).sort((p, q) => q.cold - p.cold)[0];   // something better is known: the household that has felt the cold most, and can feed itself meanwhile, rebuilds first
     if (s) { s.was = s.kind; s.kind = NEXT[s.kind]; s.stage = 0; s.wood *= RUBBLE_WOOD; s.stone *= RUBBLE_STONE; s.qtrips = 0; s.lake = T.floodSeen && bank[I(s.x, s.y)] > 0.5; return s; }
     return null;
@@ -1839,7 +1879,7 @@ function create(seed, opt) {
        that good is coin. Failures are counted over about the last year */
     { const fy = T.failYear || 0; T.failRate = (T.failRate || 0) * 0.5 + fy * 0.5; T.failYear = 0;
       if (!T.coin && (T.trades2 || 0) > 30 && T.failRate > 15 && T.given) { let best = null, bv = 0; for (const g in T.given) if (T.given[g] > bv) { bv = T.given[g]; best = g; }
-        if (best) { T.market = { x: T.x, y: T.y }; T.coin = best; T.coinAt = { trades: T.trades2, failRate: Math.round(T.failRate), year: Math.floor(S.t) }; tell('Too many trades come to nothing. Now ' + GOODS[best].says + ' is taken by everyone as payment, whether they need it that day or not: it has become the measure of things. The open ground round the fire is kept for a market.'); } } }
+        if (best) { T.market = { x: T.x, y: T.y }; T.coin = best; T.coinAt = { trades: T.trades2, failRate: Math.round(T.failRate * 10) / 10, year: Math.floor(S.t) }; tell('Too many trades come to nothing. Now ' + GOODS[best].says + ' is taken by everyone as payment, whether they need it that day or not: it has become the measure of things. The open ground round the fire is kept for a market.'); } } }
     /* debts: a tenth forgiven each year; those of a household that is gone are gone with it */
     if (T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); T.debts[key] *= 0.9; if (T.debts[key] < 0.05 || !T.sites.some(h => h.id === from) || !T.sites.some(h => h.id === to)) delete T.debts[key]; }
   }
@@ -1856,7 +1896,7 @@ function create(seed, opt) {
       /* the roof they leave goes to someone with none, if there is anyone; else it is taken down for its timber */
       const roofless = P.find(b => !b.house && !leaving.has(b.id) && b.age >= WED && (!b.partner || b.fem));
       if (roofless) { roofless.house = q.id; const pt = S.byId.get(roofless.partner); if (pt && pt.alive) pt.house = q.id; for (const c of childrenOf(roofless)) if (c.alive && !c.house && c.age < WED) c.house = q.id; q.movedT = S.t; }
-      else { const back = stageNeed(BUILDINGS[q.kind], BUILDINGS[q.kind].stages.length - 1, 'wood') * 0.5; T.wood += back; S.stat.woodBack = (S.stat.woodBack || 0) + back;   /* timber from a roof taken down, counted with what is carried home */ for (let j = 0; j < N * N; j++) if (owner[j] === q.id) owner[j] = 0; T.sites.splice(T.sites.indexOf(q), 1); }
+      else { const back = stageNeed(BUILDINGS[q.kind], BUILDINGS[q.kind].stages.length - 1, 'wood') * 0.5; T.wood += back; S.stat.woodBack = (S.stat.woodBack || 0) + back;   /* timber from a roof taken down, counted with what is carried home */ for (let j = 0; j < N * N; j++) if (owner[j] === q.id) owner[j] = 0; T.sites.splice(T.sites.indexOf(q), 1); for (const u of T.sites.filter(u => u.upon === q.id)) { for (const m of P) if (m.house === u.id) m.house = 0; T.sites.splice(T.sites.indexOf(u), 1); } }   /* the floors above come down with it */
       T.quarrelMoves = (T.quarrelMoves || 0) + 1;
       tell(worst[0].name + '\'s household has left its ' + q.kind + ' by ' + worst[1].name + '\'s door after too many hard words, and will build again away from them.' + (roofless ? ' ' + roofless.name + ' moves in.' : ''));
       return;   /* one leaving a year is enough to talk about */
