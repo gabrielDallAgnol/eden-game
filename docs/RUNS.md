@@ -905,3 +905,28 @@ Size 96, seeds 1 and 2:
 | mean |  | 18.4 | 91.4 | 150 | 200.6 | 50.8 | 201.1 | 0.3 | 12.7 |  | 2.7 | 8.3 | 19.9 | 5.6 | 59.9 | 1 | 1909.6 | 97.6 | 26.6 | 8.8 |  |  | 50.2 | 5.7 | 19.8 | 0.4 | 0 | 20580.7 |
 
 Year 100 mean 150.0 (140.8 at G5), dwellings 50.8 (44.7), hunger deaths 201.1 (174.6), 3 resettles (forest 1), as before.
+
+
+## H2: prices
+
+Once a season each place sets a price for each kind of food (`T.price`): what is wanted (a quarter of a year's eating for every mouth) against what is held in every larder and the common store. Each price moves half-way toward that every season, kept between 0.05 and 20. Where there is coin, prices are counted in it (the coin's own price is 1). Barter now trades at the ratio of prices (between 0.25 and 4) instead of the ratio of wants. In lakeland 1 at years 44 to 49: grain 0.14 to 0.26 (plenty in the larders), fish 1.5 to 2.6, fruit 0.5 to 1.05, meat at the cap of 20 (almost none held).
+
+Checks. New unit (the plan's): the same world twice from the start of year 40, one with every field blighted through the year; at the end of the year grain is dearer in the blighted one (lakeland 1: 0.116 normal against 0.154 blighted; valley 2: 0.184 against 0.276). Where grain is the coin its price stays 1 by definition, so there the test compares grain against fruit and fish (plains 1). New yearly invariant: every price finite and positive. Tests 489 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 30 | 83 | 197 | 217 | 63 | 185 | 0 | 13 | 7/128/0 | 2.7 | 17.7 | 25.1 | 5.7 | 118 | 1 | 2027 | 208 | 41.3 | 6.4 | 3 (4) | 81/0/3/2/13 | 62 | 5.5 | 25 | 3 | 0 | 25411 |
+| valley | 2 | 7 | 59 | 186 | 188 | 58 | 114 | 0 | 11 | 6/161/5 | 2.6 | 0 | 24.3 | 4 | 60 | 1.1 | 946 | 183 | 35.6 | 4.5 | 0 (3) | 80/1/3/1/13 | 53 | 4.2 | 21 | 0 | 0 | 19991 |
+| plains | 1 | 33 | 173 | 205 | 331 | 78 | 436 | 0 | 12 | 24/176/5 | 2.5 | 19.3 | 22.3 | 7.9 | 80 | 1 | 3717 | 104 | 32.5 | 5.1 |  | 80/0/0/0/19 | 60 | 6.6 | 29 | 0 | 0 | 34317 |
+| plains | 2 | 28 | 150 | 150 | 239 | 40 | 296 | 0 | 12 | 2/241/5 | 2.9 | 17.1 | 17.8 | 10.9 | 64 | 1 | 957 | 35 | 16.9 | 5.2 |  | 77/1/3/0/18 | 66 | 14.9 | 17 | 0 | 0 | 22187 |
+| forest | 1 | 3 | 10 | 224 | 224 | 61 | 75 | 3 | 13 | 12/179/1 | 2.6 | 13.5 | 25.2 | 4.2 | 22 | 0.9 | 3206 | 89 | 25.9 | 6.7 |  | 81/0/3/2/12 | 44 | 4.3 | 21 | 0 | 0 | 15145 |
+| forest | 2 | 25 | 133 | 97 | 144 | 37 | 158 | 0 | 14 | 1/119/0 | 2.5 | 0 | 21.3 | 3.8 | 51 | 1.1 | 356 | 75 | 23 | 5.2 | 0 (2) | 86/1/2/0/10 | 32 | 4.1 | 13 | 0 | 0 | 17183 |
+| lakeland | 1 | 17 | 109 | 218 | 233 | 78 | 171 | 0 | 13 | 11/141/3 | 2.7 | 0 | 20.9 | 5 | 55 | 1 | 2108 | 132 | 29.8 | 4.8 | 0 (1) | 81/0/2/0/16 | 66 | 5.3 | 25 | 0 | 0 | 26105 |
+| lakeland | 2 | 16 | 88 | 192 | 222 | 64 | 232 | 0 | 14 | 21/120/5 | 2.5 | 0 | 19.4 | 4.7 | 116 | 1 | 1220 | 182 | 31.6 | 4.5 | 3.5 (2) | 85/1/2/1/10 | 49 | 4.9 | 29 | 0 | 0 | 21602 |
+| highland | 1 | 21 | 48 | 46 | 71 | 25 | 116 | 0 | 14 | 1/58/5 | 2.8 | 0 | 18.4 | 7 | 35 | 1.1 | 2428 | 95 | 19 | 3.1 | 0.4 (5) | 68/0/4/0/26 | 44 | 6.1 | 13 | 0 | 0 | 11968 |
+| highland | 2 | 15 | 22 | 51 | 51 | 12 | 68 | 0 | 12 | 7/63/5 | 3 | 2 | 6.4 | 5.8 | 2 | 1.2 | 454 | 43 | 10.6 | 22.8 | 12 (1) | 56/0/0/0/44 | 27 | 4.6 | 9 | 0 | 0 | 6582 |
+| mean |  | 19.5 | 87.5 | 156.6 | 192 | 51.6 | 185.1 | 0.3 | 12.8 |  | 2.7 | 7 | 20.1 | 5.9 | 60.3 | 1 | 1741.9 | 114.6 | 26.6 | 6.8 |  |  | 50.3 | 6 | 20.2 | 0.3 | 0 | 20049.1 |
+
+Year 100 mean 156.6 (150.0 at H1), dwellings 51.6 (50.8), hunger deaths 185.1 (201.1), 3 resettles (forest 1), as before.

@@ -84,6 +84,7 @@ function WorldRun(land, seed, years, size) {
   add('debts', 'every debt between households is finite, not negative, and between households that exist (G3)');
   add('writing', 'writing is only worked out in a place with many open debts (more than 8) (G5)');
   add('coin', 'coin appears only where trade is busy: more than 30 trades and more than 15 failed a year when it came (H1)');
+  add('prices', 'every price is finite and positive (H2)');
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
@@ -339,6 +340,10 @@ WorldRun.prototype.yearly = function () {
   this.guard('coin', function (c) {
     if (!T || !T.coin) return c.skip('no coin yet'); var k = T.coinAt;
     if (k && k.trades > 30 && k.failRate > 15) c.ok(); else c.fail(at + T.coin + ' became coin with ' + JSON.stringify(k));
+  });
+  this.guard('prices', function (c) {
+    if (!T || !T.price) return c.skip('no prices yet'); var bad = Object.keys(T.price).filter(function (g) { var v = T.price[g]; return !(isFinite(v) && v > 0); });
+    if (bad.length) c.fail(at + bad.map(function (g) { return g + '=' + T.price[g]; }).join(', ')); else c.ok();
   });
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');
@@ -645,6 +650,15 @@ UNITS.push(['fishers\' and farmers\' households trade fish for grain; failed tra
   if (!tr) return 'no trade at all in two 60-year worlds';
   if (!(fails > 0)) return tr + ' trades and not one failed';
   return n > 0 ? '' : tr + ' trades, none of fish for grain between a fishing and a farming household';
+}]);
+UNITS.push(['a bad harvest raises the price of grain (H2)', function () {
+  var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: land, size: 96 }), S = W.S, N = W.N, i, j;
+    for (i = 0; i < 24 * 40; i++) W.tick(); while (S.t % 1 > 0.05) W.tick();
+    for (i = 0; i < 24; i++) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j]) W.grass[j] = 0; W.tick(); }
+    var p = S.tribe.price; return S.tribe.coin === 'grain' ? p.grain / ((p.fruit + p.fish) / 2) : p.grain; };   /* where grain is the coin, its price is against the rest */
+  var out = [], ok = true;
+  [[1, 'lakeland'], [2, 'valley']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(3) + ' normal, ' + b.toFixed(3) + ' blighted'); if (!(b > a)) ok = false; });
+  return ok ? '' : 'grain no dearer after a blighted year: ' + out.join('; ');
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });

@@ -671,6 +671,16 @@ function create(seed, opt) {
   /* G4. Barter, of an evening: a household with plenty of one kind and short of another offers a swap to a neighbour who has the
      other to spare and wants the first. How much changes hands is set by how badly each wants what the other has; an offer
      that finds the food but no want for what is offered is a failed trade */
+  /* H2. Prices, once a season: for each kind of food, what is wanted (a quarter of a year's eating for every mouth) against what is
+     held in every larder and the store. A price moves half-way toward that each season, and is counted in coin when there is one */
+  function prices() {
+    const T = S.tribe, P = folk(); if (!P.length) return; if (!T.price) T.price = { grain: 1, meat: 1, fish: 1, fruit: 1 };
+    const held = { grain: 0, meat: 0, fish: 0, fruit: 0 }, m = mixOf(T, 'store'); for (const g of FOODS) held[g] += m[g];
+    for (const q of T.sites) if (q.larder > 0) { const k = mixOf(q, 'larder'); for (const g of FOODS) held[g] += k[g]; }
+    const want = P.length * 0.25;
+    for (const g of FOODS) { const target = clamp(want / Math.max(0.2, held[g]), 0.05, 20); T.price[g] = T.price[g] * 0.5 + target * 0.5; }
+    if (T.coin && T.price[T.coin] > 0) { const c = T.price[T.coin]; for (const g of FOODS) T.price[g] /= c; }
+  }
   function barter(P) {
     const T = S.tribe, homes = T.sites.filter(q => isHome(q) && q.members > 0 && q.larder > 0.5);
     for (const h of homes) {
@@ -688,7 +698,8 @@ function create(seed, opt) {
       }
       if (!partner) { if (failed) { T.tradesFailed = (T.tradesFailed || 0) + 1; T.failYear = (T.failYear || 0) + 1; } continue; }
       /* the rate: what is given for one of what is got, as each wants the other's food */
-      const rate = clamp((wv + 0.02) / (wantOf(partner, give) + 0.02), 0.5, 2), gotAmt = Math.min(spareOf(partner, get), gv / rate, h.members * 0.8), gaveAmt = gotAmt * rate;
+      /* with prices, the rate is what the place pays for each (H2); without, how much more one side wants than the other */
+      const rate = T.price ? clamp(T.price[get] / Math.max(0.01, T.price[give]), 0.25, 4) : clamp((wv + 0.02) / (wantOf(partner, give) + 0.02), 0.5, 2), gotAmt = Math.min(spareOf(partner, get), gv / rate, h.members * 0.8), gaveAmt = gotAmt * rate;
       if (!(gotAmt > 0.05)) continue;
       const mh = mixOf(h, 'larder'), mp = mixOf(partner, 'larder');
       mh[give] -= gaveAmt; h.larder -= gaveAmt; mp[give] += gaveAmt; partner.larder += gaveAmt;
@@ -730,6 +741,7 @@ function create(seed, opt) {
   function society(dt) {
     const T = S.tribe, P = folk(); if (!P.length) return;
     togetherness(P, dt);
+    if (S.tickNo % (TPY / 4) === 0) prices();
     if (!DAY || S.tickNo % DAY === DAY - 2) barter(P);
     const evening = !DAY || S.tickNo % DAY === DAY - 2;
     T.kidsHungry = P.some(b => b.age < GROWN && b.e < 0.7);
