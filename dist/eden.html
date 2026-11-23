@@ -682,11 +682,11 @@ function create(seed, opt) {
       for (const g of FOODS.filter(k => k !== give && wantOf(h, k) >= 0.05).sort((p, q) => wantOf(h, q) - wantOf(h, p))) {
         let best = 0;
         for (const n of homes) { if (n === h || cheb(n, h) > PITCH * 2) continue; const has = spareOf(n, g); if (has < 0.15) continue;
-          const theirWant = wantOf(n, give); if (theirWant < 0.03) { failed = true; continue; }
+          const theirWant = give === T.coin ? Math.max(0.05, wantOf(n, give)) : wantOf(n, give); if (theirWant < 0.03) { failed = true; continue; }   /* coin is taken whether it is wanted today or not (H1) */
           const v = Math.min(has, gv) * theirWant; if (v > best) { best = v; partner = n; } }
         if (partner) { get = g; wv = wantOf(h, g); break; }
       }
-      if (!partner) { if (failed) T.tradesFailed = (T.tradesFailed || 0) + 1; continue; }
+      if (!partner) { if (failed) { T.tradesFailed = (T.tradesFailed || 0) + 1; T.failYear = (T.failYear || 0) + 1; } continue; }
       /* the rate: what is given for one of what is got, as each wants the other's food */
       const rate = clamp((wv + 0.02) / (wantOf(partner, give) + 0.02), 0.5, 2), gotAmt = Math.min(spareOf(partner, get), gv / rate, h.members * 0.8), gaveAmt = gotAmt * rate;
       if (!(gotAmt > 0.05)) continue;
@@ -696,7 +696,7 @@ function create(seed, opt) {
       { /* who trades with whom, for the record: a fishing household has a fisher or lives mostly on fish; a farming one has a farmer or fields */
         const fishing = q => P.some(b => b.house === q.id && b.job === 'fisher') || mixOf(q, 'larder').fish > q.larder * 0.4, farming = q => P.some(b => b.house === q.id && b.job === 'farmer') || (q.fields || 0) > 0;
         if ((give === 'fish' && get === 'grain' && fishing(h) && farming(partner)) || (give === 'grain' && get === 'fish' && farming(h) && fishing(partner))) T.fishForGrain = (T.fishForGrain || 0) + 1; }
-      T.trades2 = (T.trades2 || 0) + 1; const tk = give + '>' + get; if (!T.swaps) T.swaps = {}; T.swaps[tk] = (T.swaps[tk] || 0) + 1;
+      T.trades2 = (T.trades2 || 0) + 1; if (!T.given) T.given = {}; T.given[give] = (T.given[give] || 0) + 1; const tk = give + '>' + get; if (!T.swaps) T.swaps = {}; T.swaps[tk] = (T.swaps[tk] || 0) + 1;
       if (!T.barterTold) { T.barterTold = true; const a = P.find(b => b.house === h.id && b.age >= WED), b = P.find(c => c.house === partner.id && c.age >= WED); if (a && b) tell(a.name + ' has traded ' + GOODS[give].says + ' for ' + GOODS[get].says + ' with ' + b.name + '\'s household. Each had too much of one and too little of the other.'); }
     }
   }
@@ -1844,6 +1844,11 @@ function create(seed, opt) {
   function yearlyTies() {
     const T = S.tribe;
     quarrels();
+    /* H1: when many trades fail for want of a match, the good most often handed over in trade is taken by everyone as payment:
+       that good is coin. Failures are counted over about the last year */
+    { const fy = T.failYear || 0; T.failRate = (T.failRate || 0) * 0.5 + fy * 0.5; T.failYear = 0;
+      if (!T.coin && (T.trades2 || 0) > 30 && T.failRate > 15 && T.given) { let best = null, bv = 0; for (const g in T.given) if (T.given[g] > bv) { bv = T.given[g]; best = g; }
+        if (best) { T.coin = best; T.coinAt = { trades: T.trades2, failRate: Math.round(T.failRate), year: Math.floor(S.t) }; tell('Too many trades come to nothing. Now ' + GOODS[best].says + ' is taken by everyone as payment, whether they need it that day or not: it has become the measure of things.'); } } }
     /* debts: a tenth forgiven each year; those of a household that is gone are gone with it */
     if (T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); T.debts[key] *= 0.9; if (T.debts[key] < 0.05 || !T.sites.some(h => h.id === from) || !T.sites.some(h => h.id === to)) delete T.debts[key]; }
   }

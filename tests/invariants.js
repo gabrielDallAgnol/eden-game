@@ -83,6 +83,7 @@ function WorldRun(land, seed, years, size) {
   add('places', 'the Town panel\'s places of work list every standing workshop, kiln, smithy and pen, with exactly those whose trade is there (F6)');
   add('debts', 'every debt between households is finite, not negative, and between households that exist (G3)');
   add('writing', 'writing is only worked out in a place with many open debts (more than 8) (G5)');
+  add('coin', 'coin appears only where trade is busy: more than 30 trades and more than 15 failed a year when it came (H1)');
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
@@ -334,6 +335,10 @@ WorldRun.prototype.yearly = function () {
   this.guard('writing', function (c) {
     if (!T || !T.skills || !T.skills.writing) return c.skip('writing not known yet'); if (T.writingDebts === undefined) return c.skip('learned before the debts were counted');
     if (T.writingDebts > 8) c.ok(); else c.fail(at + 'writing was worked out with only ' + T.writingDebts + ' open debts');
+  });
+  this.guard('coin', function (c) {
+    if (!T || !T.coin) return c.skip('no coin yet'); var k = T.coinAt;
+    if (k && k.trades > 30 && k.failRate > 15) c.ok(); else c.fail(at + T.coin + ' became coin with ' + JSON.stringify(k));
   });
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');

@@ -878,3 +878,30 @@ Size 96, seeds 1 and 2:
 | mean |  | 18.4 | 90.2 | 140.8 | 174.6 | 44.7 | 174.6 | 0.3 | 12.9 |  | 2.8 | 8.2 | 20 | 6.1 | 55.1 | 1 | 1166.8 | 111.7 | 24.7 | 9.1 |  |  | 48.9 | 7 | 18.6 | 0.3 | 0 | 19558.1 |
 
 Year 100 mean 140.8 (148.4 at G4), year 25 18.4 (18.4), dwellings 44.7 (48.2), hunger deaths 174.6 (166.6), 3 resettles (forest 1), as before.
+
+
+## H1: coin
+
+Failed barters are counted over about the last year (`T.failRate`), and what was handed over in trades is counted by kind (`T.given`). Once a place has made more than 30 trades and more than 15 fail a year, the kind most often handed over is taken by everyone as payment, whether they want it that day or not: it is coin (`T.coin`, with the trades and failures when it came in `T.coinAt`). In barter, a household offering coin finds a taker where before the trade would have failed. It is told: "Too many trades come to nothing. Now grain is taken by everyone as payment...".
+
+Checks. New yearly invariant: coin only where, when it came, more than 30 trades had been made and more than 15 failed a year. At size 96 over 100 years, coin came in all five worlds tried: lakeland 1 (grain, year 56), valley 2 (fruit, 49), plains 1 (grain, 36), highland 1 (fish, 49), forest 2 (grain, 43). Lakeland 1 made 1001 trades by year 100 with 333 failed; before coin there were 63 trades by year 60. In the small worlds the tests use (size 40, 40 years) coin came in 3 of 15. Tests 476 passed, 0 failed; scenarios 23 passed.
+
+Not done: metal coin once a smithy stands (the plan's "then metal") is left for H2, where prices come in.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 153 | 251 | 260 | 76 | 272 | 0 | 14 | 8/109/5 | 2.6 | 19.3 | 27.5 | 5.4 | 103 | 1 | 2264 | 184 | 35.7 | 5.6 |  | 87/0/2/0/10 | 63 | 5.9 | 25 | 4 | 0 | 34306 |
+| valley | 2 | 6 | 48 | 143 | 150 | 45 | 99 | 0 | 12 | 2/207/0 | 2.6 | 0 | 24.4 | 3.9 | 56 | 1 | 652 | 138 | 34.6 | 5.4 |  | 87/1/3/0/9 | 49 | 4.2 | 17 | 0 | 0 | 21478 |
+| plains | 1 | 29 | 164 | 288 | 470 | 101 | 498 | 0 | 14 | 25/161/5 | 2.7 | 23.8 | 24.3 | 8.7 | 111 | 0.9 | 9788 | 99 | 39.5 | 5.5 | 0 (1) | 79/0/1/0/15 | 78 | 8.3 | 33 | 0 | 0 | 45243 |
+| plains | 2 | 27 | 152 | 181 | 282 | 71 | 344 | 0 | 12 | 0/301/5 | 2.6 | 24.7 | 19.5 | 7.2 | 126 | 0.9 | 2398 | 102 | 24.7 | 5 |  | 78/0/1/0/19 | 59 | 5 | 29 | 0 | 0 | 22331 |
+| forest | 1 | 3 | 10 | 146 | 171 | 31 | 111 | 3 | 12 | 21/175/0 | 2.7 | 13.5 | 18.5 | 4.2 | 9 | 0.9 | 520 | 61 | 25.8 | 7.1 | 0 (1) | 84/0/3/0/12 | 38 | 4.4 | 13 | 0 | 0 | 12274 |
+| forest | 2 | 26 | 140 | 81 | 147 | 39 | 175 | 0 | 13 | 7/144/5 | 2.4 | 0 | 23.1 | 3.6 | 30 | 1.1 | 355 | 71 | 22.8 | 4.2 |  | 85/0/1/0/13 | 30 | 4.4 | 13 | 0 | 0 | 16455 |
+| lakeland | 1 | 11 | 60 | 190 | 256 | 73 | 149 | 0 | 12 | 8/114/0 | 2.9 | 0 | 22.1 | 4.8 | 72 | 1 | 1849 | 114 | 28.2 | 4.6 | 0 (2) | 76/0/2/0/21 | 63 | 4.5 | 21 | 0 | 0 | 18557 |
+| lakeland | 2 | 19 | 119 | 115 | 151 | 45 | 203 | 0 | 12 | 1/149/0 | 2.6 | 0 | 15.4 | 5.3 | 78 | 0.9 | 766 | 102 | 26.4 | 5.2 | 7 (1) | 83/1/2/0/14 | 46 | 5.2 | 25 | 0 | 0 | 18516 |
+| highland | 1 | 20 | 41 | 79 | 81 | 20 | 79 | 0 | 14 | 5/17/5 | 2.9 | 0 | 18.6 | 6.5 | 14 | 0.9 | 119 | 77 | 18.4 | 3 | 0 (1) | 66/2/3/0/19 | 50 | 10.1 | 13 | 0 | 0 | 9970 |
+| highland | 2 | 15 | 27 | 26 | 38 | 7 | 81 | 0 | 12 | 9/91/5 | 3.2 | 2 | 5.4 | 6.1 | 0 | 1.1 | 385 | 28 | 9.8 | 42 | 4.5 (2) | 72/4/2/3/19 | 26 | 5.2 | 9 | 0 | 0 | 6677 |
+| mean |  | 18.4 | 91.4 | 150 | 200.6 | 50.8 | 201.1 | 0.3 | 12.7 |  | 2.7 | 8.3 | 19.9 | 5.6 | 59.9 | 1 | 1909.6 | 97.6 | 26.6 | 8.8 |  |  | 50.2 | 5.7 | 19.8 | 0.4 | 0 | 20580.7 |
+
+Year 100 mean 150.0 (140.8 at G5), dwellings 50.8 (44.7), hunger deaths 201.1 (174.6), 3 resettles (forest 1), as before.
