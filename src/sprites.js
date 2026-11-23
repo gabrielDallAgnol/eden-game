@@ -20,7 +20,7 @@ S.apply = function (A, h) {
   const one = key => frames(key)[0];
   // Sizes. The sheets were drawn to fill their canvas, not to a common scale, so each is brought to Eden's proportions here
   // (a grown person stands about 36 px): deer about 34 px long, a house about 100 px tall. Art drawn at the right size needs 1.
-  const SCALE = { deer: 0.74, fawn: 0.74, cottage: 1.4 };
+  const SCALE = { deer: 0.74, fawn: 0.74, cottage: 1.4, cow: 0.8, calf: 0.8 };
   const sized = (c, f) => { if (f === 1) return c; if (f < 1) return shrink(c, f); const o = mk(Math.round(c.width * f), Math.round(c.height * f)), x = o.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(c, 0, 0, o.width, o.height); return o; };
   // a recoloured copy: fn(r, g, b, x, y, alphaAt) returns [r, g, b] or null to leave the pixel alone
   const recolour = (src, fn) => {
@@ -40,6 +40,7 @@ S.apply = function (A, h) {
     return { r: walk, l: walk.map(flip), w: walk[0].width, h: walk[0].height, lie: { r: last, l: flip(last) }, graze: { r: head, l: head.map(flip) } };
   };
   A.look.deer = { grown: [animal('deer')], young: [animal('fawn')] };
+  if (S.meta.cow_walk) A.look.cow = { grown: [animal('cow')], young: [animal('calf')] };   /* cattle: the drawing bought for them, a calf drawn smaller */
 
   // ---------------------------------------------------------------- the leaf tree, one drawing in every state the valley can put it in
   const green = one('tree_green'), autumn = one('tree_gold'), winter = one('tree_bare_snow'), blossom = one('tree_blossom');

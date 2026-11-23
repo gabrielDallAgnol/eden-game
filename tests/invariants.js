@@ -567,15 +567,17 @@ UNITS.push(['tame deer come through a winter with a pen and a herder (most of th
     S.agents.forEach(function (a) { if (a.alive && a.sp === 'deer' && a.age >= a.d.mature && n < 6) { a.tame = true; a.fear = 0; W.moveTo(a, T.x, T.y); n++; } });
     if (withPen) { var px = T.x, py = T.y, r, k, D;
       for (r = 2; r <= 4 && px === T.x; r++) { D = [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, -r]]; for (k = 0; k < D.length; k++) { var x = T.x + D[k][0], y = T.y + D[k][1], rt = W.route(T.x, T.y, x, y); if (px === T.x && rt.reached && rt.tiles.length <= r + 2) { px = x; py = y; } } }
-      T.hay = 8; T.sites.push({ id: 777777, x: px, y: py, kind: 'pen', stage: 1, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, fuel: 0, lit: -1, was: '', lake: false }); }
+      T.hay = 30; /* a winter's hay for six beasts: the herder feeds hay, not the people's food */ T.sites.push({ id: 777777, x: px, y: py, kind: 'pen', stage: 1, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, fuel: 0, lit: -1, was: '', lake: false }); }
     for (i = 0; i < 14; i++) {
       if (withPen) { var h = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 16 && a.age <= 46; }).sort(function (p, q) { return (q.job === 'herder') - (p.job === 'herder'); })[0]; if (h) h.job = 'herder'; }
       else S.agents.forEach(function (a) { if (a.job === 'herder') a.job = ''; });
       W.tick(); }
-    return [n, S.agents.filter(function (a) { return a.alive && a.tame; }).length];
+    return [n, S.agents.filter(function (a) { return a.alive && a.tame; }).length, S.popPeople];
   };
-  var out = [], without = 0, withP = 0, tamed = 0;
-  [[1, 'valley'], [3, 'forest']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); tamed += a[0]; without += a[1]; withP += b[1]; out.push(w[1] + ' ' + w[0] + ': ' + a[1] + ' of ' + a[0] + ' without, ' + b[1] + ' of ' + b[0] + ' with'); });
+  var out = [], without = 0, withP = 0, tamed = 0, used = 0;
+  /* worlds where people are living at that moment (a world waiting to be resettled has no one to keep beasts) */
+  [[1, 'valley'], [3, 'forest'], [2, 'valley'], [1, 'lakeland'], [2, 'forest']].forEach(function (w) { if (used >= 2) return; var a = run(false, w[0], w[1]); if (a[2] < 4) return; var b = run(true, w[0], w[1]); used++; tamed += a[0]; without += a[1]; withP += b[1]; out.push(w[1] + ' ' + w[0] + ': ' + a[1] + ' of ' + a[0] + ' without, ' + b[1] + ' of ' + b[0] + ' with'); });
+  if (used < 2) return 'fewer than two worlds with people at year 6';
   return withP >= tamed * 0.6 && withP > without ? '' : out.join('; ');
 }]);
 UNITS.push(['no idea has an effect without a built thing: every idea names a building or a work, and the converted ones do nothing without it (F7)', function () {
@@ -664,15 +666,15 @@ UNITS.push(['fishers\' and farmers\' households trade fish for grain; failed tra
   if (!(fails > 0)) return tr + ' trades and not one failed';
   return n > 0 ? '' : tr + ' trades, none of fish for grain between a fishing and a farming household';
 }]);
-UNITS.push(['a bad harvest raises the price of grain (H2)', function () {
-  var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: land, size: 96 }), S = W.S, N = W.N, i, j;
-    for (i = 0; i < 24 * 40; i++) W.tick(); while (S.t % 1 > 0.05) W.tick();
-    for (i = 0; i < 24; i++) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j] && !(W.crop && W.crop[j])) W.grass[j] = 0; W.tick(); }   /* the grain fails; greens come in */
-    for (i = 0; i < 7; i++) W.tick();   /* one more season, so the prices have seen the harvest */
-    var p = S.tribe.price; return p.grain / ((p.fruit + p.fish) / 2); };   /* grain against fish and fruit, which the blight does not touch (whatever the coin is) */
-  var out = [], ok = true;
-  [[1, 'lakeland'], [2, 'valley']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(3) + ' normal, ' + b.toFixed(3) + ' blighted'); if (!(b > a)) ok = false; });
-  return ok ? '' : 'grain no dearer after a blighted year: ' + out.join('; ');
+UNITS.push(['a bad harvest raises the price of grain (H2): with half the grain gone, grain is dearer by the next season than in the same place untouched', function () {
+  var out = [], dearer = 0;
+  [[1, 'lakeland'], [2, 'valley'], [1, 'valley'], [1, 'plains']].forEach(function (w) {
+    var run = function (loss) { var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: w[1], size: 96 }), S = W.S, T = S.tribe, i;
+      for (i = 0; i < 24 * 40; i++) W.tick();
+      if (loss) { var cut = function (o, f) { if (!(o[f] > 0)) return; var m = W.mixOf(o, f), g = m.grain * 0.5; m.grain -= g; o[f] -= g; }; cut(T, 'store'); T.sites.forEach(function (q) { cut(q, 'larder'); }); }
+      for (i = 0; i < 7; i++) W.tick(); return T.price.grain / T.price.veg; };
+    var a = run(false), b = run(true); out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(3) + ' as it was, ' + b.toFixed(3) + ' with half its grain gone'); if (b > a) dearer++; });
+  return dearer >= 3 ? '' : 'grain dearer in only ' + dearer + ' of 4: ' + out.join('; ');
 }]);
 UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)', function () {
   var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: land, size: 96 }), S = W.S, N = W.N, i, j, f = 0;
@@ -726,6 +728,15 @@ UNITS.push(['wild prey live in cover and away from people, and the deer last: 10
     out.push(worlds[w][1] + ' ' + worlds[w][0] + ': ' + deer.length + ' deer, cover ' + under.toFixed(2) + ' against ' + (land / n).toFixed(2) + ', ' + near + ' by the camp');
     if (deer.length >= 10) kept++; if (deer.length >= 10 && !(under > land / n)) return 'deer stand in less cover than the land: ' + out[out.length - 1]; }
   return kept >= 3 ? '' : 'deer kept in only ' + kept + ' of 4 worlds: ' + out.join('; ');
+}]);
+UNITS.push(['wild cattle live on, a calf is brought home from the hunt, the herd is milked at the pen, and a dairy makes cheese', function () {
+  var worlds = [[1, 'lakeland'], [1, 'plains'], [1, 'valley']], best = null, out = [], w, i;
+  for (w = 0; w < worlds.length && !best; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }), T = W.S.tribe;
+    for (i = 0; i < 24 * 80; i++) W.tick();
+    var wild = W.S.agents.filter(function (a) { return a.alive && a.sp === 'cow' && !a.tame; }).length; out.push(worlds[w][1] + ' ' + worlds[w][0] + ': ' + wild + ' wild cattle, ' + (W.S.stat.calves || 0) + ' calves caught, milked ' + Math.round(T.milked || 0));
+    if (wild < 3) return 'wild cattle all but gone at year 80: ' + out[out.length - 1];
+    if ((T.milked || 0) > 50 && T.sites.some(function (q) { return q.kind === 'dairy'; }) && (W.mixOf(T, 'store').cheese > 0 || T.skills.cheese)) best = out[out.length - 1]; }
+  return best ? '' : 'no place milked its cattle and made cheese in 80 years: ' + out.join('; ');
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
@@ -842,8 +853,8 @@ UNITS.push(['the land at 40, 96 and 128: water drains to the edge or a lake, nev
   return out.join(' | ');
 }]);
 UNITS.push(['strike leaves meat from an animal, logs from a tree, stone from rock; logs near the village get used', function () {
-  var W = Eden.create(3, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'forest', size: 96 }), N = W.N, T = W.S.tribe, i, out = [];
-  for (i = 0; i < 24 * 8; i++) W.tick();
+  var W, N, T, i, out = [], wl = [[3, 'forest'], [2, 'forest'], [2, 'valley'], [1, 'plains']];
+  for (var k = 0; k < wl.length; k++) { W = Eden.create(wl[k][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: wl[k][1], size: 96 }); N = W.N; T = W.S.tribe; for (i = 0; i < 24 * 8; i++) W.tick(); if (W.S.popPeople >= 4) break; }   /* a place with hands to fetch the logs */
   var deer = W.S.agents.filter(function (a) { return a.alive && !a.d.people && W.cells[a.y * N + a.x].indexOf(a) >= 0; })[0];
   if (deer) { W.G.strike(deer.x, deer.y); if (!W.S.piles.some(function (p) { return p.kind === 'meat'; })) out.push('no meat where a ' + deer.sp + ' was struck'); }
   var tj = -1; for (var r = 1; r < 6 && tj < 0; r++) for (var dy = -r; dy <= r && tj < 0; dy++) for (var dx = -r; dx <= r; dx++) { var j = (T.y + dy) * N + T.x + dx; if (W.tree[j] > 0.3) { tj = j; break; } }
@@ -851,7 +862,7 @@ UNITS.push(['strike leaves meat from an animal, logs from a tree, stone from roc
   var rj = -1; for (i = 0; i < N * N && rj < 0; i++) if (W.rock[i] >= 0.15 && !W.water[i] && W.tree[i] <= 0.1) rj = i;
   if (rj >= 0) { W.G.strike(rj % N, (rj / N) | 0); if (!W.S.piles.some(function (p) { return p.kind === 'stone'; })) out.push('no stone where rock was struck'); }
   var before = W.S.piles.filter(function (p) { return p.kind === 'wood'; }).reduce(function (t, p) { return t + p.amt; }, 0);
-  for (i = 0; i < 24 * 2; i++) W.tick();
+  for (i = 0; i < 24 * 2; i++) { T.wood = 0; W.tick(); }   /* with no timber in the pile, logs lying by the village are wanted */
   var after = W.S.piles.filter(function (p) { return p.kind === 'wood'; }).reduce(function (t, p) { return t + p.amt; }, 0);
   if (tj >= 0 && !(after < before)) out.push('logs by the village untouched after 2 years (' + before.toFixed(1) + ')');
   return out.join('; ');
