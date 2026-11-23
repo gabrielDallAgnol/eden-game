@@ -851,3 +851,30 @@ Size 96, seeds 1 and 2:
 | mean |  | 18.4 | 91.4 | 148.4 | 171.1 | 48.2 | 166.6 | 0.3 | 13 |  | 2.7 | 7.6 | 20.2 | 5.6 | 47.8 | 1 | 1256.8 | 110.8 | 27 | 8.6 |  |  | 48.6 | 6.6 | 19.4 | 0.3 | 0 | 20296.3 |
 
 Year 100 mean 148.4 (126.6 at G3), year 25 18.4 (14.3), dwellings 48.2 (43.6), hunger deaths 166.6 (128.2), 3 resettles (forest 1) against 2. Run time 20.3 s a world (18.4).
+
+
+## G5: reckoning follows debts
+
+The want "too much to keep track of" now grows with what households owe each other, not with how many households there are: each year by 0.05 for every open debt beyond 8, unless a scribe keeps the marks. The tally house (F7) is raised when there are more than 8 open debts, and its trade is the scribe's (taken up under the F6 rules while debts are many). When writing is worked out, the number of open debts at that moment is kept (`T.writingDebts`).
+
+Checks. New yearly invariant: writing is only worked out with more than 8 open debts (it skips in the small test worlds, where writing does not come). In five 100-year worlds at 96: writing came in four, with 25, 34, 25 and 28 open debts at the time (valley 2, plains 1, highland 1, forest 2); lakeland 1 had 109 open debts at year 100 but had not worked it out (writing also needs more food than mouths). Tests 474 passed, 0 failed; scenarios 23 passed.
+
+Not done: no scribe was at work at year 100 in those five worlds; the tally house is gated like the other places (food to spare, four grown hands), and the want keeps growing (reckon 18 to 45 at year 100). Whether writing should ease debts in turn (G5's "answers it") is left to phase H.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 151 | 233 | 247 | 77 | 219 | 0 | 15 | 7/59/0 | 2.7 | 19.3 | 22.4 | 5.7 | 116 | 1 | 2125 | 217 | 41.4 | 5.3 | 1.8 (5) | 82/0/3/2/13 | 62 | 6.1 | 25 | 3 | 0 | 35484 |
+| valley | 2 | 6 | 48 | 171 | 185 | 63 | 136 | 0 | 13 | 13/227/5 | 2.6 | 0 | 26.9 | 4.1 | 38 | 1 | 1072 | 235 | 33.2 | 5.9 | 0 (1) | 80/2/3/0/15 | 54 | 4.2 | 21 | 0 | 0 | 25279 |
+| plains | 1 | 29 | 162 | 201 | 329 | 71 | 397 | 0 | 14 | 2/102/2 | 2.7 | 23.8 | 22.8 | 8.7 | 115 | 1 | 3546 | 99 | 31.5 | 5.1 | 0 (3) | 75/0/0/0/21 | 59 | 10.1 | 25 | 0 | 0 | 33396 |
+| plains | 2 | 27 | 151 | 161 | 205 | 43 | 240 | 0 | 12 | 9/118/6 | 2.9 | 22.9 | 21.6 | 11.9 | 84 | 0.9 | 1670 | 45 | 16.5 | 5.1 |  | 79/1/2/0/17 | 65 | 14.1 | 21 | 0 | 0 | 21838 |
+| forest | 1 | 3 | 10 | 166 | 168 | 37 | 90 | 3 | 13 | 45/163/5 | 2.7 | 13.5 | 19.9 | 4.2 | 5 | 0.8 | 712 | 56 | 23.9 | 6.6 | 0 (1) | 84/3/2/0/9 | 39 | 5.6 | 17 | 0 | 0 | 12278 |
+| forest | 2 | 26 | 136 | 96 | 141 | 37 | 159 | 0 | 14 | 9/183/5 | 2.4 | 0 | 25.8 | 3.7 | 40 | 1 | 306 | 89 | 20.8 | 5.1 | 0 (2) | 87/1/2/0/9 | 29 | 4.1 | 13 | 0 | 0 | 17089 |
+| lakeland | 1 | 11 | 60 | 180 | 219 | 56 | 137 | 0 | 11 | 14/71/1 | 2.7 | 0 | 20.3 | 4.5 | 66 | 0.9 | 1175 | 176 | 28 | 4.6 |  | 87/0/3/0/9 | 57 | 7.8 | 21 | 0 | 0 | 17210 |
+| lakeland | 2 | 19 | 116 | 127 | 137 | 36 | 179 | 0 | 12 | 12/185/0 | 2.6 | 0 | 17.6 | 5.3 | 77 | 1 | 534 | 94 | 23.8 | 8.1 | 7 (1) | 81/0/2/0/16 | 47 | 4 | 21 | 0 | 0 | 15648 |
+| highland | 1 | 20 | 41 | 47 | 77 | 20 | 108 | 0 | 13 | 3/60/0 | 3.1 | 0 | 17.2 | 6.5 | 10 | 1 | 143 | 78 | 18.1 | 2.9 | 0 (1) | 78/1/1/0/19 | 51 | 8.9 | 13 | 0 | 0 | 11189 |
+| highland | 2 | 15 | 27 | 26 | 38 | 7 | 81 | 0 | 12 | 9/91/5 | 3.2 | 2 | 5.4 | 6.1 | 0 | 1.1 | 385 | 28 | 9.8 | 42 | 4.5 (2) | 72/4/2/3/19 | 26 | 5.2 | 9 | 0 | 0 | 6170 |
+| mean |  | 18.4 | 90.2 | 140.8 | 174.6 | 44.7 | 174.6 | 0.3 | 12.9 |  | 2.8 | 8.2 | 20 | 6.1 | 55.1 | 1 | 1166.8 | 111.7 | 24.7 | 9.1 |  |  | 48.9 | 7 | 18.6 | 0.3 | 0 | 19558.1 |
+
+Year 100 mean 140.8 (148.4 at G4), year 25 18.4 (18.4), dwellings 44.7 (48.2), hunger deaths 174.6 (166.6), 3 resettles (forest 1), as before.

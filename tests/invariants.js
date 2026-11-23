@@ -82,6 +82,7 @@ function WorldRun(land, seed, years, size) {
   add('mix', 'every larder\'s and the store\'s kinds of food add up to its total and none is negative (F2)');
   add('places', 'the Town panel\'s places of work list every standing workshop, kiln, smithy and pen, with exactly those whose trade is there (F6)');
   add('debts', 'every debt between households is finite, not negative, and between households that exist (G3)');
+  add('writing', 'writing is only worked out in a place with many open debts (more than 8) (G5)');
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
@@ -329,6 +330,10 @@ WorldRun.prototype.yearly = function () {
     if (!T || !T.debts) return c.skip('no debts kept'); var bad = [], ids = {}; (T.sites || []).forEach(function (q) { ids[q.id] = 1; });
     Object.keys(T.debts).forEach(function (k) { var v = T.debts[k], p = k.split('>'); if (!(isFinite(v) && v >= 0)) bad.push(k + ' = ' + v); else if (p.length !== 2) bad.push('odd key ' + k); });
     if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else c.ok();
+  });
+  this.guard('writing', function (c) {
+    if (!T || !T.skills || !T.skills.writing) return c.skip('writing not known yet'); if (T.writingDebts === undefined) return c.skip('learned before the debts were counted');
+    if (T.writingDebts > 8) c.ok(); else c.fail(at + 'writing was worked out with only ' + T.writingDebts + ' open debts');
   });
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');
