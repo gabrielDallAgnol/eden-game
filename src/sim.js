@@ -41,6 +41,8 @@ const SKILLS = {
 // to a want that has actually been felt and to the means lying at hand.
 const TECHS = { bridge: 1, pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, tools: 1, medicine: 1, masonry: 1, writing: 1, concrete: 1 };
 const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt', smith: 'build', potter: 'build', wright: 'build' };
+/* F6: every trade is work in a place: on the land, at the water, on the building plots, or in a building (named by its kind) */
+const JOB_PLACE = { farmer: 'the fields', hunter: 'the wild', fisher: 'the water', gatherer: 'the wild', builder: 'the plots', woodcutter: 'the woods', mason: 'the quarry', guard: 'the camp', herder: 'pen', smith: 'smithy', potter: 'kiln', wright: 'workshop' };
 function create(seed, opt) {
   opt = opt || {};
   const SP = opt.species || SPECIES, HUMAN = Object.values(SP).find(d => d.people) || SPECIES.human;
@@ -1397,7 +1399,7 @@ function create(seed, opt) {
     tent:  { lots: 1, stages: [{ wood: 2, stone: 0 }], roof: 0.52, room: true, needsIdea: null, next: 'hut' },
     hut:   { lots: 1, stages: [{ wood: 2, stone: 0 }, { wood: 2, stone: 0 }], roof: 0.4, room: true, needsIdea: 'hut', next: 'house' },
     house: { lots: 1, stages: [{ wood: 2, stone: 1 }, { wood: 2, stone: 1 }, { wood: 2, stone: 1 }], roof: 0.3, room: true, needsIdea: 'house', next: null },
-    well:  { lots: 1, stages: [{ wood: 1, stone: 2 }, { wood: 1, stone: 2 }], roof: 0.7, room: false, needsIdea: 'well', next: null, work: 'water' },
+    well:  { lots: 1, stages: [{ wood: 1, stone: 2 }, { wood: 1, stone: 2 }], roof: 0.7, room: false, needsIdea: 'well', next: null, gives: 'water' },
     fence: { lots: 0, stages: [{ wood: 1, stone: 0 }], roof: 0.7, room: false, needsIdea: 'palisade', next: null },   /* per stake, driven where the lattice's edge runs */
     /* F3: the common store is kept in the best of these that stands; keeps is the share of each kind's rotting that still happens there */
     storehouse: { lots: 1, stages: [{ wood: 3, stone: 0 }, { wood: 2, stone: 1 }], roof: 0.7, room: false, needsIdea: 'pottery', next: null, keeps: { grain: 0.7, meat: 0.7, fish: 0.7, fruit: 0.7 } },
@@ -1596,7 +1598,7 @@ function create(seed, opt) {
       /* the quarry: of all the stone showing on common ground, the one that gives most for a day's walk; a deep pit is harder
          to work (deeper and farther both make stone dearer) */
       let bq = -1, vq = 0;
-      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || Math.hypot(j % N - s.x, ((j / N) | 0) - s.y) > reachOf(a) * 2 || field[j] || (owner[j] && T.sites.some(q => q.id === owner[j] && isHome(q)))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
+      for (let j = 0; j < N * N; j++) { if (rock[j] < 0.15 || Math.hypot(j % N - s.x, ((j / N) | 0) - s.y) > reachOf(a) * 2 || field[j] || T.sites.some(q => !isHome(q) && Math.abs(q.x - j % N) <= 1 && Math.abs(q.y - ((j / N) | 0)) <= 1) || (owner[j] && T.sites.some(q => q.id === owner[j] && isHome(q)))) continue; const v = 2 * walkEff(s.x, s.y, j % N, (j / N) | 0, 1) * (1 - 0.5 * pit[j]); if (v > vq) { vq = v; bq = j; } }
       const bc = nearestWay(s.x, s.y, j => !water[j] && bank[j] >= 0.75, 0, reachOf(a) * 2), vc = bc < 0 ? 0 : walkEff(s.x, s.y, bc % N, (bc / N) | 0, 1);
       if (bq < 0 && bc < 0) { stretch(a); return false; }
       const bj = vq >= vc ? bq : bc, got = vq >= vc ? 2 : 1;
@@ -1648,15 +1650,11 @@ function create(seed, opt) {
     if (T.skills.palisade && (T.wall || T.threat >= 2)) planWall();
     const able = P.filter(a => a.age >= GROWN && a.age <= 46), n = able.length; for (const a of P) if (a.age > 46 || a.age < GROWN) a.job = '';
     const spare = Math.floor(n * clamp((T.plenty - 0.7) / 4, 0, 0.45));           // hands the food supply can free from getting food
-    if (n < 3 || (spare < 1 && !able.some(a => a.job))) { for (const a of able) a.job = ''; return; }
+    if (n < 3 || (spare < 1 && !able.some(a => a.job))) { for (const a of able) a.job = ''; placeJobs(able); return; }
     const N_ = T.need, unroofed = Math.max(0, households() - T.sites.filter(isHome).length), work = T.sites.some(q => !raised(q)) || (T.wall && !T.wall.done) || unroofed > 0;
     // wants, strongest first, each asking for hands
     const asks = [['guard', T.threat >= 1.5 ? Math.max(1, Math.round(T.threat / 4)) : 0, T.threat], ['builder', work ? 1 + Math.round(unroofed / 2) : 0, 1 + N_.crowd + N_.cold],
-      ['woodcutter', work && n >= 5 ? 1 : 0, N_.toil], ['mason', work && T.skills.house ? 1 : 0, N_.toil * 0.8], ['herder', standing('pen') && S.agents.some(b => b.alive
-          && b.tame) ? 1 : 0, 0.5 + (T.hay > 0 ? 0.5 : 0)],
-      /* F4: a trade is wanted where its place stands, something it makes is short and there is something to make it from */
-      ['smith', standing('smithy') && T.tools < n && T.ore >= 0.25 ? 1 : 0, N_.toil * 0.9 + 2 * (1 - T.tools / Math.max(1, n))], ['potter', standing('kiln') && T.pots < T.sites.filter(q => isHome(q) && q.members > 0).length && T.wood >= 1 ? 1 : 0, N_.spoil * 0.5 + 1.5 * (1 - T.pots / Math.max(1, T.sites.filter(q => isHome(q) && q.members > 0).length))],
-      ['wright', standing('workshop') && T.cartsMade < S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length && T.wood >= 4 ? 1 : 0, N_.toil * 0.7 + 1.2]].sort((p, q) => q[2] - p[2]);
+      ['woodcutter', work && n >= 5 ? 1 : 0, N_.toil], ['mason', work && T.skills.house ? 1 : 0, N_.toil * 0.8]].sort((p, q) => q[2] - p[2]);
     const want = {}; let left = spare; for (const [job, k] of asks) { want[job] = Math.min(k, left); left -= want[job]; }
     // food work: people turn to whatever they have seen bring most home for a day's work. What has not been tried is given
     // a fair chance, and nothing is ever given up entirely, since a bad year for one thing is a good year for another.
@@ -1669,7 +1667,7 @@ function create(seed, opt) {
         tot = w.reduce((p, q) => p + q, 0) || 1,
         nFood = Math.max(0, n - (spare - left));
       kinds.forEach((k, q) => { want[k] = spare >= 1 ? Math.round(nFood * w[q] / tot) : 0; }); if (spare >= 1) want.gatherer = n; }
-    const have = {}; for (const a of able) { if (a.job && (have[a.job] || 0) < (want[a.job] || 0)) have[a.job] = (have[a.job] || 0) + 1; else a.job = ''; }
+    const have = {}; for (const a of able) { if (a.job && BUILDINGS[JOB_PLACE[a.job]]) continue; /* the work of a place is placeJobs' to give and take */ if (a.job && (have[a.job] || 0) < (want[a.job] || 0)) have[a.job] = (have[a.job] || 0) + 1; else a.job = ''; }
     for (const job of ['guard', 'builder', 'woodcutter', 'mason', 'herder', 'smith', 'potter', 'wright', 'farmer', 'hunter', 'fisher', 'gatherer']) {
       while ((have[job] || 0) < (want[job] || 0)) {
         const free = able.filter(a => !a.job); if (!free.length) break;
@@ -1691,6 +1689,32 @@ function create(seed, opt) {
         }
       }
     }
+    placeJobs(able);
+  }
+  /* F6: the work of a place is taken up by someone when the place stands and what it is for is short (and there is something to
+     make it from), by a grown person whose household is not going hungry; the one who has it keeps it while the work is short */
+  function placeJobs(able) {
+    const T = S.tribe, P = folk(), roofs = T.sites.filter(q => isHome(q) && q.members > 0).length, beasts = S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length;
+    const short = { herder: S.agents.some(b => b.alive && b.tame), smith: T.tools < able.length && T.ore >= 0.25, potter: T.pots < roofs && T.wood >= 1, wright: T.cartsMade < beasts && T.wood >= 4 };
+    const fed = a => { const h = homeSite(a); return h ? (h.larder || 0) >= h.members * 0.6 : T.store >= P.length * 0.6; };
+    for (const job of ['herder', 'smith', 'potter', 'wright']) {
+      const place = standing(JOB_PLACE[job]), holders = able.filter(a => a.job === job);
+      /* a place's work is for when food is not short: a small or hungry place keeps its hands on food */
+      if (!place || !short[job] || T.plenty < 0.6) { for (const a of holders) a.job = ''; continue; }
+      for (const a of holders.slice(1)) a.job = '';   /* one pair of hands to a place */
+      if (holders.length || able.length < 4 || T.plenty < 1) continue;
+      const free = able.filter(a => fed(a) && (!a.job || a.job === 'gatherer' || a.job === 'farmer' || a.job === 'fisher' || a.job === 'hunter')); if (!free.length) continue;
+      const pick = free.reduce((b, a) => a.skill.build > b.skill.build ? a : b); pick.job = job;
+      T.trades = T.trades || {};
+      if (!T.trades[job]) { T.trades[job] = true; tell(pick.name + { herder: ' keeps the pen now, and feeds the tame deer through the lean months.', smith: ' works at the smithy now: tools for every hand that needs one.', potter: ' fires pots at the kiln, for every household\'s larder.', wright: ' builds carts in the workshop.' }[job]); }
+    }
+  }
+  /* who works where, for the Town panel: every standing place of work and the names of those whose trade is there */
+  function workplaces() {
+    const T = S.tribe, P = folk(), out = [];
+    for (const q of T.sites) { const K = BUILDINGS[q.kind]; if (!K || !K.work || !raised(q)) continue; out.push({ place: q.kind, x: q.x, y: q.y, workers: P.filter(a => a.job === K.work).map(a => a.name) }); }
+    for (const job of ['farmer', 'fisher', 'hunter', 'woodcutter', 'mason', 'builder', 'guard']) { const w = P.filter(a => a.job === job).map(a => a.name); if (w.length) out.push({ place: JOB_PLACE[job], job, workers: w }); }
+    return out;
   }
   // Ideas. Nothing is discovered because time has passed or because there are many people. A thing is worked out when the want
   // of it has been felt for long enough (cold nights, rotted stores, wolves among the houses, backs bent under loads) and when
@@ -2231,6 +2255,8 @@ function create(seed, opt) {
     LANDS,
     DWELL,
     BUILDINGS,
+    JOB_PLACE,
+    workplaces: () => workplaces(),
     GOODS,
     mixOf: (o, f) => mixOf(o, f),
     SPECIES: SP,

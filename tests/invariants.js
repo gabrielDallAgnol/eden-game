@@ -80,6 +80,7 @@ function WorldRun(land, seed, years, size) {
   add('pitFree', 'no lot or field on a quarry pit (B5)');
   add('killNear', 'every kill is made by a creature standing within 3 tiles of what it killed, by the state (E3)');
   add('mix', 'every larder\'s and the store\'s kinds of food add up to its total and none is negative (F2)');
+  add('places', 'the Town panel\'s places of work list every standing workshop, kiln, smithy and pen, with exactly those whose trade is there (F6)');
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
@@ -313,6 +314,14 @@ WorldRun.prototype.yearly = function () {
       else if (Math.abs(sum - o[f]) > 0.02 * o[f] + 0.05 && sum > 1e-9) bad.push(lab + ' kinds add to ' + sum.toFixed(2) + ' of ' + o[f].toFixed(2)); };
     W.mixOf(T, 'store'); look(T, 'store', 'the store');
     (T.sites || []).forEach(function (q) { if (q.larder > 0.01) { W.mixOf(q, 'larder'); look(q, 'larder', q.kind + ' ' + q.id); } });
+    if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else c.ok();
+  });
+  this.guard('places', function (c) {
+    if (!W.workplaces || !W.BUILDINGS) return c.skip('W.workplaces is missing'); var wp = W.workplaces(), bad = [], B = W.BUILDINGS;
+    (T.sites || []).forEach(function (q) { var K = B[q.kind]; if (!K || !K.work || !(q.stage >= K.stages.length)) return; var w = wp.filter(function (x) { return x.place === q.kind && x.x === q.x && x.y === q.y; })[0];
+      if (!w) { bad.push('the ' + q.kind + ' at ' + q.x + ',' + q.y + ' is not listed'); return; }
+      var hold = L.list.filter(function (a) { return a.job === K.work; }).map(function (a) { return a.name; }).sort().join(',');
+      if (w.workers.slice().sort().join(',') !== hold) bad.push('the ' + q.kind + ' lists ' + w.workers.join(',') + ' but ' + hold + ' hold the trade'); });
     if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else c.ok();
   });
   this.guard('lotOwner', function (c) {

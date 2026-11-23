@@ -676,3 +676,28 @@ A `pen` row in `BUILDINGS` (3 timber; needs herding, which is learned by raising
 Check (unit, the plan's): the same world twice from autumn with six grown deer tamed by the camp, run through 14 steps of winter; once with no pen and no herder, once with a pen beside the camp, 8 hay and a herder. Valley 1: 0 of 3 survive without, 3 of 3 with. Forest 3: 2 of 4 without, 4 of 4 with. (Highland 2, not in the test: 2 of 3 without, 3 of 3 with.)
 
 The 100-year table is identical to F4's in every column but run time (year 100 mean 155.9): none of the ten standard worlds tames an animal in 100 years, so neither pens nor hay change anything there. Tests 445 passed, 0 failed.
+
+
+## F6: jobs are places
+
+Every trade names its place (`JOB_PLACE`): the fields, the water, the wild, the plots, the woods, the quarry, the camp, or a building (pen, smithy, kiln, workshop). The trades of a building are no longer shares of the hands the food supply can spare: once a year, a place that stands and whose work is short (tools fewer than grown hands and ore to make them, pots fewer than households and timber to fire them, carts fewer than beasts and timber, tame beasts to keep) is taken up by the best builder among the grown people whose household is not going hungry, from no trade or from food work. Whoever has it keeps it while the work is short, one pair of hands to a place. It is not taken while the place has fewer than four grown hands or less than a ration a head, and it is given up when food falls below 0.6 a head. The Town panel has a new list, "Places of work": each standing workshop, kiln, smithy and pen with who works there (or nobody), and the land trades with their people. Fixed on the way: quarrying could dig under a granary or other common building (they own no lot); now nothing is quarried within a building's plot. The well's row no longer claims a trade. The panel's list of wants had no words for the want to cross water ("from undefined"); it now says "rivers to wade".
+
+Checks. New yearly invariant: every standing workshop, kiln, smithy and pen is in the panel's list, with exactly the people whose trade is there. Tests 457 passed, 0 failed. Town panel checked in the game (lakeland 1, year 50): kiln and smithy listed (nobody at them that year), 12 farmers at the fields, 12 fishers at the water, and so on.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 7 | 40 | 219 | 224 | 62 | 132 | 0 | 15 | 11/96/5 | 2.9 | 18.3 | 24 | 5.7 | 55 | 1 | 1499 | 172 | 36.6 | 6 | 0 (1) | 84/0/1/0/13 | 47 | 4.3 | 21 | 4 | 0 | 16525 |
+| valley | 2 | 4 | 33 | 48 | 94 | 26 | 117 | 2 | 12 | 0/114/0 | 2.4 | 0 | 11.7 | 3.7 | 44 | 1.1 | 163 | 73 | 15.9 | 3.4 |  | 84/0/4/0/11 | 32 | 4.2 | 13 | 0 | 0 | 9635 |
+| plains | 1 | 8 | 64 | 273 | 356 | 88 | 355 | 0 | 13 | 26/140/5 | 2.5 | 23.6 | 23.2 | 7 | 93 | 0.9 | 3282 | 111 | 34.5 | 4.8 |  | 78/0/0/0/19 | 58 | 6.6 | 29 | 0 | 0 | 27967 |
+| plains | 2 | 3 | 17 | 72 | 139 | 36 | 128 | 2 | 13 | 5/237/5 | 2.2 | 3.5 | 19 | 5.4 | 8 | 1 | 403 | 52 | 32.4 | 6.1 | 5 (1) | 79/1/1/0/18 | 32 | 8.4 | 17 | 0 | 0 | 11817 |
+| forest | 1 | 8 | 49 | 95 | 96 | 30 | 113 | 0 | 12 | 29/83/5 | 2.6 | 27.7 | 21.2 | 4 | 29 | 1.1 | 158 | 67 | 24.3 | 5 | 0 (1) | 80/1/4/0/13 | 36 | 4 | 13 | 0 | 0 | 12020 |
+| forest | 2 | 33 | 155 | 76 | 155 | 45 | 159 | 0 | 14 | 16/144/9 | 2.4 | 0 | 21.7 | 4 | 144 | 1.1 | 372 | 90 | 23.4 | 4.9 | 0 (1) | 86/0/2/0/11 | 35 | 4.6 | 13 | 0 | 0 | 14680 |
+| lakeland | 1 | 9 | 68 | 253 | 260 | 78 | 130 | 0 | 13 | 6/194/8 | 2.7 | 0 | 22.5 | 4.6 | 23 | 1.1 | 2676 | 141 | 29.1 | 5 | 0 (1) | 82/0/2/1/14 | 67 | 7 | 25 | 0 | 0 | 16578 |
+| lakeland | 2 | 26 | 159 | 158 | 168 | 55 | 183 | 0 | 14 | 19/81/5 | 2.5 | 0 | 19.8 | 5 | 101 | 1 | 939 | 104 | 27.8 | 4.9 | 7 (2) | 84/1/3/0/11 | 39 | 6 | 25 | 0 | 0 | 15532 |
+| highland | 1 | 14 | 59 | 49 | 82 | 24 | 105 | 0 | 13 | 6/11/0 | 2.8 | 0 | 19.2 | 5.8 | 59 | 1 | 189 | 76 | 24.1 | 3.5 | 0 (1) | 73/3/2/0/21 | 51 | 5.6 | 13 | 0 | 0 | 10416 |
+| highland | 2 | 13 | 18 | 49 | 63 | 17 | 58 | 0 | 13 | 12/64/5 | 2.7 | 12.5 | 8.6 | 6.3 | 7 | 1.1 | 59 | 64 | 27.4 | 11.6 | 0 (1) | 77/0/3/4/15 | 30 | 6.2 | 9 | 0 | 0 | 6849 |
+| mean |  | 12.5 | 66.2 | 129.2 | 163.7 | 46.1 | 148 | 0.4 | 13.2 |  | 2.6 | 8.6 | 19.1 | 5.1 | 56.3 | 1 | 974 | 95 | 27.6 | 5.5 |  |  | 42.7 | 5.7 | 17.8 | 0.4 | 0 | 14201.9 |
+
+Year 100 mean 129.2 (155.9 before), year 25 12.5 (15.0), dwellings 46.1 (49.8), hunger deaths 148.0 (158.5), 4 resettles (valley 2 and plains 2) against 2. These worlds swing hard on small changes, so 15 more (seeds 3 to 5 of each land, 100 years) were run on both versions: year 100 mean 120.3 against 126.4, 9 wipe-outs against 10. Over all 25 the drop is about 10%.

@@ -1802,7 +1802,8 @@ bS2.onclick = () => {
       toil: 'heavy loads',
       crowd: 'no roof',
       loss: 'deaths',
-      reckon: 'too much to keep track of' };
+      reckon: 'too much to keep track of',
+      cross: 'rivers to wade' };
     const felt = Object.keys(T0.need).filter(k => T0.need[k] > 0.15).sort((p, q) => T0.need[q] - T0.need[p]);
     const bar = v => '<span style="display:inline-block;height:6px;width:' + Math.round(Math.min(1, v / 3) * 70 + 4) + 'px;background:#b8453a;border-radius:2px;vertical-align:middle"></span>';
     const near = ideas.filter(q => q.can).sort((p, q) => (T0.need[q.need] / q.at) - (T0.need[p.need] / p.at)).slice(0, 4);
@@ -1810,6 +1811,9 @@ bS2.onclick = () => {
         ? ', fenced' : ', fence going up') : '') + (T0.carts ? ', ' + T0.carts + ' cart' + (T0.carts > 1 ? 's' : '') : '')
       + '<p><b>What weighs on them</b><br>' + (felt.length ? felt.map(k => bar(T0.need[k]) + ' ' + WANT[k]).join('<br>') : 'nothing much: a good season') + '</p>'
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
+      /* F6: every place of work standing, and who works there */
+      + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');
+          return '<p><b>Places of work</b><br>' + wp.map(w => (w.job ? w.place + ' (' + w.job + 's)' : 'the ' + w.place) + ': ' + (w.workers.length ? nm(w.workers) : '<i>nobody</i>')).join('<br>') + '</p>'; })()
       + '<p><b>Worked out so far</b><br>' + (known.join(', ') || 'only what they came with') + '</p>'
       + (near.length ? '<p><b>Would come, if the want grew</b><br>' + near.map(q => q.k + ' (from ' + WANT[q.need] + ', ' + Math.min(99,
           Math.round(100 * T0.need[q.need] / q.at)) + '%)').join('<br>') + '</p>' : '');
