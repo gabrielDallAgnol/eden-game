@@ -930,3 +930,35 @@ Size 96, seeds 1 and 2:
 | mean |  | 19.5 | 87.5 | 156.6 | 192 | 51.6 | 185.1 | 0.3 | 12.8 |  | 2.7 | 7 | 20.1 | 5.9 | 60.3 | 1 | 1741.9 | 114.6 | 26.6 | 6.8 |  |  | 50.3 | 6 | 20.2 | 0.3 | 0 | 20049.1 |
 
 Year 100 mean 156.6 (150.0 at H1), dwellings 51.6 (50.8), hunger deaths 185.1 (201.1), 3 resettles (forest 1), as before.
+
+
+## H3: paid work, work chosen by earnings
+
+- Food work is weighed by what it is expected to earn: what a day of it usually brings in (a slow average over the years, not just last year) times the price of that food now (capped at 4). Before, it was weighed only by last year's return, so a bad harvest drove people off the fields.
+- When grain is dear against fish and fruit, each household sows more land (up to 1.6 times; down to 0.7 times when grain is cheap).
+- Building is paid. The builder's household gets half a ration a stage, in coin where there is coin, from:
+  - the household living in the house;
+  - for a new house, the household of the person it is for (recorded when the plot is chosen);
+  - failing both, the common store.
+
+  Over 100 years lakeland 1 paid 15.6 rations to builders, plains 1 45.7.
+
+Checks. New unit (the plan's): the same world twice from the start of year 40, one blighted; the next spring each working hand sows more after the blighted year. Lakeland 1: 3.97 field tiles a hand after a normal year, 4.43 after a blight; valley 1: 6.46 against 12.08 (the blight also starved 23 of its 35 working hands). Valley 2 (not in the test): 3.35 against 3.62. The number holding the farmer trade does not rise (lakeland 1: 6 after a normal year, 0 after a blight): trades are still only given out when the food supply can spare hands, so it is the households, not the trade, that turn to the fields. Tests 490 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 90 | 214 | 235 | 80 | 191 | 0 | 14 | 12/128/9 | 2.7 | 24 | 22.2 | 5.5 | 116 | 1 | 34758 | 242 | 33.4 | 4.2 | 4 (1) | 80/0/2/3/14 | 64 | 4.9 | 25 | 3 | 0 | 29735 |
+| valley | 2 | 7 | 62 | 166 | 221 | 74 | 176 | 0 | 12 | 5/181/0 | 2.6 | 0 | 24.9 | 4.1 | 67 | 1 | 1178 | 214 | 35.1 | 4.3 | 0 (2) | 86/1/4/0/9 | 59 | 4.3 | 21 | 0 | 0 | 25207 |
+| plains | 1 | 19 | 110 | 365 | 365 | 78 | 266 | 0 | 13 | 6/105/5 | 2.4 | 19.1 | 22.3 | 7.4 | 77 | 1 | 3369 | 121 | 33.3 | 4.6 |  | 82/0/1/0/14 | 64 | 8.2 | 29 | 0 | 0 | 35599 |
+| plains | 2 | 26 | 100 | 142 | 160 | 35 | 184 | 0 | 12 | 7/240/0 | 2.7 | 20.3 | 15.7 | 10 | 76 | 1.1 | 602 | 29 | 16.4 | 5.2 |  | 77/0/2/0/20 | 57 | 12.3 | 17 | 0 | 0 | 20141 |
+| forest | 1 | 3 | 10 | 129 | 133 | 30 | 64 | 3 | 10 | 2/87/0 | 2.7 | 13.5 | 17 | 3.9 | 31 | 0.9 | 441 | 54 | 23.7 | 5.7 |  | 87/0/2/0/10 | 36 | 5 | 17 | 0 | 0 | 12820 |
+| forest | 2 | 25 | 101 | 106 | 122 | 35 | 173 | 0 | 13 | 7/229/7 | 2.4 | 0 | 20.7 | 3.8 | 36 | 1 | 331 | 45 | 23.3 | 6.6 | 2 (2) | 89/0/3/0/8 | 31 | 4.8 | 13 | 0 | 0 | 18478 |
+| lakeland | 1 | 13 | 79 | 247 | 267 | 85 | 199 | 0 | 14 | 38/80/6 | 2.6 | 0 | 22 | 4.8 | 48 | 1.1 | 2233 | 110 | 32.2 | 4.9 | 3 (1) | 82/0/2/1/15 | 66 | 6 | 25 | 1 | 0 | 29760 |
+| lakeland | 2 | 10 | 64 | 177 | 187 | 56 | 155 | 0 | 12 | 15/130/0 | 2.5 | 0 | 18.9 | 4.5 | 167 | 1 | 1116 | 136 | 28.4 | 5.3 | 0 (1) | 83/0/2/0/13 | 49 | 4.7 | 25 | 0 | 0 | 18698 |
+| highland | 1 | 23 | 47 | 63 | 64 | 25 | 65 | 0 | 11 | 0/53/0 | 2.8 | 0 | 17.2 | 6.5 | 13 | 1.1 | 97 | 71 | 22.6 | 2.9 |  | 79/2/4/0/13 | 51 | 8.7 | 13 | 0 | 0 | 11339 |
+| highland | 2 | 14 | 12 | 17 | 23 | 2 | 65 | 0 | 11 | 3/92/0 | 2.9 | 2 | 6.3 | 5.6 | 0 |  | 15 | 18 | 12.6 | 2.2 |  | 58/7/0/0/35 | 27 | 5.7 | 8 | 0 | 0 | 5685 |
+| mean |  | 16.8 | 67.5 | 162.6 | 177.7 | 50 | 153.8 | 0.3 | 12.2 |  | 2.6 | 7.9 | 18.7 | 5.6 | 63.1 | 1 | 4414 | 104 | 26.1 | 4.6 |  |  | 50.4 | 6.5 | 19.3 | 0.4 | 0 | 20746.2 |
+
+Year 100 mean 162.6 (156.6 at H2), dwellings 50.0 (51.6), hunger deaths 153.8 (185.1), 3 resettles (forest 1), as before.

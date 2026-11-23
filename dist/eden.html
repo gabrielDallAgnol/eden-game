@@ -1650,7 +1650,7 @@ function create(seed, opt) {
       fuel: 0,
       lit: -1,
       was: '',
-      lake: !well && kind !== 'tent' && T.floodSeen && bank[bestI] > 0.5 };
+      lake: !well && kind !== 'tent' && T.floodSeen && bank[bestI] > 0.5, forId: who ? who.id : 0 };
     T.sites.push(s);
     for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) {
       const j = I(s.x + nx, s.y + ny);
@@ -1766,6 +1766,14 @@ function create(seed, opt) {
       if (startHaul(a, 'stone', bj, { x: s.x, y: s.y })) return true; s.haulFail = today; return false;
     }
     s.stage++; a.act = { k: 'build', site: s.id, stage: s.stage }; sound(s.x, s.y, 3, 'work');
+    /* H3: building someone else's house is paid work: the household it is for gives the builder's household half a ration a stage,
+       in coin if there is coin, out of what it has to spare */
+    { const mine = homeSite(a), forWho = s.forId && S.byId.get(s.forId), fh = forWho && forWho.alive && homeSite(forWho);
+      /* who pays: the household living there; for a new house, the one it is being built for, from the roof they are under now; else the place, from the common store */
+      const payer = s.members ? s : fh && fh !== mine ? fh : null, field = payer ? 'larder' : 'store', from = payer || T;
+      if (isHome(s) && mine && mine !== s && mine !== payer && (from[field] || 0) > (payer ? payer.members * 0.5 : S.popPeople * 0.3)) { const pay = Math.min(0.5, from[field] - (payer ? payer.members * 0.5 : S.popPeople * 0.3));
+        if (T.coin) { const m = mixOf(from, field), c = Math.min(pay, m[T.coin]); if (c > 0) { m[T.coin] -= c; from[field] -= c; addFood(mine, 'larder', T.coin, c); T.wages = (T.wages || 0) + c; } }
+        else if (pay > 0) { moveFood(from, field, mine, 'larder', pay); T.wages = (T.wages || 0) + pay; } } }
     if (raised(s)) {
       const first = !T.sites.some(q => q !== s && q.kind === s.kind && raised(q)), rebuilt = s.was; s.was = '';
       /* quarry trips per stone dwelling: first raisings against raisings again after a flood */
@@ -1819,11 +1827,15 @@ function create(seed, opt) {
     // food work: people turn to whatever they have seen bring most home for a day's work. What has not been tried is given
     // a fair chance, and nothing is ever given up entirely, since a bad year for one thing is a good year for another.
     { const KEY = { farmer: 'farm', fisher: 'fish', hunter: 'hunt', gatherer: 'gather' }, R = T.rate;
-      for (const k in T.got) { if (T.eff[k] > 0) { const now = T.got[k] / T.eff[k]; R[k] = R[k] === undefined ? now : R[k] * 0.5 + now * 0.5; } T.got[k] = 0; T.eff[k] = 0; }
+      if (!T.rateLong) T.rateLong = {};
+      for (const k in T.got) { if (T.eff[k] > 0) { const now = T.got[k] / T.eff[k]; R[k] = R[k] === undefined ? now : R[k] * 0.5 + now * 0.5; T.rateLong[k] = T.rateLong[k] === undefined ? now : T.rateLong[k] * 0.8 + now * 0.2; } T.got[k] = 0; T.eff[k] = 0; }
+      /* H3: with prices, work is weighed by what it is expected to earn: what a day of it usually brings in (the long run, not one
+         bad year) at what that food fetches now. A bad harvest makes grain dear, and the fields worth more hands next year */
+      const GOOD = { farmer: 'grain', fisher: 'fish', hunter: 'meat', gatherer: 'fruit' }, earn = k => { const r = T.price ? T.rateLong[KEY[k]] : R[KEY[k]]; return r === undefined ? undefined : r * (T.price ? Math.min(4, T.price[GOOD[k]]) : 1); };
       const kinds = ['farmer', 'fisher', 'hunter', 'gatherer'].filter(k => k !== 'farmer' || T.skills.farm),
-        seen = kinds.map(k => R[KEY[k]]).filter(v => v !== undefined),
+        seen = kinds.map(k => earn(k)).filter(v => v !== undefined),
         mean = seen.length ? seen.reduce((p, q) => p + q, 0) / seen.length : 1;
-      const w = kinds.map(k => Math.max(0.2 * mean, R[KEY[k]] === undefined ? mean : R[KEY[k]]) + (k === 'farmer' ? N_.hunger * mean : 0)),
+      const w = kinds.map(k => Math.max(0.2 * mean, earn(k) === undefined ? mean : earn(k)) + (k === 'farmer' ? N_.hunger * mean : 0)),
         tot = w.reduce((p, q) => p + q, 0) || 1,
         nFood = Math.max(0, n - (spare - left));
       kinds.forEach((k, q) => { want[k] = spare >= 1 ? Math.round(nFood * w[q] / tot) : 0; }); if (spare >= 1) want.gatherer = n; }
@@ -2031,7 +2043,9 @@ function create(seed, opt) {
       for (let i = 0; i < N * N; i++) if (field[i] && !ids.has(owner[i])) { field[i] = 0; owner[i] = 0; }      // nobody's any more: it goes back to grass
       for (const h of homes) {
         const mine = P.filter(b => b.house === h.id), hands = mine.filter(b => b.age >= GROWN && b.age <= 60).length, farmers = mine.filter(b => b.job === 'farmer').length;
-        const want = Math.round(hands * 2 + farmers * 1.5 + mine.length * 0.7); let have = 0;
+        /* H3: when grain is dear against the other foods, a household puts more of its hands to the fields; when it is cheap, fewer */
+        const dear = T.price ? clamp(Math.sqrt(T.price.grain / Math.max(0.05, (T.price.fish + T.price.fruit) / 2)), 0.7, 1.6) : 1;
+        const want = Math.round((hands * 2 + farmers * 1.5 + mine.length * 0.7) * dear); let have = 0;
         for (let k = 0; k < N * N; k++) if (field[k] && owner[k] === h.id) have++;
         /* Fields are laid out like houses: a household takes whole lots of the lattice next to its own (the middle 3 x 3 of
            each lot, with the ways round it left open), the nearest and best ground first, as many as its hands and mouths

@@ -660,6 +660,16 @@ UNITS.push(['a bad harvest raises the price of grain (H2)', function () {
   [[1, 'lakeland'], [2, 'valley']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(3) + ' normal, ' + b.toFixed(3) + ' blighted'); if (!(b > a)) ok = false; });
   return ok ? '' : 'grain no dearer after a blighted year: ' + out.join('; ');
 }]);
+UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)', function () {
+  var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: land, size: 96 }), S = W.S, N = W.N, i, j, f = 0;
+    for (i = 0; i < 24 * 40; i++) W.tick(); while (S.t % 1 > 0.05) W.tick();
+    for (i = 0; i < 24; i++) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j]) W.grass[j] = 0; W.tick(); }
+    for (i = 0; i < 14; i++) W.tick(); for (j = 0; j < N * N; j++) f += W.field[j];
+    var hands = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 8 && a.age <= 60; }).length; return f / Math.max(1, hands); };   /* per working hand: a bad year also kills */
+  var out = [], ok = true;
+  [[1, 'lakeland'], [1, 'valley']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(2) + ' field tiles a hand sown after a normal year, ' + b.toFixed(2) + ' after a blighted one'); if (!(b > a)) ok = false; });
+  return ok ? '' : out.join('; ');
+}]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
   for (var i = 0; i < 48; i++) W.tick();
