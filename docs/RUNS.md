@@ -1298,3 +1298,23 @@ Size 96, seeds 1 and 2:
 | mean |  | 20.5 | 138.9 | 574.9 | 798.1 | 131.1 | 653.9 | 0.3 | 17.2 |  | 3.4 | 6 | 24.5 | 8.7 | 129.7 | 0.9 | 6378.7 | 236.5 | 31.1 | 4.9 |  |  | 75.6 | 9.9 | 36.7 | 0.6 | 0 | 81005.2 |
 
 Year 100 mean 574.9 (625.1 before), hunger deaths 653.9, 2 resettles. A world takes 81 s for 100 years.
+
+## Cows redrawn
+
+The first cow pictures had holes (background removal cut out the white patches) and a white smear on the grazing pose. Redrawn: three new pictures made on a flat magenta ground and keyed out by colour, so the white hide stays. Strips rebuilt from them (walk 8, graze 6, lie 6; calves at 0.62). Art cost $0.15 more, $9.33 of the $10 cap spent. No change to the simulation; the table matches the last one.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 3 | 36 | 347 | 434 | 69 | 252 | 2 | 15 | 6/156/1 | 2.9 | 0 | 21.1 | 6.7 | 10 | 1 | 1609 | 190 | 26.8 | 4.8 | 15 (1) | 77/0/1/0/20 | 61 | 5.8 | 29 | 0 | 0 | 55407 |
+| valley | 2 | 23 | 146 | 742 | 1072 | 230 | 848 | 0 | 17 | 5/38/4 | 3.5 | 0 | 28.7 | 9.3 | 262 | 0.9 | 14523 | 646 | 24.5 | 5.1 | 0 (1) | 78/0/2/0/17 | 96 | 10.4 | 37 | 0 | 0 | 203691 |
+| plains | 1 | 28 | 186 | 459 | 869 | 100 | 958 | 0 | 17 | 32/128/6 | 3.9 | 5 | 21.9 | 11.8 | 166 | 0.9 | 2637 | 93 | 25.3 | 4.6 |  | 75/1/1/0/22 | 68 | 11.2 | 29 | 0 | 0 | 122116 |
+| plains | 2 | 24 | 162 | 742 | 1384 | 185 | 1218 | 0 | 15 | 1/81/2 | 3.6 | 26.3 | 24 | 10.3 | 205 | 0.8 | 19864 | 167 | 37.2 | 6.4 |  | 72/0/1/0/25 | 92 | 10.3 | 45 | 0 | 0 | 229027 |
+| forest | 1 | 15 | 100 | 639 | 782 | 127 | 552 | 0 | 18 | 48/49/5 | 3.4 | 4.4 | 25.4 | 6.7 | 83 | 0.7 | 3119 | 218 | 27.1 | 4.9 |  | 76/0/2/0/19 | 71 | 9.9 | 41 | 0 | 0 | 99438 |
+| forest | 2 | 22 | 156 | 968 | 968 | 176 | 715 | 0 | 16 | 33/87/1 | 3.1 | 0 | 26.5 | 6.8 | 146 | 0.9 | 8601 | 284 | 40.6 | 5.7 | 1.5 (2) | 74/0/1/0/23 | 89 | 6.3 | 45 | 0 | 0 | 186166 |
+| lakeland | 1 | 38 | 233 | 948 | 949 | 149 | 554 | 0 | 18 | 4/95/4 | 3.3 | 0 | 25.2 | 8.1 | 204 | 0.8 | 5915 | 153 | 31.5 | 5.1 |  | 74/0/1/0/19 | 85 | 11.5 | 41 | 5 | 0 | 136835 |
+| lakeland | 2 | 27 | 197 | 617 | 1057 | 151 | 985 | 0 | 18 | 15/84/12 | 3.4 | 0 | 24.9 | 7.7 | 107 | 0.7 | 6140 | 235 | 39.2 | 5.7 | 2.142857142857143 (7) | 79/0/0/0/19 | 77 | 8.5 | 53 | 0 | 0 | 167130 |
+| highland | 1 | 11 | 83 | 138 | 188 | 50 | 202 | 0 | 19 | 4/15/6 | 3.2 | 24.2 | 24.4 | 9.5 | 46 | 1.1 | 391 | 184 | 29.3 | 3.7 | 0 (5) | 61/2/2/0/31 | 54 | 13.8 | 17 | 0 | 0 | 42001 |
+| highland | 2 | 14 | 90 | 149 | 278 | 74 | 255 | 1 | 19 | 0/37/0 | 3.5 | 0 | 22.4 | 10 | 68 | 1 | 988 | 195 | 29 | 2.7 | 0 (3) | 71/1/4/0/20 | 63 | 11.3 | 30 | 1 | 0 | 52287 |
+| mean |  | 20.5 | 138.9 | 574.9 | 798.1 | 131.1 | 653.9 | 0.3 | 17.2 |  | 3.4 | 6 | 24.5 | 8.7 | 129.7 | 0.9 | 6378.7 | 236.5 | 31.1 | 4.9 |  |  | 75.6 | 9.9 | 36.7 | 0.6 | 0 | 129409.8 |
+
+Tests 522 passed, 0 failed. Game loads with a clean console; cows checked in lakeland 1 at year 25 (8 tame cows by the pen).

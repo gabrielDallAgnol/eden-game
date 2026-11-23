@@ -1110,5 +1110,56 @@
   ],
   "time": 1795429415,
   "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_cow2_stand",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a brown and white dairy cow standing, full body, side view facing right, pixel art game sprite, single isolated animal, nothing else, no ground, no shadow, on a solid flat bright magenta background",
+  "files": [
+   "rd_cow2_stand_raw.png"
+  ],
+  "time": 1795450722,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_cow2_graze",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a brown and white dairy cow grazing with its head lowered to eat grass, full body, side view facing right, pixel art game sprite, single isolated animal, nothing else, no ground, no shadow, on a solid flat bright magenta background",
+  "files": [
+   "rd_cow2_graze_raw.png"
+  ],
+  "time": 1795450742,
+  "via": "mcp"
+ },
+ {
+  "test": "M",
+  "name": "rd_cow2_lie",
+  "cost": 0.05,
+  "style": "rd_lite__isometric",
+  "size": [
+   64,
+   64
+  ],
+  "n": 1,
+  "prompt": "a brown and white dairy cow lying down resting with legs folded under it, side view facing right, pixel art game sprite, single isolated animal, nothing else, no ground, no shadow, on a solid flat bright magenta background",
+  "files": [
+   "rd_cow2_lie_raw.png"
+  ],
+  "time": 1795450748,
+  "via": "mcp"
  }
 ]

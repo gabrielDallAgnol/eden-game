@@ -40,13 +40,13 @@ def spent():
     return round(sum(e["cost"] for e in json.load(open(LOG))), 4)
 
 
-def generate(name, style, w, h, prompt, n=1):
+def generate(name, style, w, h, prompt, n=1, remove_bg=True):
     args = {"prompt": prompt, "prompt_style": style, "width": w, "height": h, "num_images": n}
     est = call("estimate_inference_cost", args)[0]
     cost = est.get("balance_cost", est.get("cost")) if isinstance(est, dict) else float(est)
     if spent() + cost > CAP_USD:
         raise RuntimeError(f"budget cap: {spent()} + {cost} > {CAP_USD}")
-    res = call("create_inference", {**args, "remove_bg": True})
+    res = call("create_inference", {**args, "remove_bg": remove_bg})
     imgs = []
     for r in res:
         if isinstance(r, dict):
@@ -80,3 +80,5 @@ def generate(name, style, w, h, prompt, n=1):
 if __name__ == "__main__":
     if sys.argv[1] == "one":
         generate(sys.argv[2], sys.argv[3], int(sys.argv[4]), int(sys.argv[5]), sys.argv[6])
+    elif sys.argv[1] == "keyed":   # no background removal: the prompt asks for a flat colour that is keyed out afterwards
+        generate(sys.argv[2], sys.argv[3], int(sys.argv[4]), int(sys.argv[5]), sys.argv[6], remove_bg=False)

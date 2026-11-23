@@ -386,37 +386,37 @@
  "cow_walk": {
   "file": "cow_walk.png",
   "frames": 8,
-  "w": 59,
-  "h": 51
+  "w": 58,
+  "h": 52
  },
  "calf_walk": {
   "file": "calf_walk.png",
   "frames": 8,
-  "w": 37,
+  "w": 36,
   "h": 32
  },
  "cow_graze": {
   "file": "cow_graze.png",
   "frames": 6,
-  "w": 59,
-  "h": 51
+  "w": 58,
+  "h": 52
  },
  "calf_graze": {
   "file": "calf_graze.png",
   "frames": 6,
-  "w": 37,
+  "w": 36,
   "h": 32
  },
  "cow_lie": {
   "file": "cow_lie.png",
   "frames": 6,
-  "w": 59,
-  "h": 51
+  "w": 58,
+  "h": 52
  },
  "calf_lie": {
   "file": "calf_lie.png",
   "frames": 6,
-  "w": 37,
+  "w": 36,
   "h": 32
  }
 }
