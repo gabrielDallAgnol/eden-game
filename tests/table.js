@@ -13,6 +13,8 @@ var COLS = [
   ['peak', function (W, r) { return r.peak; }],
   ['dwellings', function (W) { return W.S.tribe.sites.filter(function (s) { return !(W.BUILDINGS && W.BUILDINGS[s.kind] && !W.BUILDINGS[s.kind].room) && (s.was || s.stage >= W.DWELL[s.kind].stages); }).length; }],
   ['hunger deaths', function (W) { return hungerDeaths(W.S); }],
+  /* people who left the valley to find land elsewhere (no ground near the village, a lean year) */
+  ['left', function (W) { return W.S.stat.left || 0; }],
   ['resettled', function (W, r) { return r.resettled; }],
   ['ideas', function (W) { return W.ideas().filter(function (i) { return i.known; }).length; }],
   ['animals', function (W) { var p = W.S.pop; return (p.deer || 0) + '/' + (p.rabbit || 0) + '/' + (p.wolf || 0); }],

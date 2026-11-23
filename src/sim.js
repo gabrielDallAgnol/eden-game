@@ -865,6 +865,8 @@ function create(seed, opt) {
       }
     }
   }
+  /* one who leaves the valley for good: not a death, nobody grieves; the view lets them go */
+  const leave = a => { if (!a.alive) return; a.alive = false; a.left = true; folkList = null; S.stat.left = (S.stat.left || 0) + 1; S.fx.push({ kind: 'leave', sp: a.sp, id: a.id, x: a.x, y: a.y }); };
   const die = (a, why, by) => {
     if (!a.alive) return;
     a.alive = false;
@@ -1336,6 +1338,8 @@ function create(seed, opt) {
     if (a.e < (short ? 0.4 : 0.85)) {
       let want = Math.min(1 - a.e, 0.5);
       if (hm && hm.larder > 0.05) { const t = Math.min(hm.larder, want), nv = nourish(hm); hm.larder -= t; a.e += t * nv; want -= t; }   /* a mixed larder feeds a little better than one kind alone (G4) */
+      /* while the store is lower than at this time last year it is rationed: a meal from it fills only part way */
+      if (T.storeShort && !(hm && hm.larder > want)) { want = Math.min(want, Math.max(0, 0.6 - a.e)); if (hm) hm.shortT = (hm.shortT || 0) + dt * 0.25; else a.shortT = (a.shortT || 0) + dt * 0.25; }   /* a rationed meal is remembered as a lean time */
       if (want > 0.05 && T.store > 0.05 && dist <= 2) { const t = Math.min(T.store, want); T.store -= t; a.e += t; }
       else if (want > 0.05 && a.e < 0.4 && T.store > want && a.age >= SMALL && !S.night) {
         if (route(a.x, a.y, T.x, T.y, a, 80).reached) { a.x = T.x; a.y = T.y; const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return; }   /* only if there is a way to the fire */
@@ -2151,19 +2155,22 @@ function create(seed, opt) {
     const ct = tempAt(I(T.x, T.y));
     if (!T.sown && ct > 4 && ct > T.lastCampT && daysLengthen() && T.sownYear !== Math.floor(S.t)) {   /* sown once a year, in spring as the days lengthen: one crop a year, not a second cut down by frost */
       T.sownYear = Math.floor(S.t);
-      const P = folk(), homes = T.sites.filter(q => live(q) && q.members > 0), ids = new Set(homes.map(q => q.id)); let total = 0;
+      const P = folk(), homes = T.sites.filter(q => live(q) && q.members > 0), ids = new Set(homes.map(q => q.id)), leaving = []; let total = 0;
       for (let i = 0; i < N * N; i++) if (field[i] && !ids.has(owner[i])) { field[i] = 0; owner[i] = 0; }      // nobody's any more: it goes back to grass
       for (const h of homes) {
         const mine = P.filter(b => b.house === h.id), hands = mine.filter(b => b.age >= GROWN && b.age <= 60).length, farmers = mine.filter(b => b.job === 'farmer').length;
         /* H3: when grain is dear against the other foods, a household puts more of its hands to the fields; when it is cheap, fewer */
         const dear = T.price ? clamp(Math.sqrt(T.price.grain / Math.max(0.05, (T.price.fish + T.price.fruit) / 2)), 0.7, 1.6) : 1;
-        const want = Math.round((hands * 2 + farmers * 1.5 + mine.length * 0.7) * dear * 0.5); let have = 0;   /* half the ground it took before: a tile now gives three times as much */
+        /* a household that went hungry over the last year, or sees the common store emptier than a year ago, sows more ground
+           this spring; one that went a whole year without either lets a little go again. Never more than its hands can work. */
+        const sh = h.shortT || 0; { h.sowK = clamp((h.sowK || 1) * (sh > 0.05 ? 1 + Math.min(0.5, sh) : T.storeFalling ? 1.15 : 0.95), 1, 3); h.shortT = 0; }
+        const want = Math.min(hands * 6 + farmers * 3, Math.round((hands * 2 + farmers * 1.5 + mine.length * 0.7) * dear * 0.5 * h.sowK)); let have = 0;   /* half the ground it took before: a tile now gives three times as much */
         for (let k = 0; k < N * N; k++) if (field[k] && owner[k] === h.id) have++;
         /* Fields are laid out like houses: a household takes whole lots of the lattice next to its own (the middle 3 x 3 of
            each lot, with the ways round it left open), the nearest and best ground first, as many as its hands and mouths
            need. A lot is free if nobody lives on it, nobody else holds it, and it is dry ground on this bank. */
         const lots = [];
-        for (let m = -3; m <= 3 && have < want; m++) for (let k = -3; k <= 3; k++) {
+        for (let m = -4; m <= 4 && have < want; m++) for (let k = -4; k <= 4; k++) {
           const cx = snapWay(h.x, T.x) + 2 + k * PITCH, cy = snapWay(h.y, T.y) + 2 + m * PITCH; if (cx < 1 || cy < 1 || cx >= N - 1 || cy >= N - 1) continue;
           if (T.sites.some(q => Math.abs(q.x - cx) <= 1 && Math.abs(q.y - cy) <= 1)) continue;
           let ok = 0, fe = 0, mine2 = 0, theirs = false;
@@ -2181,7 +2188,20 @@ function create(seed, opt) {
             field[t] = 1; owner[t] = h.id; crop[t] = sowVeg; tree[t] = 0; grass[t] = Math.max(grass[t], 0.15); have++; }
         }
         h.fields = have; total += have;
+        /* no ground to be had near its door and a lean year behind it: the household goes to find land of its own */
+        if (!have && want > 0 && sh > 0.05) leaving.push(h);
       }
+      /* a couple with no roof of their own who went short over the year go too, with their small children */
+      const goers = [];
+      for (const h of leaving) for (const b of P) if (b.house === h.id) goers.push(b);
+      for (const a of P) {
+        if (a.house || a.age < WED || !a.partner || !a.fem) continue;
+        const q = S.byId.get(a.partner); if (!q || !q.alive || q.house || (a.shortT || 0) + (q.shortT || 0) <= 0.05) continue;
+        goers.push(a, q); for (const b of P) if (!b.house && b.age < GROWN && (b.mom === a.id || b.dad === q.id)) goers.push(b);
+      }
+      for (const b of P) b.shortT = 0;
+      if (goers.length) { const n = new Set(goers).size; for (const b of goers) leave(b); S.stat.leftYears = (S.stat.leftYears || 0) + 1;
+        tell(n + ' people have left the valley to find land of their own: there was no ground to sow near the village and the store was running low.'); }
       T.fields = total; T.sown = true; T.cropWarm = 0; fieldList = null;
     }
     if (T.sown) {
@@ -2237,6 +2257,12 @@ function create(seed, opt) {
     for (const a of S.agents) if (a.alive) { cells[I(a.x, a.y)].push(a); S.pop[a.sp]++; if (a.age >= a.d.mature) S.adults[a.sp] = (S.adults[a.sp] || 0) + 1; if (a.d.people) S.popPeople++; const q = a.home && S.homes.get(a.home); if (q) q.n++; else a.home = 0; }
     for (const q of S.homes.values()) { if (q.n) q.emptyT = 0; else if ((q.emptyT += dt) > 2 || flood[I(q.x, q.y)]) S.homes.delete(q.id); }
     const T = S.tribe, born = [], campI = I(T.x, T.y), lengthening = daysLengthen(), sunH = sunHeight();
+    /* the common store at this time last year: people see whether the granary is fuller or emptier than a year ago */
+    const slotY = S.tickNo % TPY; if (!T.storeRing) T.storeRing = []; const storeYearAgo = T.storeRing[slotY]; T.storeRing[slotY] = T.store; T.storeFalling = T.store < storeYearAgo;
+    /* less than about a year's food for everyone in the store, and less than a year ago: it has to be rationed */
+    T.storeShort = T.storeFalling && T.store < 2.2 * S.popPeople;
+    /* a full store is plenty to raise a child on only while it is not running down: a store eaten into year on year is not counted on */
+    const storePlenty = n => T.store >= 1.1 * n + 1 && !(T.store < storeYearAgo);
     {
       /* what rots is seen rotting, in every larder: each kind of food at its own pace (F2). The common store keeps as well as
          the best storehouse or granary standing lets it (F3); no pot or granary helps from a distance */
@@ -2324,13 +2350,15 @@ function create(seed, opt) {
         { const last = trailNow[trailNow.length - 1], here = I(a.x, a.y); if (last !== here) { const rt = route(last % N, (last / N) | 0, a.x, a.y, a, 160); for (const t of rt.tiles) trailNow.push(t); if (trailNow[trailNow.length - 1] !== here) trailNow.push(here); } }
         trails.set(a.id, trailNow); tally(a); if (a.alive) see(a); } else { trailA = a; trailNow = [I(a.x, a.y)]; animal(a, d, dt); trailA = null; const here = I(a.x, a.y); if (trailNow[trailNow.length - 1] !== here) trailNow.push(here); trails.set(a.id, trailNow); }
       if (!a.mood) a.mood = a.e < 0.3 ? 'hungry' : a.e > e0 + 0.02 ? 'fed' : '';
+      /* a household remembers going hungry: it is what makes it sow more next spring */
+      if (d.people && a.alive && a.e < 0.3 && a.house) { const h = homeSite(a); if (h) h.shortT = (h.shortT || 0) + dt; }
       if (a.alive && a.e <= 0) { die(a, Tc < d.comfort ? 'cold and hunger' : 'hunger'); continue; }
       // --- young are born to a well-fed mother when the air is warm enough for them
       if (a.alive && a.age >= d.mature && a.cd <= 0 && a.e > d.breedE && Tc >= d.warmBreed && (lengthening || sunH >= (d.lateLight || 0))) {
         if (d.people) {
           {
             const hm = homeSite(a);
-            if (!a.fem || a.age < WED || a.age > 42 || !(hm ? (hm.larder || 0) >= 0.9 * (hm.members || 2) + 0.5 || T.store >= 1.1 * S.pop[a.sp] + 1 : T.store >= 1.1 * S.pop[a.sp] + 1)) continue;
+            if (!a.fem || a.age < WED || a.age > 42 || !(hm ? (hm.larder || 0) >= 0.9 * (hm.members || 2) + 0.5 || storePlenty(S.pop[a.sp]) : storePlenty(S.pop[a.sp]))) continue;
           }
           const q = S.byId.get(a.partner);
           if (!q || !q.alive || (a.house ? q.house !== a.house : cheb(q, a) > 3)) continue;   /* a couple under one roof (they are not side by side all day) */

@@ -738,6 +738,28 @@ UNITS.push(['wild cattle live on, a calf is brought home from the hunt, the herd
     if ((T.milked || 0) > 50 && T.sites.some(function (q) { return q.kind === 'dairy'; }) && (W.mixOf(T, 'store').cheese > 0 || T.skills.cheese)) best = out[out.length - 1]; }
   return best ? '' : 'no place milked its cattle and made cheese in 80 years: ' + out.join('; ');
 }]);
+UNITS.push(['a couple with no roof who went short leave the valley at sowing with their small children; it is not a death, and a fed household with fields stays', function () {
+  var worlds = [[1, 'plains'], [1, 'valley'], [2, 'forest']], W, T, S, i, w, P, a, q;
+  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }); S = W.S; T = S.tribe;
+    for (i = 0; i < 24 * 40 && !(T.skills.farm && T.sownYear >= 0 && S.agents.some(function (b) { return b.alive && b.d.people && b.fem && b.partner && b.house; })); i++) W.tick();
+    if (T.skills.farm) break; }
+  if (!T.skills.farm) return 'no farming in 40 years in three worlds';
+  P = S.agents.filter(function (b) { return b.alive && b.d.people; });
+  a = P.find(function (b) { return b.fem && b.partner && b.house && b.age >= 16; }); if (!a) return 'no couple under a roof';
+  q = S.byId.get(a.partner); var kids = P.filter(function (b) { return b.age < 13 && (b.mom === a.id || b.dad === q.id); });
+  var stay = T.sites.find(function (h) { return h.members > 0 && h.id !== a.house && h.fields > 0; });
+  var deaths0 = Object.keys(S.deaths).reduce(function (p, k) { return p + (/^human/.test(k) ? S.deaths[k] : 0); }, 0), year = T.sownYear;
+  for (i = 0; i < 24 * 2 && T.sownYear === year; i++) { [a, q].concat(kids).forEach(function (b) { if (b.alive) { b.house = 0; b.shortT = 1; } }); W.tick(); }
+  if (T.sownYear === year) return 'no sowing within two years';
+  if (a.alive || q.alive) return 'the couple is still here after sowing';
+  if (!a.left || !q.left) return 'the couple is gone but not marked as having left';
+  if (kids.some(function (b) { return b.alive; })) return 'their small children stayed behind';
+  var deaths1 = Object.keys(S.deaths).reduce(function (p, k) { return p + (/^human/.test(k) ? S.deaths[k] : 0); }, 0);
+  if (deaths1 - deaths0 > 3) return (deaths1 - deaths0) + ' deaths counted around the leaving';
+  if (stay && !S.agents.some(function (b) { return b.alive && b.house === stay.id; })) return 'a household with fields left too';
+  if (!S.log.some(function (l) { return /left the valley to find land/.test(l.text); })) return 'the leaving is not told';
+  return '';
+}]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
   for (var i = 0; i < 48; i++) W.tick();

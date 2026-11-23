@@ -998,6 +998,8 @@ function takeEvents(instant) {
         o.bub = 'love';
         o.bubT = now + 1500 + Math.random() * 3000;
       }
+    } else if (f.kind === 'leave') {   /* gone from the valley: no body, no grave */
+      actors.delete(f.id);
     } else if (f.kind === 'arrive') {
       const a = S.byId.get(f.id); if (!a) continue; const ex = a.x < N / 2 ? -0.4 : N + 0.4; newRec(a, ex, a.y + 0.5, { born: now, arrive: 1, alpha: 0 });
     }
