@@ -132,3 +132,4 @@ These are rules, not outcomes, and are meant to stay that way:
 - The map is 96 tiles a side in the game (`?size=` changes it); tests also run at 40 and 128.
 - A stranger arrives when a grown person has only kin to choose from. To be replaced by step 7 (people moving between places).
 - A wolves' den is not dug within 12 tiles of the camp or 8 of a household (the fire's smell and noise, as a fixed distance). Market stalls are not drawn until there is trade.
+- Food: a sown tile gives `FIELD_YIELD` (7.8 per unit of growth), and households sow half the tiles they did (owner's request that a person grows more than they eat). A floor must be 10% cheaper than a free lot to be chosen. A council needs someone with four friends.

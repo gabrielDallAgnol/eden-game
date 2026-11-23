@@ -845,7 +845,7 @@ function planPerson(r, phase, pi) {
     case 'weave': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), at = mine ? { x: mine.x - 0.6, y: mine.y + 0.4 } : { x: end.x, y: end.y }; P.go(at.x, at.y, sp); r.bub = 'carve'; r.bubT = now + R(0, 900); P.done('sit'); return; }
     case 'carve': { const mine = huts.find(q => q && q.live && !q.die && q.id === a.house), at = mine ? { x: mine.x + 0.2, y: mine.y + 1.1 } : { x: end.x, y: end.y }; P.go(at.x, at.y, sp); r.bub = 'carve'; r.bubT = now + R(0, 900); P.wait(0.6, 'sit', { fx: 'chips', lx: at.x, ly: at.y }); P.done('sit'); return; }
     case 'watch': { const s = seat(pi); P.go(s.x, s.y, sp); P.done('sit'); return; }   // the night watch, awake by the fire
-    case 'mourn': { const s = seat(pi); r.bub = 'grief'; r.bubT = now + 800; P.go(s.x, s.y, sp * 0.7); P.done('sit'); return; }                                    // foul weather: indoors
+    case 'mourn': { const s = act.x !== undefined && (act.x !== T0.x || act.y !== T0.y) ? { x: act.x + 0.5 + R(-0.6, 0.6), y: act.y + 1.1 + R(-0.2, 0.3) } : seat(pi); r.bub = 'grief'; r.bubT = now + 800; P.go(s.x, s.y, sp * 0.7); P.done('sit'); return; }   // by the fire, or at the shrine once there is one                                    // foul weather: indoors
     case 'guard': { const tg = recOf(act.id); if (tg) { P.go(tg.x, tg.y, SPEED.person.run, 'run', { killMark: 1 }); P.wait(0.1, 'work', { fx: 'blood', at: act.id }); } break; }
     default: {   // nothing worth fetching this time: firewood, the fields, a chat by the fire
       if (a.wood >= 0) {

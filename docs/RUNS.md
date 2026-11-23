@@ -1162,3 +1162,35 @@ Size 96, seeds 1 and 2:
 | mean |  | 18.1 | 103.7 | 341.7 | 477.5 | 88.9 | 385.1 | 0.5 | 12.9 |  | 3.1 | 10.1 | 20.3 | 7.4 | 75.1 | 0.9 | 2365.9 | 188.6 | 29.5 | 4.4 |  |  | 64.5 | 8.8 | 25.7 | 1.1 | 0 | 42285 |
 
 Year 100 mean 341.7 (139.7 before), hunger deaths 385.1 (140.7; there are many more people), 5 resettles (forest 1). Run time 42 s a world.
+
+
+## Owner's request: a mayor and a hall, a shrine and a church
+
+Each from a felt want, with a building that does the work:
+- **The want of order** (`need.order`) grows each year with grudges held (ties at -0.5 or worse), households driven out by quarrels, and debts left unpaid beyond 15. When it is felt enough, and someone is trusted widely (friends with at least four people), the idea of a council comes.
+- **The hall** (8 timber, 4 stone) is raised for it. Its trade is the elder's. The elder is whoever the most people count as a friend (age helps a little), not the handiest; a mayor is chosen whatever the larder, unlike other places of work. It is told: "... has been chosen to speak for the place, and sits in the hall to hear its quarrels: the first mayor."
+- **While an elder sits in the hall:** grudges fade twice as fast, debts are forgiven by a fifth a year instead of a tenth, a household only leaves over a quarrel twice as bitter, and the want of order grows at a fifth of the rate.
+- **The want of loss** (deaths, already felt) now also brings rites, and a shrine of standing stones and a kept fire. The newly bereaved mourn there, not at the fire, and grief eases 1.6 times faster while a shrine or church stands.
+- **The church:** once masonry is known and more than six people are grieving at a time, a church (8 timber, 14 stone, three stages) is raised, and the shrine is taken down when it is finished.
+- Both ideas name their building in `IDEA_VIA`. Code-drawn sprites: a long hall with a bell post, a ring of standing stones round a fire and a carved post, and a stone church with a tower and a cross.
+- Descriptions now say "an elder", not "a elder".
+
+Checks. New unit: plains 1 at year 60 has a finished hall with exactly one elder, a shrine or a church, and the first mayor told. In 80-year runs: valley 1 had a hall and a church by year 50, its first mayor at year 50, and its want of order at 5.6 (17.4 before the elder rule); plains 1 had its first mayor at year 51. Tests 519 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 32 | 172 | 691 | 691 | 134 | 423 | 0 | 16 | 21/115/5 | 3.1 | 20.9 | 26.9 | 7.4 | 104 | 1 | 5594 | 377 | 43.8 | 5.6 | 2.5 (4) | 76/0/2/0/18 | 76 | 9.5 | 37 | 3 | 0 | 72801 |
+| valley | 2 | 8 | 73 | 610 | 800 | 158 | 332 | 0 | 16 | 8/79/0 | 3.5 | 0 | 27.3 | 7.1 | 82 | 0.9 | 3911 | 411 | 40.8 | 4.7 | 1 (4) | 76/0/3/0/19 | 84 | 7.6 | 33 | 0 | 0 | 71474 |
+| plains | 1 | 34 | 195 | 395 | 539 | 105 | 496 | 0 | 14 | 16/192/6 | 3.2 | 21.3 | 23.3 | 9 | 100 | 0.8 | 6693 | 110 | 34.8 | 7.3 |  | 81/0/0/0/15 | 75 | 9.5 | 29 | 0 | 0 | 75391 |
+| plains | 2 | 20 | 130 | 747 | 770 | 167 | 552 | 0 | 14 | 6/101/0 | 3.1 | 24.9 | 24.3 | 10.4 | 164 | 0.8 | 7441 | 243 | 35.3 | 5.4 |  | 78/0/1/0/17 | 92 | 10.4 | 49 | 0 | 0 | 64538 |
+| forest | 1 | 3 | 5 | 51 | 51 | 14 | 18 | 5 | 12 | 4/114/0 | 2.3 | 13.5 | 13 | 3.4 | 5 |  | 93 | 65 | 14.6 | 4.2 |  | 49/0/2/0/42 | 22 | 3.1 | 9 | 0 | 0 | 7782 |
+| forest | 2 | 12 | 72 | 307 | 427 | 122 | 352 | 0 | 15 | 5/147/0 | 2.8 | 0 | 25.1 | 5.3 | 63 | 0.9 | 1583 | 176 | 31.1 | 5.1 | 0 (3) | 77/0/3/0/16 | 66 | 6.7 | 33 | 0 | 0 | 45050 |
+| lakeland | 1 | 18 | 137 | 563 | 686 | 149 | 537 | 0 | 16 | 18/57/1 | 3.3 | 0 | 26.4 | 7.9 | 101 | 0.8 | 5362 | 249 | 35.5 | 5.3 | 0.8 (5) | 74/0/1/0/23 | 81 | 8.6 | 37 | 4 | 0 | 81601 |
+| lakeland | 2 | 8 | 57 | 481 | 501 | 103 | 291 | 0 | 14 | 20/97/5 | 3.1 | 0 | 22.9 | 6.2 | 53 | 0.9 | 7359 | 203 | 38 | 6.5 | 0 (1) | 72/0/1/1/24 | 68 | 5.9 | 37 | 0 | 0 | 38623 |
+| highland | 1 | 31 | 153 | 192 | 212 | 47 | 268 | 0 | 16 | 6/53/0 | 3.7 | 27 | 19.6 | 10.2 | 74 | 1 | 390 | 196 | 25.4 | 3.1 | 0 (4) | 65/0/2/0/28 | 63 | 10.9 | 17 | 2 | 0 | 36927 |
+| highland | 2 | 14 | 7 | 10 | 31 | 1 | 65 | 0 | 12 | 5/45/5 | 2.9 | 2 | 4.7 | 4.9 | 0 |  | 6 | 12 | 8.7 | 2 |  | 42/17/0/0/42 | 28 | 3.3 | 8 | 0 | 0 | 6008 |
+| mean |  | 18 | 100.1 | 404.7 | 470.8 | 100 | 333.4 | 0.5 | 14.5 |  | 3.1 | 11 | 21.4 | 7.2 | 74.6 | 0.9 | 3843.2 | 204.2 | 30.8 | 4.9 |  |  | 65.5 | 7.6 | 28.9 | 0.9 | 0 | 50019.5 |
+
+Year 100 mean 404.7 (341.7 before), hunger deaths 333.4 (385.1), 5 resettles (forest 1). A world now takes 50 s for 100 years.

@@ -703,6 +703,16 @@ UNITS.push(['one harvest a year, each logged and shown rising from the fields; t
   if (!(f.veg > 0 && f.grain > 0)) return 'only one crop came in: ' + JSON.stringify(f);
   return '';
 }]);
+UNITS.push(['a growing place raises a hall where a trusted elder sits as mayor, and a shrine for its dead (then a church)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96 }), T = W.S.tribe, i;
+  for (i = 0; i < 24 * 60; i++) W.tick();
+  var up = function (k) { return T.sites.some(function (q) { return q.kind === k && q.stage >= W.BUILDINGS[k].stages.length; }); };
+  if (!up('hall')) return 'no hall standing at year 60 (council known: ' + !!T.skills.council + ', want of order ' + T.need.order.toFixed(1) + ')';
+  var e = W.S.agents.filter(function (a) { return a.alive && a.job === 'elder'; }); if (e.length !== 1) return e.length + ' elders in the hall';
+  if (!up('shrine') && !up('church')) return 'no shrine or church at year 60 (rites known: ' + !!T.skills.rites + ')';
+  if (!W.S.log.some(function (l) { return /first mayor/.test(l.text); })) return 'the first mayor is not told';
+  return '';
+}]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
   for (var i = 0; i < 48; i++) W.tick();

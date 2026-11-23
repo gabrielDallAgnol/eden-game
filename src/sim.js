@@ -40,10 +40,10 @@ const SKILLS = {
 // Things people may work out for themselves. Why and when is not written here: see IDEAS inside create(), where each is tied
 // to a want that has actually been felt and to the means lying at hand.
 const TECHS = { bridge: 1, pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, tools: 1, medicine: 1, masonry: 1, writing: 1, concrete: 1 };
-const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt', smith: 'build', potter: 'build', wright: 'build', healer: 'gather', scribe: 'gather' };
+const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt', smith: 'build', potter: 'build', wright: 'build', healer: 'gather', scribe: 'gather', elder: 'gather' };
 /* F6: every trade is work in a place: on the land, at the water, on the building plots, or in a building (named by its kind) */
 const TRADE_JOBS = new Set(['smith', 'potter', 'wright', 'scribe', 'healer', 'builder', 'mason', 'herder']);
-const JOB_PLACE = { farmer: 'the fields', hunter: 'the wild', fisher: 'the water', gatherer: 'the wild', builder: 'the plots', woodcutter: 'the woods', mason: 'the quarry', guard: 'the camp', herder: 'pen', smith: 'smithy', potter: 'kiln', wright: 'workshop', healer: 'healerhouse', scribe: 'tallyhouse' };
+const JOB_PLACE = { farmer: 'the fields', hunter: 'the wild', fisher: 'the water', gatherer: 'the wild', builder: 'the plots', woodcutter: 'the woods', mason: 'the quarry', guard: 'the camp', herder: 'pen', smith: 'smithy', potter: 'kiln', wright: 'workshop', healer: 'healerhouse', scribe: 'tallyhouse', elder: 'hall' };
 function create(seed, opt) {
   opt = opt || {};
   const SP = opt.species || SPECIES, HUMAN = Object.values(SP).find(d => d.people) || SPECIES.human;
@@ -383,7 +383,7 @@ function create(seed, opt) {
   // here is reset wherever a settlement starts over.
   function newSettlement(x, y) {
     const T = { x, y, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
-      need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0, cross: 0 },
+      need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0, cross: 0, order: 0 },
       fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0, ditch: new Uint8Array(N * N), debts: {}, trades2: 0, tradesFailed: 0, swaps: {},
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
       rate: {}, wall: null, fence: null, streets: null, road: new Uint8Array(N * N), sites: [], skills: {}, dead: 0, born: 0,
@@ -684,12 +684,12 @@ function create(seed, opt) {
       if (!key) continue; let g = groups.get(key); if (!g) groups.set(key, g = []); g.push(a); }
     for (const g of groups.values()) if (g.length >= 2 && g.length <= 12) for (const a of g) for (const b of g) if (a !== b) { if (!a.ties) a.ties = {}; a.ties[b.id] = Math.min(2, (a.ties[b.id] || 0) + (rival(a, b) ? 0.02 : 0.06)); }   /* a grudge mends slowly, even side by side */
     /* ties fade: a year apart takes away a quarter of what was there; the dead and the gone are let go */
-    if (S.tickNo % 4 === 0) for (const a of P) { if (!a.ties) { a.ties = {}; continue; } for (const id in a.ties) { const b = S.byId.get(+id); const v = a.ties[id] * (1 - 0.25 * dt * 4); if (!b || !b.alive || Math.abs(v) < 0.02) delete a.ties[id]; else a.ties[id] = v; } }
+    if (S.tickNo % 4 === 0) for (const a of P) { if (!a.ties) { a.ties = {}; continue; } for (const id in a.ties) { const b = S.byId.get(+id); const fade = a.ties[id] < 0 && presiding() ? 0.5 : 0.25, v = a.ties[id] * (1 - fade * dt * 4); if (!b || !b.alive || Math.abs(v) < 0.02) delete a.ties[id]; else a.ties[id] = v; } }   /* an elder's hearing makes a grudge fade twice as fast */
   }
   function describe(a) {
     if (!a.d.people || !a.name) return '';
     const age = Math.floor(a.age), p = S.byId.get(a.partner), kids = childrenOf(a).map(b => b.name);
-    const what = a.job && a.age >= GROWN && a.age <= 46 ? 'a ' + a.job : a.age < 2 ? 'a baby' : a.age < SMALL ? 'a small child' : a.age < GROWN ? 'a child, learning to '
+    const what = a.job && a.age >= GROWN && a.age <= 46 ? (/^[aeiou]/.test(a.job) ? 'an ' : 'a ') + a.job : a.age < 2 ? 'a baby' : a.age < SMALL ? 'a small child' : a.age < GROWN ? 'a child, learning to '
         + craftOf(a) : a.age > 46 ? 'an elder' : 'a ' + CRAFT_NAME[craftOf(a)];
     const glad = (a.joy || 0) > 0.7 && a.e > 0.6 && a.grief < 0.2;
     const mood = a.grief > 0.2 ? 'grieving' : glad && a.act && LIKES[a.act.like] ? 'happy, ' + (a.fem ? 'she ' : 'he ') + LIKES[a.act.like].says : glad ? 'happy' : a.mood === 'afraid' ? 'afraid' : a.e < 0.3 ? 'hungry' : a.mood === 'cold' ? 'cold' : a.e > 0.8 ? 'content' : 'getting by';
@@ -756,7 +756,7 @@ function create(seed, opt) {
       if (!wl && T.waterAt) walk(T.x, T.y, T.waterAt % N, (T.waterAt / N) | 0, 0.01 * P.length);
       if (S.tickNo % 4 === 0) for (let i = 0; i < N * N; i++) if (tread[i] > 0) tread[i] *= 0.965; }
     for (const a of P) {
-      if (a.grief > 0) a.grief = Math.max(0, a.grief - dt * 1.2 * (1 + (a.joy || 0)));   /* the glad get over loss sooner */
+      if (a.grief > 0) a.grief = Math.max(0, a.grief - dt * 1.2 * (1 + (a.joy || 0)) * (holy() ? 1.6 : 1));   /* the glad get over loss sooner; so do those with a shrine to mourn at */
       /* gladness: fed, warm and with their own it holds; hunger, cold and grief wear it down */
       { const pt = S.byId.get(a.partner); a.joy = clamp((a.joy || 0.5) * 0.97 + (a.e > 0.7 ? 0.012 : -0.02) + (a.mood === 'cold' ? -0.02 : 0) + (pt && pt.alive ? 0.006 : 0) - a.grief * 0.03, 0, 1); }
       if (a.partner) { const q = S.byId.get(a.partner); if (!q || !q.alive) a.partner = 0; }
@@ -1347,7 +1347,7 @@ function create(seed, opt) {
     /* a fed, free evening goes to what they love */
     /* an evening is free when the household has food put by for tomorrow, not only when this one has eaten */
     if (DAY && S.tickNo % DAY === DAY - 2 && !a.trip && a.e > 0.65 && (hm ? (hm.larder || 0) >= mouths * 1.2 : T.store >= pop * 1.2) && a.likes && a.likes.length && rnd() < 0.6 && hobby(a, d)) return;
-    if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { stepTo(a, T.x, T.y, 2); a.act = { k: 'mourn' }; return; }   // the newly bereaved sit by the fire and do little
+    if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { const sh = standing('church') || standing('shrine'), to = sh || T; stepTo(a, to.x, to.y, 2); a.act = { k: 'mourn', x: to.x, y: to.y }; return; }   /* at the shrine, once there is one */   // the newly bereaved sit by the fire and do little
     // foul weather: with a roof, food in the store and nothing pressing, people stay in
     if (T.huts > 0 && a.e > 0.6 && (hm ? (hm.larder || 0) > mouths * 0.9 : T.store > pop * 1.1)) {
       const ct = tempAt(I(T.x, T.y)); if (ct < d.comfort - 9 || (S.precip > 0 && ct >= 0 && ct < 5)) { stepTo(a, T.x, T.y, 3); a.act = { k: 'shelter' }; return; }
@@ -1513,7 +1513,12 @@ function create(seed, opt) {
     masonsyard:  { lots: 1, stages: [{ wood: 2, stone: 3 }], roof: 0.7, room: false, needsIdea: 'masonry', next: null },
     healerhouse: { lots: 1, stages: [{ wood: 3, stone: 1 }, { wood: 2, stone: 1 }], roof: 0.7, room: false, needsIdea: 'medicine', next: null, work: 'healer' },
     limekiln:    { lots: 1, stages: [{ wood: 2, stone: 4 }], roof: 0.7, room: false, needsIdea: 'concrete', next: null },
-    tallyhouse:  { lots: 1, stages: [{ wood: 3, stone: 1 }], roof: 0.7, room: false, needsIdea: 'writing', next: null, work: 'scribe' }
+    tallyhouse:  { lots: 1, stages: [{ wood: 3, stone: 1 }], roof: 0.7, room: false, needsIdea: 'writing', next: null, work: 'scribe' },
+    /* the common life of the place: a hall where an elder (the mayor) hears quarrels and settles debts; a shrine of stones where the
+       dead are mourned, and once masonry is known and it is too small, a church in its place */
+    hall:        { lots: 1, stages: [{ wood: 4, stone: 2 }, { wood: 4, stone: 2 }], roof: 0.7, room: false, needsIdea: 'council', next: null, work: 'elder' },
+    shrine:      { lots: 1, stages: [{ wood: 1, stone: 3 }], roof: 0.7, room: false, needsIdea: 'rites', next: null },
+    church:      { lots: 1, stages: [{ wood: 3, stone: 5 }, { wood: 3, stone: 5 }, { wood: 2, stone: 4 }], roof: 0.7, room: false, needsIdea: 'masonry', next: null }
   };
   const CRAFT_AT = {}; for (const k in BUILDINGS) if (BUILDINGS[k].work) CRAFT_AT[BUILDINGS[k].work] = k;   /* trade -> where it is worked */
   /* what must lie on the plot before stage n (counted from 0) can be finished: everything up to and including it */
@@ -1541,6 +1546,8 @@ function create(seed, opt) {
   /* F7 helpers: a healer at work; whether a ditch runs on or beside a tile */
   const healing = () => !!standing('healerhouse') && folk().some(b => b.job === 'healer');
   const scribed = () => !!standing('tallyhouse') && folk().some(b => b.job === 'scribe');
+  const presiding = () => !!standing('hall') && folk().some(b => b.job === 'elder');
+  const holy = () => !!(standing('church') || standing('shrine'));
   const ditchBy = i => { const D = S.tribe.ditch; if (!D) return false; const x = i % N, y = (i / N) | 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {   /* the water seeps two tiles out from the cut */ const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N && D[ny * N + nx]) return true; } return false; };
   /* the next tile of ditch: from the well, or the end of the ditch nearest, one step toward the nearest of the household's
      fields that is dry and has no water running by it; never through water or on a building's own tile */
@@ -1704,7 +1711,8 @@ function create(seed, opt) {
        without, a cart while a tame beast stands with nothing to draw */
     { const hands = folk().filter(b => b.age >= GROWN && b.age <= 46).length, beasts = S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length, roofs = T.sites.filter(q => isHome(q) && q.members > 0).length;
       for (const [k, short] of [['pen', S.agents.some(b => b.alive && b.tame)], ['kiln', T.pots < roofs], ['smithy', T.tools < hands], ['workshop', T.cartsMade < beasts],
-        ['masonsyard', T.sites.some(q => q.kind === 'house')], ['healerhouse', folk().some(b => b.age > 40)], ['limekiln', T.floodSeen && T.sites.some(q => q.kind === 'house')], ['tallyhouse', Object.keys(T.debts || {}).length > 8]]) if (short && T.skills[BUILDINGS[k].needsIdea] && !T.sites.some(q => q.kind === k)) return choosePlot(k, null); }
+        ['masonsyard', T.sites.some(q => q.kind === 'house')], ['healerhouse', folk().some(b => b.age > 40)], ['limekiln', T.floodSeen && T.sites.some(q => q.kind === 'house')], ['tallyhouse', Object.keys(T.debts || {}).length > 8], ['hall', true], ['shrine', T.dead > 0 && !T.sites.some(q => q.kind === 'church')],
+        ['church', T.skills.masonry && T.sites.some(q => q.kind === 'shrine' && raised(q)) && folk().filter(b => b.grief > 0.2).length > 6]]) if (short && T.skills[BUILDINGS[k].needsIdea] && !T.sites.some(q => q.kind === k)) return choosePlot(k, null); }
     s = homes.filter(q => !q.upon && NEXT[q.kind] && T.skills[NEXT[q.kind]] && raised(q) && q.cold > 0.12 && (q.larder
         || 0) >= q.members * 0.6).sort((p, q) => q.cold - p.cold)[0];   // something better is known: the household that has felt the cold most, and can feed itself meanwhile, rebuilds first
     if (s) { s.was = s.kind; s.kind = NEXT[s.kind]; s.stage = 0; s.wood *= RUBBLE_WOOD; s.stone *= RUBBLE_STONE; s.qtrips = 0; s.lake = T.floodSeen && bank[I(s.x, s.y)] > 0.5; return s; }
@@ -1800,6 +1808,9 @@ function create(seed, opt) {
       /* quarry trips per stone dwelling: first raisings against raisings again after a flood */
       if (stageNeed(BUILDINGS[s.kind], 0, 'stone')) { if (s.flooded) { S.stat.reTrips += s.qtrips || 0; S.stat.reN++; } else if (!rebuilt) { S.stat.newTrips += s.qtrips || 0; S.stat.newN++; } }
       s.flooded = false; s.qtrips = 0; if (s.kind === 'house' && standing('limekiln')) s.concrete = true;   /* finished with lime from the kiln: set in concrete (F7) */
+      if (s.kind === 'hall') tell('The hall is raised. Quarrels and debts are brought there now, to be heard and settled.');
+      else if (s.kind === 'shrine') tell('A shrine of stones stands at the edge of the camp, where the dead are remembered.');
+      else if (s.kind === 'church') { tell('The church is finished, stone on stone, larger than any house. The old shrine is taken down.'); for (const q of T.sites.filter(q => q.kind === 'shrine')) T.sites.splice(T.sites.indexOf(q), 1); }
       if (s.kind === 'granary') tell('The granary stands on its posts. Grain put up there will keep through the winter.'); else if (s.kind === 'storehouse') tell('A storehouse, its pots sealed with clay. What is put by in common keeps longer now.');
       if (s.kind === 'well') { T.well = true; tell('The people have dug a well. The fields need not wait for rain.'); }
       else if (first && isHome(s)) tell({ tent: 'A tent of hides is up: the first roof in the valley.',
@@ -1911,7 +1922,7 @@ function create(seed, opt) {
       if (!T.coin && (T.trades2 || 0) > 30 && T.failRate > 15 && T.given) { let best = null, bv = 0; for (const g in T.given) if (T.given[g] > bv) { bv = T.given[g]; best = g; }
         if (best) { T.market = { x: T.x, y: T.y }; T.coin = best; T.coinAt = { trades: T.trades2, failRate: Math.round(T.failRate * 10) / 10, year: Math.floor(S.t) }; tell('Too many trades come to nothing. Now ' + GOODS[best].says + ' is taken by everyone as payment, whether they need it that day or not: it has become the measure of things. The open ground round the fire is kept for a market.'); } } }
     /* debts: a tenth forgiven each year; those of a household that is gone are gone with it */
-    if (T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); T.debts[key] *= 0.9; if (T.debts[key] < 0.05 || !T.sites.some(h => h.id === from) || !T.sites.some(h => h.id === to)) delete T.debts[key]; }
+    if (T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); T.debts[key] *= presiding() ? 0.8 : 0.9; if (T.debts[key] < 0.05 || !T.sites.some(h => h.id === from) || !T.sites.some(h => h.id === to)) delete T.debts[key]; }
   }
   /* G2: a household that lives next door to a bitter rival, under a roof light enough to leave (a tent or a hut), gives it up and
      builds again somewhere away from them; once in ten years at most */
@@ -1919,7 +1930,7 @@ function create(seed, opt) {
     const T = S.tribe, P = folk();
     for (const q of T.sites.slice()) {
       if (!isHome(q) || !q.members || !raised(q) || (q.movedT !== undefined && S.t - q.movedT < 10)) continue;
-      const mine = P.filter(b => b.house === q.id && b.age >= WED); let worst = null, wv = -0.6;
+      const mine = P.filter(b => b.house === q.id && b.age >= WED); let worst = null, wv = presiding() ? -1.2 : -0.6;   /* with an elder to hear it, only a worse quarrel drives a household out */
       for (const m of mine) for (const b of P) { if (b.house === q.id || !b.house) continue; const h = homeSite(b); if (!h || cheb(h, q) > PITCH + 1) continue; const v = tieOf(m, b); if (v < wv) { wv = v; worst = [m, b]; } }
       if (!worst) continue;
       const leaving = new Set(P.filter(m => m.house === q.id).map(m => m.id)); for (const m of P) if (m.house === q.id) m.house = 0;
@@ -1936,18 +1947,20 @@ function create(seed, opt) {
      make it from), by a grown person whose household is not going hungry; the one who has it keeps it while the work is short */
   function placeJobs(able) {
     const T = S.tribe, P = folk(), roofs = T.sites.filter(q => isHome(q) && q.members > 0).length, beasts = S.agents.filter(b => b.alive && b.tame && b.age >= b.d.mature * 0.75).length;
-    const short = { scribe: Object.keys(T.debts || {}).length > 8, healer: P.some(b => b.age > 40), herder: S.agents.some(b => b.alive && b.tame), smith: T.tools < able.length && T.ore >= 0.25, potter: T.pots < roofs && T.wood >= 1, wright: T.cartsMade < beasts && T.wood >= 4 };
+    const short = { elder: true, scribe: Object.keys(T.debts || {}).length > 8, healer: P.some(b => b.age > 40), herder: S.agents.some(b => b.alive && b.tame), smith: T.tools < able.length && T.ore >= 0.25, potter: T.pots < roofs && T.wood >= 1, wright: T.cartsMade < beasts && T.wood >= 4 };
     const fed = a => { const h = homeSite(a); return h ? (h.larder || 0) >= h.members * 0.6 : T.store >= P.length * 0.6; };
-    for (const job of ['scribe', 'healer', 'herder', 'smith', 'potter', 'wright']) {
+    for (const job of ['elder', 'scribe', 'healer', 'herder', 'smith', 'potter', 'wright']) {
       const place = standing(JOB_PLACE[job]), holders = able.filter(a => a.job === job);
       /* a place's work is for when food is not short: a small or hungry place keeps its hands on food */
-      if (!place || !short[job] || T.plenty < 0.6) { for (const a of holders) a.job = ''; continue; }
+      if (!place || !short[job] || (T.plenty < 0.6 && job !== 'elder')) { for (const a of holders) a.job = ''; continue; }   /* a mayor is chosen whatever the larder */
       for (const a of holders.slice(1)) a.job = '';   /* one pair of hands to a place */
-      if (holders.length || able.length < 4 || T.plenty < 1) continue;
-      const free = able.filter(a => fed(a) && (!a.job || a.job === 'gatherer' || a.job === 'farmer' || a.job === 'fisher' || a.job === 'hunter')); if (!free.length) continue;
-      const pick = free.reduce((b, a) => a.skill.build > b.skill.build ? a : b); pick.job = job;
+      if (holders.length || able.length < 4 || (T.plenty < 1 && job !== 'elder')) continue;
+      const free = able.filter(a => (fed(a) || job === 'elder') && (!a.job || a.job === 'gatherer' || a.job === 'farmer' || a.job === 'fisher' || a.job === 'hunter')); if (!free.length) continue;
+      /* the elder is whoever the most people trust; the other places take the handiest */
+      const trust = a => Object.values(a.ties || {}).filter(v => v >= 0.5).length + (a.age > 40 ? 1 : 0);
+      const pick = job === 'elder' ? free.reduce((b, a) => trust(a) > trust(b) ? a : b) : free.reduce((b, a) => a.skill.build > b.skill.build ? a : b); pick.job = job;
       T.trades = T.trades || {};
-      if (!T.trades[job]) { T.trades[job] = true; tell(pick.name + { scribe: ' keeps the marks at the tally house now: who owes whom, and how much.', healer: ' keeps the healer\'s house now, and its garden of herbs.', herder: ' keeps the pen now, and feeds the tame deer through the lean months.', smith: ' works at the smithy now: tools for every hand that needs one.', potter: ' fires pots at the kiln, for every household\'s larder.', wright: ' builds carts in the workshop.' }[job]); }
+      if (!T.trades[job]) { T.trades[job] = true; tell(pick.name + { elder: ' has been chosen to speak for the place, and sits in the hall to hear its quarrels: the first mayor.', scribe: ' keeps the marks at the tally house now: who owes whom, and how much.', healer: ' keeps the healer\'s house now, and its garden of herbs.', herder: ' keeps the pen now, and feeds the tame deer through the lean months.', smith: ' works at the smithy now: tools for every hand that needs one.', potter: ' fires pots at the kiln, for every household\'s larder.', wright: ' builds carts in the workshop.' }[job]); }
     }
   }
   /* who works where, for the Town panel: every standing place of work and the names of those whose trade is there */
@@ -1987,6 +2000,8 @@ function create(seed, opt) {
       say: 'Tools. Among the broken stone, some that ran bright in the fire: an axe that bites, a chisel that cuts.' },
     medicine:   { need: 'loss',   at: 2.0, can: () => folk().some(a => a.skill.gather > 1.2), say: 'Medicine. Too many buried. Those who know plants have learned which ones help.' },
     writing:    { need: 'reckon', at: 2.5, can: () => allFood() > S.popPeople, say: 'Writing. Too many households and too much in the store to hold in one head: marks are made for what is owed.' },
+    council:    { need: 'order',  at: 2.0, can: () => folk().some(a => a.age >= WED && Object.values(a.ties || {}).filter(v => v >= 0.5).length >= 4), say: 'Too many quarrels left to fester, too many debts unpaid. The people will meet, and one they all trust will speak for the place.' },
+    rites:      { need: 'loss',   at: 1.2, can: T => T.skills.fire, say: 'So many buried. The people have begun to keep the dead: stones set up, a fire kept, the names said over.' },
     bridge:     { need: 'cross',  at: 1.2, can: T => T.skills.hut, say: 'Bridge. Too many days lost wading the ford, and the river too high to cross half the year. Logs can be laid across it.' },
     concrete:   { need: 'flood',  at: 3.0, can: T => T.skills.masonry && T.skills.fire, say: 'Concrete. The river took the houses again. Burnt lime, sand and stone set like rock, and stay.' }
   };
@@ -1994,7 +2009,7 @@ function create(seed, opt) {
      the ground named here that does. The tests hold every idea to a row of BUILDINGS or to one of the works (WORKS) */
   const WORKS = { hearth: 'a fire laid and fed at a hearth', fields: 'sown field tiles', ditches: 'ditch tiles dug from the well', bridge: 'a bridge laid across a ford' };
   const IDEA_VIA = { fire: 'hearth', hut: 'hut', house: 'house', masonry: 'masonsyard', farm: 'fields', plough: 'workshop', pottery: 'kiln', granary: 'granary', well: 'well',
-    irrigation: 'ditches', palisade: 'fence', wheel: 'workshop', tools: 'smithy', medicine: 'healerhouse', writing: 'tallyhouse', bridge: 'bridge', concrete: 'limekiln' };
+    irrigation: 'ditches', palisade: 'fence', wheel: 'workshop', tools: 'smithy', medicine: 'healerhouse', writing: 'tallyhouse', bridge: 'bridge', concrete: 'limekiln', council: 'hall', rites: 'shrine' };
   // the ground settling, year by year, whether or not anyone lives there
   function settlePits() {
     const T = S.tribe;
@@ -2040,6 +2055,9 @@ function create(seed, opt) {
     /* G5: too much to keep track of is what is owed between households, not how many there are; a scribe at the tally house keeps the marks */
     const openDebts = Object.keys(T.debts || {}).length;
     N_.reckon += Math.max(0, openDebts - 8) * 0.05 * (scribed() ? 0 : 1);
+    /* the want of order: grudges held, households driven out by quarrels, debts left unpaid; an elder in the hall answers it */
+    { let grudges = 0; for (const a of folk()) for (const id in a.ties || {}) if (a.ties[id] <= -0.5) grudges++;
+      N_.order += (grudges * 0.05 + (T.quarrelMoves || 0) * 0.3 + Math.max(0, openDebts - 15) * 0.02) * (presiding() ? 0.2 : 1); T.quarrelMoves = 0; }
     N_.danger = T.threat;
     if (!opt.noIdeas) for (const k in IDEAS) {
       const d = IDEAS[k];
