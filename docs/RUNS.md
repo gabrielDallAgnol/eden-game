@@ -1090,3 +1090,30 @@ Size 96, seeds 1 and 2:
 | mean |  | 16.8 | 68.6 | 122.1 | 143.8 | 41.5 | 131.7 | 0.3 | 11.9 |  | 2.7 | 7.6 | 20 | 5.4 | 45.8 | 1.1 | 1151.5 | 89.4 | 25.1 | 5 |  |  | 45.1 | 5.7 | 16.9 | 0.3 | 0 | 16710.3 |
 
 Year 100 mean 122.1 (121.6 at I3).
+
+
+## I5: rows before height
+
+A free lot one lot over from a standing house, in line along a way, shares a wall with it. It scores better when a plot is chosen (+0.6), and building there is 0.85 of the work of a house standing alone, in the cost of I1. So a household fills the next lot in a row before a floor up wins. Over four 100-year worlds (lakeland 1, plains 1, valley 1, plains 2): 94% of houses stand in a row (95% before, since the lattice already lines them up), and upper floors fell from 33 to 16. Rows come first, and height only where the row is full.
+
+Not done: drawing joined rows as terraces (each house is still drawn whole). The phase-wide check "dwellings per lot fall with distance from the centre; the edge is one storey; no lone tower in a field" is not yet measured as a test.
+
+Tests 516 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 27 | 101 | 165 | 186 | 57 | 186 | 0 | 13 | 12/123/1 | 2.5 | 8 | 24.6 | 5.9 | 94 | 1 | 1233 | 159 | 39.6 | 6.1 | 0 (2) | 82/0/3/0/15 | 54 | 6.1 | 21 | 3 | 0 | 26601 |
+| valley | 2 | 7 | 63 | 127 | 139 | 41 | 134 | 0 | 11 | 8/253/0 | 2.7 | 0 | 24.9 | 4.2 | 44 | 1.1 | 611 | 145 | 30.4 | 4.8 | 0 (2) | 84/2/3/0/10 | 52 | 4.8 | 17 | 0 | 0 | 16980 |
+| plains | 1 | 19 | 115 | 256 | 258 | 82 | 207 | 0 | 13 | 4/177/3 | 2.2 | 19.1 | 24.7 | 6.7 | 125 | 1 | 3806 | 92 | 36.6 | 6.7 |  | 76/1/0/5/15 | 55 | 9 | 29 | 0 | 0 | 27486 |
+| plains | 2 | 25 | 102 | 132 | 142 | 35 | 197 | 0 | 12 | 5/420/5 | 2.7 | 22 | 12.6 | 10.7 | 61 | 1 | 548 | 72 | 14.8 | 4.8 |  | 75/0/0/0/21 | 55 | 8.4 | 17 | 0 | 0 | 17932 |
+| forest | 1 | 3 | 10 | 117 | 129 | 30 | 93 | 3 | 10 | 22/147/6 | 2.7 | 13.5 | 16.2 | 4.4 | 33 | 1 | 303 | 44 | 19.4 | 5.4 |  | 84/3/2/0/10 | 38 | 5.3 | 13 | 0 | 0 | 12789 |
+| forest | 2 | 14 | 78 | 104 | 138 | 39 | 148 | 0 | 13 | 15/138/5 | 2.6 | 0 | 18.2 | 3.8 | 26 | 1.1 | 318 | 73 | 24.2 | 4.2 |  | 84/1/4/0/9 | 34 | 4.3 | 13 | 0 | 0 | 19218 |
+| lakeland | 1 | 13 | 92 | 202 | 202 | 64 | 120 | 0 | 13 | 25/138/5 | 2.9 | 0 | 19.1 | 4.8 | 84 | 1 | 1190 | 157 | 27.7 | 4.9 | 3 (1) | 88/1/2/0/7 | 61 | 5.2 | 21 | 0 | 0 | 21517 |
+| lakeland | 2 | 10 | 65 | 165 | 165 | 46 | 140 | 0 | 13 | 7/99/2 | 2.6 | 0 | 17 | 5 | 53 | 1 | 1156 | 138 | 25 | 4.6 | 0 (2) | 78/1/3/1/15 | 45 | 4.9 | 25 | 0 | 0 | 16895 |
+| highland | 1 | 23 | 47 | 66 | 66 | 27 | 64 | 0 | 11 | 2/68/5 | 2.8 | 0 | 22.3 | 6.6 | 13 | 1.1 | 93 | 80 | 23.3 | 3.4 |  | 77/0/4/0/17 | 51 | 6.9 | 13 | 0 | 0 | 11086 |
+| highland | 2 | 15 | 57 | 63 | 74 | 22 | 118 | 0 | 12 | 11/85/4 | 3 | 17.3 | 9 | 7.4 | 44 | 1 | 121 | 83 | 23.5 | 6.1 | 4.666666666666667 (3) | 75/0/5/0/18 | 36 | 6.5 | 13 | 0 | 0 | 11904 |
+| mean |  | 15.6 | 73 | 139.7 | 149.9 | 44.3 | 140.7 | 0.3 | 12.1 |  | 2.7 | 8 | 18.9 | 5.9 | 57.7 | 1 | 937.9 | 104.3 | 26.5 | 5.1 |  |  | 48.1 | 6.1 | 18.2 | 0.3 | 0 | 18240.8 |
+
+Year 100 mean 139.7 (122.1 at I4), dwellings 44.3 (41.5), hunger deaths 140.7 (131.7), 3 resettles (forest 1), as before.

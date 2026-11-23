@@ -1624,7 +1624,8 @@ function create(seed, opt) {
   function roofChoice(kind, who, freeI) {
     const T = S.tribe, P = folk(), H = 10;
     if (freeI < 0 && T.lotReach < N) return null;   /* no free lot in reach yet: look further first, as before; a floor only when the whole map has been looked over */
-    const freeCost = freeI >= 0 ? buildWork(kind) / H + walkYear(freeI % N, (freeI / N) | 0, who, 0) : Infinity;
+    const fx0 = freeI % N, fy0 = (freeI / N) | 0, terrace = freeI >= 0 && T.sites.some(q => !q.upon && isHome(q) && ((q.x === fx0 && Math.abs(q.y - fy0) === PITCH) || (q.y === fy0 && Math.abs(q.x - fx0) === PITCH)));
+    const freeCost = freeI >= 0 ? buildWork(kind) * (terrace ? 0.85 : 1) / H + walkYear(fx0, fy0, who, 0) : Infinity;   /* a shared wall saves building (I5) */
     let best = null, bc = freeCost, rentOf = 0;
     for (const q of T.sites) { if (q.upon || !raised(q) || q.kind !== kind || !(kind === 'house' || kind === 'hut') || !q.members) continue;   /* a floor of the kind they would build anyway, at its cost */
       const own = q.id === who.house || P.some(b => b.house === q.id && kin(b, who));
@@ -1678,6 +1679,8 @@ function create(seed, opt) {
         if (craft === 'farmer') sc += crops * 0.5;
         if (craft === 'woodcutter' || craft === 'builder' || craft === 'build') sc += timber * 0.3;
         if (kinHomes.length) { let dk = 99; for (const q of kinHomes) dk = Math.min(dk, Math.hypot(q.x - x, q.y - y)); sc -= Math.min(dk, 12) * 0.2; }
+      /* I5: a lot next to a standing house along the way (one lot over, in line) shares a wall with it: rows before height */
+      if (!well && T.sites.some(q => !q.upon && isHome(q) && ((q.x === x && Math.abs(q.y - y) === PITCH) || (q.y === y && Math.abs(q.x - x) === PITCH)))) sc += 0.6;
       if (friendHomes.length) { let df = 99; for (const q of friendHomes) df = Math.min(df, Math.hypot(q.x - x, q.y - y)); sc -= Math.min(df, 12) * 0.2; }   /* near friends as near kin (G1) */
       if (rivalHomes.length) { let dr = 99; for (const q of rivalHomes) dr = Math.min(dr, Math.hypot(q.x - x, q.y - y)); if (dr < 10) sc -= (10 - dr) * 1.5; }   /* and well away from a rival's door (G2) */
       }
