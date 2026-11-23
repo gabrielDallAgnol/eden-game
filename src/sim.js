@@ -428,6 +428,13 @@ function create(seed, opt) {
   }
   const snowBlock = (i, mass) => Math.min(0.5, snow[i] * 0.8) * (mass < 1 ? 1 : 0.6);   // big animals can dig down to the grass
   const cover = i => clamp(tree[i] * 0.8 + grass[i] * 0.25, 0, 0.8);
+  /* where a frightened animal runs: of the places some steps off on the far side from what scared it, the one with most cover */
+  function coverAway(a, fx, fy, r) {
+    const ux = Math.sign(a.x - fx) || (rnd() < 0.5 ? 1 : -1), uy = Math.sign(a.y - fy) || (rnd() < 0.5 ? 1 : -1); let best = null, bv = -1;
+    for (let k = 0; k < 8; k++) { const x = clamp(a.x + ux * (1 + ((rnd() * r) | 0)) + ((rnd() * 3) | 0) - 1, 0, N - 1), y = clamp(a.y + uy * (1 + ((rnd() * r) | 0)) + ((rnd() * 3) | 0) - 1, 0, N - 1), j = I(x, y);
+      if (water[j]) continue; const v = cover(j) + Math.hypot(x - fx, y - fy) * 0.05; if (v > bv) { bv = v; best = { x, y }; } }
+    return best || { x: a.x + ux * 3, y: a.y + uy * 3 };
+  }
 
   function weather(dt) {
     S.air = airNow();
@@ -986,10 +993,13 @@ function create(seed, opt) {
     let got = 0; const need = Math.min((d.bite || 4) * dt * (d.social === 'herd' ? S.dayK : 1), 1.05 - a.e), sz = gut(d), fl = mouth(d);
     for (let q = 0; q < (sz > 1 ? 9 : 5) && got < need; q++) {
       const x = q ? clamp(a.x + ((rnd() * 3) | 0) - 1, 0, N - 1) : a.x, y = q ? clamp(a.y + ((rnd() * 3) | 0) - 1, 0, N - 1) : a.y, j = I(x, y); if (water[j]) continue;
+      if (field[j] && !a.tame && S.tribe.sown) continue;   /* a sown field is watched and its edges walked: the wild keep off it while the crop stands */
       const open = 1 - snowBlock(j, d.mass);
       if (d.eats.grass) { const g = grass[j], cv = 1.2 / sz; if (g > fl) { const take = Math.min((need - got) / cv, (g - fl) * 0.5 * open); grass[j] -= take; got += take * cv; } }
       if (got < need && d.eats.fruit && fruit[j] > 0.02) { const cv = 1.5 / sz, take = Math.min((need - got) / cv, fruit[j] * 0.5); fruit[j] -= take; got += take * cv; }
       if (got < need && d.eats.browse && tree[j] > 0.02 && tree[j] < 0.5) { const cv = 3 / sz, take = Math.min((need - got) / cv, tree[j] * 0.25, 0.03); tree[j] -= take; got += take * cv; }
+      /* in the woods: leaves and twigs of grown trees within reach, a little at a time, at a little cost to the tree */
+      else if (got < need && d.eats.browse && tree[j] >= 0.5) { const take = Math.min(need - got, 0.015 * d.eats.browse); got += take; tree[j] -= take * 0.1; }
     }
     a.e += got;
     if (got < need * 0.7 && !stay) {                                  // not enough here: look further, but not far from home or the group
@@ -998,6 +1008,10 @@ function create(seed, opt) {
         const x = clamp(a.x + ((rnd() * 7) | 0) - 3, 0, N - 1), y = clamp(a.y + ((rnd() * 7) | 0) - 3, 0, N - 1), j = I(x, y);
         if (water[j]) continue;
         let sc = (d.eats.grass ? grass[j] * (1 - snowBlock(j, d.mass)) : 0) + (d.eats.fruit ? fruit[j] : 0) + rnd() * 0.05;
+        /* prey keep near cover, the more so once something has frightened them; browsers find food in the woods as well */
+        if (!d.eats.meat && !a.tame) sc += cover(j) * (0.25 + (a.fear || 0) * 0.5) + (d.eats.browse ? Math.min(1, tree[j]) * 0.15 : 0);
+        /* and the timid big ones keep away from where people live: the smell of smoke, the dogs, the noise */
+        if (!d.eats.meat && !a.tame && d.mass >= 1 && S.popPeople) { const dc = Math.hypot(x - S.tribe.x, y - S.tribe.y), r0 = 10 + Math.sqrt(S.tribe.sites.length) * 2; if (dc < r0) sc -= (1 - dc / r0) * 0.8; }
         if (anc) sc -= Math.max(0, Math.max(Math.abs(x - anc.x), Math.abs(y - anc.y)) - anc.r) * 0.02;
         if (sc > bs) {
           bs = sc;
@@ -1113,7 +1127,7 @@ function create(seed, opt) {
       if (n && n.l > 0.9 && a.e > 0.25) {
         a.mood = 'afraid';
         a.act = { k: 'flee', id: 0, alarm: 1 };
-        stepTo(a, a.x + ((a.x - n.x) || 1) * 3, a.y + ((a.y - n.y) || 1) * 3, d.speed);
+        { const c = coverAway(a, n.x, n.y, 4); stepTo(a, c.x, c.y, d.speed); }   /* away from the noise, toward cover */
         return;
       }
     }
@@ -1130,7 +1144,7 @@ function create(seed, opt) {
         }
         return;
       }   // bolt for the hole
-      stepTo(a, a.x + (a.x - threat.x) * 3, a.y + (a.y - threat.y) * 3, d.speed); return;
+      { const c = coverAway(a, threat.x, threat.y, 4); stepTo(a, c.x, c.y, d.speed); } return;   /* away, and into the thickest cover that way */
     }
     // a pack that made a kill comes to eat it
     if (a.feedAt) { const f = a.feedAt; a.feedAt = null; stepTo(a, f.x, f.y, d.speed + 1); a.act = { k: 'feed', x: f.x, y: f.y }; return; }

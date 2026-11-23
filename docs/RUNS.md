@@ -1205,3 +1205,50 @@ Measured for the owner's question about animals (not changed yet): in valley 1, 
 - browse that costs the tree a little: deer last longer in woods but still starve out by year 50 to 60, the woods thin, and valley 1 held 113 people at year 60 against about 326.
 
 This needs its own balancing step.
+
+
+## Owner's request: animals fear other kinds, hide in the woods, and live longer
+
+- A frightened animal with no hole to bolt to runs away and into cover. Of eight places a few steps off on the far side from the hunter or the noise of people, it takes the one with most cover (woods count most, long grass a little).
+- When looking for a better place to eat, wild prey weigh cover, more so once something has frightened them; browsers weigh woods too.
+- The timid big ones (deer) keep away from where people live: within 10 tiles of the fire, plus a little more as the place grows, a place counts against them. Without this, deer that now survived browsed every sapling round the village. In valley 1 no tree grew back within reach, a house waited for timber from day 210, and most people slept without a roof (29 died of cold and hunger).
+- In the woods deer eat leaves and twigs of grown trees, a little at a time, at a little cost to the tree (0.1 of what they eat), so a herd under the trees does not starve in winter.
+- The wild keep off a sown field while the crop stands (it is watched and its edges walked). Without this, the surviving deer grazed the crops and plains 1 held 16 people at year 60 against 374.
+- Hunters already catch less in cover.
+
+Measured over 60 years, rabbits/deer/wolves at years 10, 20, 40 and 60. Before:
+- valley 1: deer 12, 6, 5, 4, and no wolves for 20 years;
+- plains 1: deer 4, 0, 7, 0;
+- lakeland 1: deer 0, 10, 9, 16;
+- forest 2: deer 14, 7, 14, 6.
+
+After:
+- valley 1: deer 48, 45, 48, 46;
+- plains 1 (few trees): deer 19, 10, 6, 5;
+- lakeland 1: deer 69, 57, 55, 42;
+- forest 2: deer 238, 273, 233, 170.
+
+Wolves keep 0 to 7 throughout. Tree cover falls in forest 2 (3465 to 2399 over 60 years), elsewhere it holds. Things tried and dropped on the way are in the entry above.
+
+Checks:
+- New unit: at year 30, deer number 10 or more in at least 3 of 4 worlds, and where they do, they stand in more cover than the land's average.
+- Two older units depended on one world's history (a well by year 40 in lakeland 1, a hall by year 60 in plains 1) and now look across four worlds.
+- Tests 523 passed, 0 failed; scenarios 24 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 80 | 459 | 647 | 98 | 472 | 0 | 15 | 26/78/5 | 3.4 | 14.4 | 25.4 | 7.1 | 32 | 1 | 3502 | 273 | 40.2 | 6.2 |  | 72/0/2/0/23 | 67 | 9.4 | 29 | 3 | 0 | 52238 |
+| valley | 2 | 30 | 191 | 809 | 856 | 184 | 763 | 0 | 15 | 7/94/5 | 3.3 | 0 | 26.5 | 8.4 | 204 | 0.8 | 6500 | 485 | 37.5 | 4.6 | 0.625 (8) | 76/0/1/0/18 | 92 | 9.1 | 37 | 0 | 0 | 118641 |
+| plains | 1 | 22 | 126 | 678 | 679 | 99 | 485 | 0 | 15 | 14/133/5 | 3.1 | 20.2 | 23.7 | 10 | 82 | 0.9 | 4659 | 132 | 34.8 | 5.2 |  | 73/0/0/0/22 | 68 | 10.5 | 29 | 0 | 0 | 59568 |
+| plains | 2 | 3 | 27 | 889 | 889 | 146 | 7 | 1 | 15 | 0/208/2 | 3.4 | 2.4 | 22 | 7.8 | 26 | 1 | 6168 | 219 | 22.4 | 4.9 |  | 72/0/2/0/24 | 89 | 9.7 | 29 | 0 | 0 | 28793 |
+| forest | 1 | 34 | 224 | 564 | 690 | 163 | 664 | 0 | 16 | 61/82/0 | 3.4 | 17.2 | 26.6 | 7.7 | 100 | 0.9 | 6057 | 315 | 38.1 | 5.9 | 5.8 (5) | 77/0/3/0/17 | 72 | 11 | 37 | 0 | 0 | 102783 |
+| forest | 2 | 14 | 70 | 931 | 931 | 206 | 198 | 0 | 16 | 53/29/6 | 3 | 0 | 26.9 | 6.5 | 38 | 0.8 | 8373 | 248 | 41.6 | 5.3 | 0.8571428571428571 (7) | 75/0/3/1/16 | 89 | 8.9 | 53 | 0 | 0 | 72922 |
+| lakeland | 1 | 14 | 104 | 758 | 1096 | 168 | 747 | 0 | 17 | 21/62/5 | 3.3 | 0 | 26.2 | 8 | 121 | 0.8 | 8128 | 259 | 37.1 | 5.1 | 6 (3) | 73/0/1/0/23 | 91 | 9.4 | 41 | 6 | 0 | 98359 |
+| lakeland | 2 | 23 | 160 | 882 | 1193 | 156 | 652 | 0 | 16 | 8/32/5 | 3.5 | 0 | 27 | 7.8 | 72 | 0.6 | 9376 | 239 | 39.1 | 6 | 1 (1) | 72/0/2/0/22 | 84 | 10.3 | 53 | 0 | 0 | 92571 |
+| highland | 1 | 30 | 158 | 127 | 178 | 48 | 222 | 0 | 16 | 5/23/5 | 3.4 | 22.5 | 20.3 | 9.9 | 67 | 1 | 972 | 168 | 23.4 | 3.4 | 0 (3) | 59/0/3/0/36 | 62 | 12.4 | 17 | 1 | 0 | 25725 |
+| highland | 2 | 7 | 19 | 154 | 154 | 27 | 38 | 0 | 16 | 9/110/11 | 2.8 | 13.9 | 14.5 | 5.8 | 4 |  | 219 | 126 | 34.4 | 10.8 | 0 (1) | 63/0/4/3/22 | 31 | 8.2 | 13 | 0 | 0 | 9944 |
+| mean |  | 20.5 | 115.9 | 625.1 | 731.3 | 129.5 | 424.8 | 0.1 | 15.7 |  | 3.3 | 9.1 | 23.9 | 7.9 | 74.6 | 0.9 | 5395.4 | 246.4 | 34.9 | 5.7 |  |  | 74.5 | 9.9 | 33.8 | 1 | 0 | 66154.4 |
+
+Year 100 mean 625.1 (404.7 before): with deer to hunt and crops left standing, places grow larger still. Hunger deaths 424.8, 1 resettle (plains 2). A world takes 66 s for 100 years.

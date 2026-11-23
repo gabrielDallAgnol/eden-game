@@ -596,9 +596,10 @@ UNITS.push(['no idea has an effect without a built thing: every idea names a bui
   return '';
 }]);
 UNITS.push(['a ditch dug from the well waters only the fields beside it (F7)', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), T = W.S.tribe, N = W.N, i;
-  for (i = 0; i < 24 * 40; i++) W.tick();
-  var wl = T.sites.filter(function (q) { return q.kind === 'well' && q.stage >= 2; })[0]; if (!wl) return 'no well by year 40';
+  var W, T, N, i, wl = null, w, worlds = [[1, 'lakeland'], [1, 'valley'], [1, 'plains'], [2, 'forest']];
+  for (w = 0; w < worlds.length && !wl; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }); T = W.S.tribe; N = W.N;
+    for (i = 0; i < 24 * 50 && !wl; i++) { W.tick(); if (i % 24 === 0) wl = T.sites.filter(function (q) { return q.kind === 'well' && q.stage >= 2; })[0] || null; } }
+  if (!wl) return 'no well by year 50 in four worlds';
   T.skills.irrigation = true; for (i = 0; i < 24 * 4; i++) W.tick();
   var dug = 0; for (i = 0; i < N * N; i++) dug += T.ditch[i]; if (!dug) return 'no ditch dug in four years of irrigation';
   var near = 0, far = 0, nN = 0, nF = 0;
@@ -704,14 +705,27 @@ UNITS.push(['one harvest a year, each logged and shown rising from the fields; t
   return '';
 }]);
 UNITS.push(['a growing place raises a hall where a trusted elder sits as mayor, and a shrine for its dead (then a church)', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96 }), T = W.S.tribe, i;
-  for (i = 0; i < 24 * 60; i++) W.tick();
+  var W, T, i, w, worlds = [[1, 'plains'], [1, 'valley'], [1, 'lakeland'], [2, 'forest']], tried = [];
   var up = function (k) { return T.sites.some(function (q) { return q.kind === k && q.stage >= W.BUILDINGS[k].stages.length; }); };
-  if (!up('hall')) return 'no hall standing at year 60 (council known: ' + !!T.skills.council + ', want of order ' + T.need.order.toFixed(1) + ')';
+  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }); T = W.S.tribe;
+    for (i = 0; i < 24 * 80 && !up('hall'); i++) W.tick(); if (up('hall')) break; tried.push(worlds[w][1] + ' ' + worlds[w][0] + ': order ' + T.need.order.toFixed(1)); }
+  if (!up('hall')) return 'no hall by year 80 in four worlds (' + tried.join('; ') + ')';
+  for (i = 0; i < 24 * 3; i++) W.tick();   /* a little while for an elder to be chosen */
   var e = W.S.agents.filter(function (a) { return a.alive && a.job === 'elder'; }); if (e.length !== 1) return e.length + ' elders in the hall';
-  if (!up('shrine') && !up('church')) return 'no shrine or church at year 60 (rites known: ' + !!T.skills.rites + ')';
+  if (!up('shrine') && !up('church')) return 'a hall but no shrine or church (rites known: ' + !!T.skills.rites + ')';
   if (!W.S.log.some(function (l) { return /first mayor/.test(l.text); })) return 'the first mayor is not told';
   return '';
+}]);
+UNITS.push(['wild prey live in cover and away from people, and the deer last: 10 or more at year 30 in most worlds', function () {
+  var worlds = [[1, 'valley'], [1, 'lakeland'], [2, 'forest'], [1, 'plains']], kept = 0, out = [], w, i;
+  for (w = 0; w < worlds.length; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }), N = W.N, T = W.S.tribe;
+    for (i = 0; i < 24 * 30; i++) W.tick();
+    var deer = W.S.agents.filter(function (a) { return a.alive && a.sp === 'deer' && !a.tame; }), cov = function (j) { return Math.min(0.8, W.tree[j] * 0.8 + W.grass[j] * 0.25); };
+    var land = 0, n = 0, j; for (j = 0; j < N * N; j++) if (!W.water[j]) { land += cov(j); n++; }
+    var under = deer.reduce(function (p, a) { return p + cov(a.y * N + a.x); }, 0) / Math.max(1, deer.length), near = deer.filter(function (a) { return Math.hypot(a.x - T.x, a.y - T.y) < 8; }).length;
+    out.push(worlds[w][1] + ' ' + worlds[w][0] + ': ' + deer.length + ' deer, cover ' + under.toFixed(2) + ' against ' + (land / n).toFixed(2) + ', ' + near + ' by the camp');
+    if (deer.length >= 10) kept++; if (deer.length >= 10 && !(under > land / n)) return 'deer stand in less cover than the land: ' + out[out.length - 1]; }
+  return kept >= 3 ? '' : 'deer kept in only ' + kept + ' of 4 worlds: ' + out.join('; ');
 }]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });

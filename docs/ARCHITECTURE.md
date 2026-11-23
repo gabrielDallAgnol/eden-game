@@ -133,3 +133,4 @@ These are rules, not outcomes, and are meant to stay that way:
 - A stranger arrives when a grown person has only kin to choose from. To be replaced by step 7 (people moving between places).
 - A wolves' den is not dug within 12 tiles of the camp or 8 of a household (the fire's smell and noise, as a fixed distance). Market stalls are not drawn until there is trade.
 - Food: a sown tile gives `FIELD_YIELD` (7.8 per unit of growth), and households sow half the tiles they did (owner's request that a person grows more than they eat). A floor must be 10% cheaper than a free lot to be chosen. A council needs someone with four friends.
+- Wild animals: the timid big ones keep away from a radius of 10 tiles (plus 2 per square root of the buildings) round the fire, and the wild keep off sown fields while the crop stands (people's watching, as a fixed rule).
