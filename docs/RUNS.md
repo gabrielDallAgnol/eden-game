@@ -765,3 +765,33 @@ Size 96, seeds 1 and 2:
 | mean |  | 13.6 | 57.9 | 122.3 | 163.5 | 43.8 | 146.7 | 0.2 | 13.2 |  | 2.7 | 9.7 | 18.8 | 5.8 | 68.6 | 1 | 851.9 | 101.8 | 25.8 | 5.6 |  |  | 46.4 | 6.6 | 18.6 | 0.3 | 0 | 16724.4 |
 
 Year 100 mean 122.3 (133.1 at F7), year 25 13.6 (13.6), dwellings 43.8 (43.9), hunger deaths 146.7 (137.0), 2 resettles (valley 2), as before.
+
+
+## G2: rivals
+
+Ties can now go below nothing (to -2); a tie of -0.5 or less is a rival. What sours one:
+- Two suitors for one person: when she chooses, whoever else was courting her holds it against the one she chose (-0.8, and -0.3 back). The first time it happens it is told ("Rasmus had hoped for Noor too. There is no warmth now between Rasmus and Pell.").
+- A refused share: a household with an empty larder that no kin helps resents the grown people of any household within a lot and a half that keeps more than twice what it needs (-0.08 each evening).
+- A death blamed: when someone is taken by a wolf, their partner and kin blame whoever was on the night watch (-1.0).
+
+Grievances fade like friendship, and mend only slowly even when the two work side by side. Rivals build apart: a lot within 8 tiles of a rival's door scores lower. Once a year, a household whose grown member has a tie of -0.6 or worse with someone in the next lot leaves, at most once in ten years. Its roof goes to someone who has none if there is anyone (else it is taken down, half its timber kept), and the leavers build again away from the rival. It is told: "Sefa's household has left its house by Ila's door after too many hard words, and will build again away from them."
+
+Checks. New unit: in lakeland 1 at year 30, two neighbouring households made bitter rivals; within three years the move is in the log and the mover's new roof is further from the rival than the old one. In five 100-year worlds, 3 moves happened by themselves (lakeland 1 at year 34; plains 2 at years 74 and 91). Tests 461 passed, 0 failed; scenarios 23 passed.
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 7 | 9 | 127 | 174 | 36 | 75 | 0 | 15 | 6/127/5 | 2.7 | 16.4 | 22.6 | 4.7 | 6 | 0.9 | 723 | 109 | 33.4 | 9.9 | 0 (1) | 74/0/3/0/22 | 42 | 5.2 | 17 | 3 | 0 | 12403 |
+| valley | 2 | 4 | 29 | 40 | 112 | 29 | 116 | 2 | 13 | 23/129/0 | 2.5 | 0 | 13.9 | 3.8 | 15 | 1.1 | 28467 | 139 | 16.9 | 4 | 0 (4) | 85/0/3/0/12 | 36 | 4.1 | 13 | 0 | 0 | 11419 |
+| plains | 1 | 9 | 81 | 209 | 278 | 72 | 251 | 0 | 13 | 4/90/1 | 2.7 | 26.8 | 22.7 | 8 | 122 | 1 | 2343 | 117 | 34.5 | 4.7 |  | 86/0/0/0/12 | 55 | 8.9 | 25 | 0 | 0 | 27232 |
+| plains | 2 | 18 | 103 | 127 | 212 | 50 | 289 | 0 | 13 | 9/184/5 | 2.8 | 19.5 | 18.8 | 9 | 134 | 0.9 | 1293 | 62 | 22.9 | 5.1 | 0 (2) | 78/0/1/0/21 | 64 | 6.6 | 21 | 0 | 0 | 20621 |
+| forest | 1 | 9 | 74 | 93 | 148 | 48 | 157 | 0 | 14 | 14/138/5 | 2.5 | 27.7 | 21.9 | 4.1 | 111 | 1.1 | 709 | 79 | 24.7 | 5.6 | 0 (2) | 82/0/3/2/11 | 44 | 4.5 | 17 | 0 | 0 | 21180 |
+| forest | 2 | 33 | 83 | 84 | 136 | 34 | 164 | 0 | 14 | 9/164/5 | 2.5 | 0 | 19.6 | 4 | 77 | 1 | 268 | 92 | 23.5 | 5.8 | 0 (1) | 83/0/3/0/13 | 35 | 4 | 13 | 0 | 0 | 15980 |
+| lakeland | 1 | 9 | 53 | 188 | 209 | 60 | 153 | 0 | 13 | 2/90/5 | 2.8 | 0 | 19.9 | 5.1 | 36 | 1 | 1376 | 112 | 30.9 | 4.3 | 0 (1) | 81/0/2/0/17 | 63 | 5.7 | 21 | 0 | 0 | 19158 |
+| lakeland | 2 | 19 | 77 | 170 | 170 | 55 | 109 | 0 | 13 | 2/123/5 | 2.6 | 0 | 21.2 | 4.8 | 104 | 1 | 1003 | 128 | 26 | 5.3 |  | 80/0/3/2/12 | 44 | 4 | 25 | 0 | 0 | 19462 |
+| highland | 1 | 17 | 45 | 55 | 92 | 30 | 125 | 0 | 13 | 9/42/1 | 2.9 | 0 | 18.9 | 6.5 | 41 | 1 | 249 | 123 | 24.6 | 3.5 | 0 (3) | 79/0/4/0/17 | 48 | 9 | 13 | 0 | 0 | 12668 |
+| highland | 2 | 11 | 21 | 61 | 88 | 20 | 93 | 0 | 13 | 15/72/0 | 2.7 | 12.9 | 9.8 | 6.8 | 7 | 1 | 102 | 85 | 23.9 | 7.1 | 0 (1) | 53/0/2/1/43 | 28 | 5.3 | 13 | 0 | 0 | 10963 |
+| mean |  | 13.6 | 57.5 | 115.4 | 161.9 | 43.4 | 153.2 | 0.2 | 13.4 |  | 2.7 | 10.3 | 18.9 | 5.7 | 65.3 | 1 | 3653.3 | 104.6 | 26.1 | 5.5 |  |  | 45.9 | 5.7 | 17.8 | 0.3 | 0 | 17108.6 |
+
+Year 100 mean 115.4 (122.3 at G1), year 25 13.6 (13.6), dwellings 43.4 (43.8), hunger deaths 153.2 (146.7), 2 resettles (valley 2), as before. Valley 2 ends at 40 (109 at G1) and lakeland 1 at 188 (189); most of the drop is valley 2.

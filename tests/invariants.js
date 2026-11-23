@@ -582,6 +582,21 @@ UNITS.push(['people make friends beyond kin, and describing someone names them (
   var bad = P.filter(function (b) { return Object.keys(b.ties || {}).some(function (id) { var v = b.ties[id]; return !(isFinite(v) && v >= 0 && v <= 2); }); });
   return bad.length ? bad[0].name + ' has a tie out of bounds' : '';
 }]);
+UNITS.push(['after a bitter quarrel a household leaves the house by its rival\'s door, says so in the log, and builds again further off (G2)', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), S = W.S, T = S.tribe, i;
+  for (i = 0; i < 24 * 30; i++) W.tick();
+  var P = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 10 && a.house; }), pair = null;
+  var site = function (a) { return T.sites.filter(function (q) { return q.id === a.house; })[0]; };
+  P.forEach(function (a) { P.forEach(function (b) { if (pair || a.house === b.house) return; var p = site(a), q = site(b); if (p && q && Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)) <= 5) pair = [a, b, p, q]; }); });
+  if (!pair) return 'no two neighbouring households at year 30';
+  var a = pair[0], b = pair[1], old = pair[2], seen = S.log.length; a.ties = a.ties || {}; a.ties[b.id] = -1.5; b.ties = b.ties || {}; b.ties[a.id] = -1.5;
+  var dOld = Math.hypot(old.x - pair[3].x, old.y - pair[3].y);
+  for (i = 0; i < 24 * 3; i++) W.tick();
+  var said = S.log.slice(seen).some(function (l) { return /hard words/.test(l.text); }); if (!said) return 'no quarrel move in the log within three years';
+  var mover = [a, b].filter(function (x) { return x.alive && x.house !== (x === a ? pair[2].id : pair[3].id); })[0]; if (!mover) return 'the log tells of a move, but both still live where they did';
+  var other = mover === a ? b : a, ns = site(mover), os = site(other); if (!ns || !os) return '';   /* still building: the move itself is shown */
+  return Math.hypot(ns.x - os.x, ns.y - os.y) > dOld ? '' : 'the new roof (' + ns.x + ',' + ns.y + ') is no further from the rival than the old one';
+}]);
 UNITS.push(['a site of a kind not in DWELL is reported, not a crash', function () {
   var W = Eden.create(3, { land: 'valley' }); W.S.tribe.sites.push({ id: 999999, x: 1, y: 1, kind: 'castle', stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, was: '' });
   for (var i = 0; i < 48; i++) W.tick();

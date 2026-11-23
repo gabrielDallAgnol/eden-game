@@ -620,6 +620,9 @@ function create(seed, opt) {
   const tieOf = (a, b) => (a.ties && a.ties[b.id]) || 0;
   const friend = (a, b) => tieOf(a, b) >= 0.5;
   const friendsOf = a => { if (!a.ties) return []; const out = []; for (const id in a.ties) { if (a.ties[id] < 0.5) continue; const b = S.byId.get(+id); if (b && b.alive) out.push(b); } return out.sort((p, q) => tieOf(a, q) - tieOf(a, p)).slice(0, 4); };
+  /* G2. Grievances: a tie can go below nothing. A rival is someone it has gone to -0.5 or below with */
+  const rival = (a, b) => tieOf(a, b) <= -0.5;
+  const grudge = (a, b, v) => { if (!a || !b || a === b || !a.alive || !b.alive) return; if (!a.ties) a.ties = {}; a.ties[b.id] = Math.max(-2, (a.ties[b.id] || 0) - v); };
   function togetherness(P, dt) {
     const groups = new Map();
     for (const a of P) { const k = a.act && a.act.k; if (!k || a.age < SMALL) continue;
@@ -627,9 +630,9 @@ function create(seed, opt) {
         : (k === 'eat' || k === 'mourn' || k === 'music' || k === 'story' || k === 'dance' || k === 'watch' || k === 'shelter') ? 'f' + I(a.x, a.y) : k === 'craft' ? 'c' + a.act.j
         : k === 'play' ? 'p' : (k === 'gather' || k === 'fish' || k === 'wood' || k === 'quarry' || k === 'chop') ? 'w' + ((a.x >> 2) * 64 + (a.y >> 2)) : null;   /* working the same patch of ground counts too */
       if (!key) continue; let g = groups.get(key); if (!g) groups.set(key, g = []); g.push(a); }
-    for (const g of groups.values()) if (g.length >= 2 && g.length <= 12) for (const a of g) for (const b of g) if (a !== b) { if (!a.ties) a.ties = {}; a.ties[b.id] = Math.min(2, (a.ties[b.id] || 0) + 0.06); }
+    for (const g of groups.values()) if (g.length >= 2 && g.length <= 12) for (const a of g) for (const b of g) if (a !== b) { if (!a.ties) a.ties = {}; a.ties[b.id] = Math.min(2, (a.ties[b.id] || 0) + (rival(a, b) ? 0.02 : 0.06)); }   /* a grudge mends slowly, even side by side */
     /* ties fade: a year apart takes away a quarter of what was there; the dead and the gone are let go */
-    if (S.tickNo % 4 === 0) for (const a of P) { if (!a.ties) { a.ties = {}; continue; } for (const id in a.ties) { const b = S.byId.get(+id); const v = a.ties[id] * (1 - 0.25 * dt * 4); if (!b || !b.alive || v < 0.02) delete a.ties[id]; else a.ties[id] = v; } }
+    if (S.tickNo % 4 === 0) for (const a of P) { if (!a.ties) { a.ties = {}; continue; } for (const id in a.ties) { const b = S.byId.get(+id); const v = a.ties[id] * (1 - 0.25 * dt * 4); if (!b || !b.alive || Math.abs(v) < 0.02) delete a.ties[id]; else a.ties[id] = v; } }
   }
   function describe(a) {
     if (!a.d.people || !a.name) return '';
@@ -671,6 +674,9 @@ function create(seed, opt) {
       if (q.larder > q.members * 2.6) { const give = (q.larder - q.members * 2.6) * 0.3; moveFood(q, 'larder', T, 'store', give); }
       else if (q.larder < q.members * 0.25) {
         const mine = P.filter(b => b.house === q.id), kinRoof = T.sites.find(k => k !== q && k.members && k.larder > k.members * 1.2 && P.some(b => b.house === k.id && mine.some(m => kin(m, b))));
+        if (!kinRoof && evening) {   /* nobody of their own gives: those living by a full larder that gives nothing are resented (G2) */
+          for (const k of T.sites) if (k !== q && k.members && k.larder > k.members * 2 && cheb(k, q) <= PITCH * 1.5) for (const b of P) if (b.house === k.id && b.age >= WED) for (const m of mine) if (m.age >= WED) grudge(m, b, 0.08);
+        }
         if (kinRoof) {
           const give = Math.min(kinRoof.larder - kinRoof.members * 1.0, q.members * 0.5);
           moveFood(kinRoof, 'larder', q, 'larder', give);
@@ -705,6 +711,8 @@ function create(seed, opt) {
         if (b.fem || b.partner || b.age < WED || b.grief > 0.3 || kin(a, b) || Math.abs(a.age - b.age) > 14 || cheb(doorOf(a), doorOf(b)) > 12) continue;   /* neighbours, not only those who happen to stand side by side */
         a.bond[b.id] = (a.bond[b.id] || 0) + R(0.05, 0.3); a.court = b.id; b.court = a.id;
         if (a.bond[b.id] >= 1) { a.partner = b.id; b.partner = a.id; a.court = b.court = 0; tell(a.name + ' and ' + b.name + ' have become a couple.');
+          /* whoever else was courting her takes it hard, against the one she chose (G2) */
+          for (const c of P) if (c !== b && !c.fem && c.court === a.id) { grudge(c, b, 0.8); grudge(b, c, 0.3); c.court = 0; if (!T.suitTold) { T.suitTold = true; tell(c.name + ' had hoped for ' + a.name + ' too. There is no warmth now between ' + c.name + ' and ' + b.name + '.'); } }
           {
             const withParents = q => !!q.house && [q.mom, q.dad].some(id => {
               const par = id && S.byId.get(id);
@@ -789,7 +797,7 @@ function create(seed, opt) {
     }
     if (a.d.people) {
       S.tribe.dead++;
-      if (why === 'eaten') S.tribe.threat += 2;
+      if (why === 'eaten') { S.tribe.threat += 2; const w = S.tribe.watcher && S.byId.get(S.tribe.watcher); if (w && w !== a) for (const b of folk()) if (b !== w && (b.partner === a.id || kin(a, b))) grudge(b, w, 1.0); }   /* the one on watch is blamed (G2) */
       if (why === 'hunger' || why === 'cold and hunger') S.tribe.need.hunger += 0.4;
       if (why !== 'eaten' && why !== 'struck') S.tribe.need.loss += 1;
       if (a.name) { const near = folk().filter(b => b !== a && (b.partner === a.id || kin(a, b))); for (const b of near) { b.grief = 1; if (b.partner === a.id) b.partner = 0; }
@@ -1493,6 +1501,7 @@ function create(seed, opt) {
     const T = S.tribe, well = !!(BUILDINGS[kind] && !BUILDINGS[kind].room), P = folk(), craft = who ? (who.job || craftOf(who)) : '';
     const kinHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && kin(b, who))) : [];
     const friendHomes = who ? T.sites.filter(q => live(q) && !kinHomes.includes(q) && P.some(b => b.house === q.id && friend(who, b))) : [];
+    const rivalHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && (rival(who, b) || rival(b, who)))) : [];
     /* ground a household may take: common ground, or what is already its own or its kin's */
     const mayUse = new Set(kinHomes.map(q => q.id)); if (who && who.house) mayUse.add(who.house); { const pt = who && S.byId.get(who.partner); if (pt && pt.house) mayUse.add(pt.house); }
     /* how far out a lot is looked for: as far as the place has had to look before (it grows when no lot was found) */
@@ -1521,6 +1530,7 @@ function create(seed, opt) {
         if (craft === 'woodcutter' || craft === 'builder' || craft === 'build') sc += timber * 0.3;
         if (kinHomes.length) { let dk = 99; for (const q of kinHomes) dk = Math.min(dk, Math.hypot(q.x - x, q.y - y)); sc -= Math.min(dk, 12) * 0.2; }
       if (friendHomes.length) { let df = 99; for (const q of friendHomes) df = Math.min(df, Math.hypot(q.x - x, q.y - y)); sc -= Math.min(df, 12) * 0.2; }   /* near friends as near kin (G1) */
+      if (rivalHomes.length) { let dr = 99; for (const q of rivalHomes) dr = Math.min(dr, Math.hypot(q.x - x, q.y - y)); if (dr < 8) sc -= (8 - dr) * 0.6; }   /* and well away from a rival's door (G2) */
       }
       if (sc > bs) { bs = sc; bestI = i; }
     }
@@ -1740,6 +1750,26 @@ function create(seed, opt) {
       }
     }
     placeJobs(able);
+    quarrels();
+  }
+  /* G2: a household that lives next door to a bitter rival, under a roof light enough to leave (a tent or a hut), gives it up and
+     builds again somewhere away from them; once in ten years at most */
+  function quarrels() {
+    const T = S.tribe, P = folk();
+    for (const q of T.sites.slice()) {
+      if (!isHome(q) || !q.members || !raised(q) || (q.movedT !== undefined && S.t - q.movedT < 10)) continue;
+      const mine = P.filter(b => b.house === q.id && b.age >= WED); let worst = null, wv = -0.6;
+      for (const m of mine) for (const b of P) { if (b.house === q.id || !b.house) continue; const h = homeSite(b); if (!h || cheb(h, q) > PITCH + 1) continue; const v = tieOf(m, b); if (v < wv) { wv = v; worst = [m, b]; } }
+      if (!worst) continue;
+      const leaving = new Set(P.filter(m => m.house === q.id).map(m => m.id)); for (const m of P) if (m.house === q.id) m.house = 0;
+      /* the roof they leave goes to someone with none, if there is anyone; else it is taken down for its timber */
+      const roofless = P.find(b => !b.house && !leaving.has(b.id) && b.age >= WED && (!b.partner || b.fem));
+      if (roofless) { roofless.house = q.id; const pt = S.byId.get(roofless.partner); if (pt && pt.alive) pt.house = q.id; for (const c of childrenOf(roofless)) if (c.alive && !c.house && c.age < WED) c.house = q.id; q.movedT = S.t; }
+      else { T.wood += stageNeed(BUILDINGS[q.kind], BUILDINGS[q.kind].stages.length - 1, 'wood') * 0.5; for (let j = 0; j < N * N; j++) if (owner[j] === q.id) owner[j] = 0; T.sites.splice(T.sites.indexOf(q), 1); }
+      T.quarrelMoves = (T.quarrelMoves || 0) + 1;
+      tell(worst[0].name + '\'s household has left its ' + q.kind + ' by ' + worst[1].name + '\'s door after too many hard words, and will build again away from them.' + (roofless ? ' ' + roofless.name + ' moves in.' : ''));
+      return;   /* one leaving a year is enough to talk about */
+    }
   }
   /* F6: the work of a place is taken up by someone when the place stands and what it is for is short (and there is something to
      make it from), by a grown person whose household is not going hungry; the one who has it keeps it while the work is short */
