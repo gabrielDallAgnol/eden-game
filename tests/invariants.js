@@ -86,6 +86,7 @@ function WorldRun(land, seed, years, size) {
   add('coin', 'coin appears only where trade is busy: more than 30 trades and more than 15 failed a year when it came (H1)');
   add('prices', 'every price is finite and positive (H2)');
   add('floors', 'no house has more than two floors in a place that does not know masonry, nor more than six anywhere (I1, I2)');
+  add('rent', 'every rent is finite and not negative, and only a floor above someone else\'s house pays one (I3)');
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
@@ -350,6 +351,11 @@ WorldRun.prototype.yearly = function () {
     if (!sites) return c.skip('no sites'); var most = 1, at2 = '';
     sites.forEach(function (q) { if (q.upon) return; var f = 1 + sites.filter(function (u) { return u.upon === q.id; }).length; if (f > most) { most = f; at2 = q.x + ',' + q.y; } });
     if (most > 6 || (most > 2 && !(T.skills && T.skills.masonry))) c.fail(at + 'a house of ' + most + ' floors at ' + at2 + (T.skills && T.skills.masonry ? '' : ' with no masonry known')); else c.ok();
+  });
+  this.guard('rent', function (c) {
+    if (!sites) return c.skip('no sites'); var bad = [];
+    sites.forEach(function (u) { if (u.rent === undefined) return; if (!(isFinite(u.rent) && u.rent >= 0)) bad.push('rent ' + u.rent + ' at ' + u.x + ',' + u.y); else if (u.rent > 0 && !u.upon) bad.push('a ground floor pays rent at ' + u.x + ',' + u.y); });
+    if (bad.length) c.fail(at + bad.slice(0, 2).join('; ')); else c.ok();
   });
   this.guard('lotOwner', function (c) {
     if (!W.owner || !sites) return c.skip('W.owner is missing');

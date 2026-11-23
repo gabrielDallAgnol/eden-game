@@ -1624,19 +1624,25 @@ function create(seed, opt) {
     const T = S.tribe, P = folk(), H = 10;
     if (freeI < 0 && T.lotReach < N) return null;   /* no free lot in reach yet: look further first, as before; a floor only when the whole map has been looked over */
     const freeCost = freeI >= 0 ? buildWork(kind) / H + walkYear(freeI % N, (freeI / N) | 0, who, 0) : Infinity;
-    let best = null, bc = freeCost;
+    let best = null, bc = freeCost, rentOf = 0;
     for (const q of T.sites) { if (q.upon || !raised(q) || q.kind !== kind || !(kind === 'house' || kind === 'hut') || !q.members) continue;   /* a floor of the kind they would build anyway, at its cost */
-      if (!(q.id === who.house || P.some(b => b.house === q.id && kin(b, who)))) continue;   /* only above one's own or kin's roof */
+      const own = q.id === who.house || P.some(b => b.house === q.id && kin(b, who));
       const fl = floorsOf(q); if (fl >= floorCap()) continue;
-      const c = buildWork(q.kind) * 1.6 / H + walkYear(q.x, q.y, who, 1.5 * fl);
-      if (c < bc) { bc = c; best = q; } }
+      const walkHere = walkYear(q.x, q.y, who, 1.5 * fl);
+      if (own) { const c = buildWork(q.kind) * 1.6 / H + walkHere; if (c < bc) { bc = c; best = q; rentOf = 0; } continue; }
+      /* I3: above a stranger's roof, for rent. The owner builds if ten years of what the tenant would pay covers the building; the
+         tenant pays half of what it saves against its next best option (the free lot), each year */
+      const save = freeCost - walkHere, rent = save * 0.5;
+      if (isFinite(save) && rent * H > buildWork(q.kind) * 1.6 && rent < bc - walkHere + 1e9 && walkHere + rent < bc) { bc = walkHere + rent; best = q; rentOf = rent; } }
     if (!best) return null;
-    const s = { id: S.nextId++, x: best.x, y: best.y, kind: best.kind, stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, fuel: 0, lit: -1, was: '', lake: best.lake, forId: who.id, upon: best.id, level: floorsOf(best) };
+    const s = { id: S.nextId++, x: best.x, y: best.y, kind: best.kind, stage: 0, wood: 0, stone: 0, larder: 0, members: 0, cold: 0, hunger: 0, fuel: 0, lit: -1, was: '', lake: best.lake, forId: who.id, upon: best.id, level: floorsOf(best), rent: rentOf, landlord: rentOf > 0 ? best.id : 0 };
+    if (rentOf > 0 && !T.rentTold) { T.rentTold = true; tell(who.name + '\'s household will rent a floor above ' + (P.find(b => b.house === best.id && b.age >= WED) || { name: 'a neighbour' }).name + '\'s house, and pay for it every year.'); }
     T.sites.push(s); S.stat.storeys = (S.stat.storeys || 0) + 1;
     if (!T.storeyTold) { T.storeyTold = true; tell('No free ground near enough: ' + who.name + '\'s household is building a floor above ' + (P.find(b => b.house === best.id && b.age >= WED) || { name: 'their kin' }).name + '\'s.'); }
     return s;
   }
-  function choosePlot(kind, who) {
+  const choosePlotFree = (kind, who) => choosePlot(kind, who, true);
+  function choosePlot(kind, who, dry) {
     const T = S.tribe, well = !!(BUILDINGS[kind] && !BUILDINGS[kind].room), P = folk(), craft = who ? (who.job || craftOf(who)) : '';
     const kinHomes = who ? T.sites.filter(q => live(q) && P.some(b => b.house === q.id && kin(b, who))) : [];
     const friendHomes = who ? T.sites.filter(q => live(q) && !kinHomes.includes(q) && P.some(b => b.house === q.id && friend(who, b))) : [];
@@ -1674,6 +1680,7 @@ function create(seed, opt) {
       }
       if (sc > bs) { bs = sc; bestI = i; }
     }
+    if (dry) return bestI;   /* only looking: the best free lot, nothing taken */
     T.lotAcross = bestI < 0 ? across : null;
     /* I1: where to put a roof, by one cost for every option: the build work spread over ten years, plus the work lost each year
        walking from that door, from the household's own trips last year (fire, store, market, plots, workplace: the centre;
@@ -1910,10 +1917,26 @@ function create(seed, opt) {
     placeJobs(able);
     yearlyTies();
   }
+  /* I3: once a year each rented floor's rent is weighed again (half of what the tenants save against the best free lot they could
+     have now), and paid out of their larder to the owner's, in coin where there is coin; a rent no one would pay is zero */
+  function rents() {
+    const T = S.tribe, P = folk(); let tot = 0, n = 0;
+    for (const u of T.sites) { if (!u.landlord || !u.members) continue; const land = T.sites.find(q => q.id === u.landlord && q.members); if (!land) { u.landlord = 0; u.rent = 0; continue; }
+      const who = P.find(b => b.house === u.id && b.age >= WED); if (!who) continue;
+      const free = choosePlotCost(u.kind, who), here = walkYear(u.x, u.y, who, 1.5 * (u.level || 1)); u.rent = Math.max(0, (free - here) * 0.5);
+      const pay = Math.min(u.rent * 0.1, Math.max(0, (u.larder || 0) - u.members * 0.5));   /* a day of rent is a tenth of a ration */
+      if (pay > 0) { if (T.coin) { const m = mixOf(u, 'larder'), c = Math.min(pay, m[T.coin]); if (c > 0) { m[T.coin] -= c; u.larder -= c; addFood(land, 'larder', T.coin, c); } } else moveFood(u, 'larder', land, 'larder', pay); }
+      tot += u.rent; n++; }
+    T.rentMean = n ? tot / n : 0; (T.rentLog = T.rentLog || []).push([Math.floor(S.t), Math.round(T.rentMean * 100) / 100, n]); if (T.rentLog.length > 120) T.rentLog.shift();
+  }
+  /* the cost of the best free lot a household could take now, without taking it */
+  function choosePlotCost(kind, who) { const keep = S.stat.lotsRefused, saveReach = S.tribe.lotReach, saveAcross = S.tribe.lotAcross, nid = S.nextId;
+    const lot = choosePlotFree(kind, who); S.stat.lotsRefused = keep; S.tribe.lotReach = saveReach; S.tribe.lotAcross = saveAcross; S.nextId = nid;
+    return lot < 0 ? Infinity : buildWork(kind) / 10 + walkYear(lot % N, (lot / N) | 0, who, 0); }
   /* once a year, whatever the work: quarrels come to a head (G2), and debts are forgiven a little (G3) */
   function yearlyTies() {
     const T = S.tribe;
-    quarrels();
+    quarrels(); rents();
     /* H1: when many trades fail for want of a match, the good most often handed over in trade is taken by everyone as payment:
        that good is coin. Failures are counted over about the last year */
     { const fy = T.failYear || 0; T.failRate = (T.failRate || 0) * 0.5 + fy * 0.5; T.failYear = 0;

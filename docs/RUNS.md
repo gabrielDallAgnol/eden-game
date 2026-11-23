@@ -1030,3 +1030,35 @@ Size 96, seeds 1 and 2:
 | mean |  | 16.8 | 68 | 119.6 | 143.9 | 39.5 | 131.7 | 0.3 | 11.9 |  | 2.7 | 7.6 | 19.4 | 5.4 | 37.5 | 1.1 | 1022.3 | 81.4 | 24.8 | 4.9 |  |  | 44.3 | 5.8 | 16.1 | 0.3 | 0 | 16351.5 |
 
 Year 100 mean 119.6 (142.5 at H4), dwellings 39.5 (47.4; floors are not counted as dwellings in this column), hunger deaths 131.7 (134.6), 3 resettles (forest 1), as before.
+
+
+## I3: rent
+
+A household may now also take a floor above a stranger's house, for rent. The tenant would pay half of what it saves each year against its next best option (the best free lot, weighed by the same cost as I1). The owner builds it if ten years of that rent covers 1.6 times the house's building work. Every year each rented floor's rent is weighed again against the best free lot the tenants could take that year. It is paid from the tenants' larder to the owner's (a day of rent is a tenth of a ration), in coin where there is coin. The first is told. `choosePlot` has a look-only mode for this (no lot taken). In 100 years: plains 1 and valley 1 had 2 rented floors each (mean rent 2.5 and 22 days a year); lakeland 1 none.
+
+Not shown: the plan's check, "rents fall the year a new street or bridge opens". Rent follows the tenants' best free alternative. I tried it three ways:
+- Every ford bridged at once in three worlds: no change. Tenants' alternatives are not across water.
+- Every lattice way worn into a road at once: no change. Rented floors sit at the centre where streets already run, and so do their alternatives.
+- Measuring the walk along the ways (roads quicker, bridges counted), so a street would lower an alternative's cost: floors and rentals took over from year 11, year 100 fell to 99.0 and the held-at-30 village stacked again. That was reverted; the walk is a straight line again.
+
+So the mechanism is there, but these worlds do not yet produce a case where a new way changes a tenant's alternative.
+
+Checks. New yearly invariant: rents finite, not negative, and only paid by a floor. Tests 516 passed, 0 failed; scenarios 23 passed (held at 30: no doubled lots).
+
+Size 96, seeds 1 and 2:
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 77 | 166 | 172 | 50 | 120 | 0 | 12 | 0/151/5 | 2.8 | 20.9 | 30.2 | 6.1 | 33 | 1.1 | 3675 | 192 | 36.4 | 6.9 |  | 84/0/4/0/11 | 58 | 6.4 | 21 | 3 | 0 | 19356 |
+| valley | 2 | 7 | 63 | 104 | 120 | 35 | 119 | 0 | 10 | 13/96/6 | 2.7 | 0 | 24.7 | 3.9 | 19 | 1.1 | 434 | 143 | 30.9 | 4.9 | 0 (1) | 85/3/3/0/7 | 49 | 4.8 | 13 | 0 | 0 | 17070 |
+| plains | 1 | 19 | 119 | 264 | 351 | 84 | 333 | 0 | 14 | 14/193/0 | 2.6 | 19.1 | 22.9 | 7.2 | 68 | 1 | 3134 | 121 | 35.1 | 4.8 | 0 (1) | 83/0/1/0/14 | 58 | 6.2 | 29 | 0 | 0 | 33129 |
+| plains | 2 | 26 | 105 | 99 | 116 | 44 | 129 | 0 | 11 | 6/284/5 | 2.4 | 20.4 | 17.2 | 7.4 | 91 | 1.1 | 963 | 36 | 17.8 | 5.6 |  | 83/1/0/1/11 | 44 | 5.8 | 21 | 0 | 0 | 15862 |
+| forest | 1 | 3 | 10 | 134 | 135 | 32 | 57 | 3 | 10 | 15/91/8 | 2.6 | 13.5 | 19.5 | 3.8 | 23 | 1 | 493 | 57 | 25 | 7.3 |  | 81/3/2/0/11 | 36 | 4.6 | 17 | 0 | 0 | 12669 |
+| forest | 2 | 25 | 109 | 89 | 129 | 35 | 144 | 0 | 13 | 11/219/0 | 2.5 | 0 | 21.7 | 3.8 | 28 | 1.1 | 305 | 43 | 22 | 4.7 | 8.4 (5) | 75/0/3/1/18 | 31 | 4.2 | 13 | 0 | 0 | 18499 |
+| lakeland | 1 | 13 | 81 | 203 | 225 | 76 | 146 | 0 | 13 | 24/43/5 | 2.8 | 0 | 24 | 4.7 | 59 | 1.1 | 1805 | 145 | 29.2 | 5.6 | 1.5 (2) | 82/0/3/0/12 | 64 | 7.6 | 21 | 0 | 0 | 24214 |
+| lakeland | 2 | 10 | 57 | 87 | 105 | 35 | 96 | 0 | 12 | 7/95/2 | 2.6 | 0 | 15.8 | 4.8 | 35 | 1.1 | 591 | 90 | 21.5 | 4 | 0 (1) | 83/1/1/0/12 | 35 | 4.8 | 17 | 0 | 0 | 12910 |
+| highland | 1 | 23 | 47 | 53 | 53 | 17 | 76 | 0 | 13 | 9/51/0 | 2.8 | 0 | 18.1 | 6.1 | 10 | 1 | 44 | 53 | 20.1 | 3 |  | 75/0/1/0/23 | 47 | 6.4 | 9 | 0 | 0 | 9355 |
+| highland | 2 | 14 | 12 | 17 | 23 | 2 | 65 | 0 | 11 | 3/92/0 | 2.9 | 2 | 6.3 | 5.6 | 0 |  | 15 | 18 | 12.6 | 2.2 |  | 58/7/0/0/35 | 27 | 5.7 | 8 | 0 | 0 | 5970 |
+| mean |  | 16.8 | 68 | 121.6 | 142.9 | 41 | 128.5 | 0.3 | 11.9 |  | 2.7 | 7.6 | 20 | 5.3 | 36.6 | 1.1 | 1145.9 | 89.8 | 25.1 | 4.9 |  |  | 44.9 | 5.6 | 16.9 | 0.3 | 0 | 16903.4 |
+
+Year 100 mean 121.6 (119.6 at I1), dwellings 41.0 (39.5), hunger deaths 128.5 (131.7), 3 resettles (forest 1), as before.
