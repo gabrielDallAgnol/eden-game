@@ -1349,3 +1349,30 @@ Tests 526 passed, 0 failed. New test: a couple with no roof who went short leave
 | mean |  | 21.8 | 131.7 | 807.1 | 891.5 | 127.9 | 7.6 | 807.1 | 0.1 | 16.8 |  | 3.5 | 7.6 | 23.6 | 8.8 | 21.2 | 1.1 | 6779.2 | 246 | 30.9 | 4.6 |  |  | 75.9 | 8.9 | 36.2 | 0.2 | 0 | 108758 |
 
 A world takes 109 s for 100 years (81 s before): the villages are larger at the end.
+
+## Faster steps, smaller saves
+
+No change to what happens: every world's history is the same. Checked three ways: the saved state of plains 2 after three more years from a year-75 save hashes the same before and after; every number in the table below is the same as the lean-years table except the time; a game saved and loaded again continues exactly as one that never stopped.
+
+- The two path searches use a heap on flat typed arrays (same comparisons, same order) instead of a small array per entry; the full-map walk search marks open ground once and indexes neighbours directly.
+- The path a person took within a step is filled in only when the view asks for it (`trailOf`); nothing in the simulation reads it.
+- "Can I get home?" and "is that place on my side of the water?" are answered from a map of connected ground worked out at most once a step, not by a full search that fails across water.
+- `homeSite()` uses an index of the sites checked against the list on every hit; the household round counts people per roof, and debts per household, once.
+- Looking round from the spot one last looked from is skipped (what is known only grows).
+- The save leaves out `byId`, a second copy of every creature, which restore already rebuilt from `agents`.
+
+Plains 2 from its year-75 save (about 800 people): 3,632 to 1,872 ms per game year. Save 4.4 to 2.8 MB. 100-year world 109 s to 70 s. Tests 526 passed, 0 failed, in 285 s (386 s before). In the game at 48x with 818 people the calendar keeps its set pace (about 6 years a minute); the longest frame, when a step runs, was about half a second before this change.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 21 | 154 | 498 | 764 | 129 | 6 | 1233 | 0 | 16 | 7/150/2 | 3.2 | 15.4 | 24.3 | 9.9 | 25 | 1.2 | 3908 | 373 | 25.7 | 3.8 | 0 (1) | 70/0/0/0/26 | 67 | 10.1 | 29 | 0 | 0 | 55273 |
+| valley | 2 | 23 | 151 | 1054 | 1160 | 205 | 8 | 1399 | 0 | 16 | 0/25/5 | 3.7 | 0 | 26.8 | 10 | 30 | 1.1 | 11507 | 518 | 29.9 | 3.6 | 15.5 (4) | 74/0/1/0/21 | 97 | 10.8 | 37 | 0 | 0 | 101969 |
+| plains | 1 | 27 | 170 | 677 | 867 | 105 | 6 | 873 | 0 | 15 | 7/240/7 | 3.9 | 5 | 23.5 | 9.9 | 39 | 0.9 | 3091 | 128 | 26 | 5.4 |  | 70/1/0/0/25 | 69 | 9 | 29 | 0 | 0 | 72405 |
+| plains | 2 | 28 | 183 | 1578 | 1768 | 187 | 21 | 1200 | 0 | 18 | 6/18/3 | 3.8 | 27.5 | 26.4 | 9.1 | 26 | 1.5 | 19182 | 199 | 39.5 | 5.4 |  | 70/0/0/0/29 | 97 | 6.6 | 49 | 0 | 0 | 141557 |
+| forest | 1 | 15 | 49 | 882 | 882 | 115 | 5 | 362 | 0 | 16 | 47/91/6 | 3.1 | 4.4 | 23.9 | 5.3 | 17 | 0.5 | 4724 | 263 | 27.6 | 5.1 |  | 66/0/2/0/30 | 60 | 5.5 | 45 | 0 | 0 | 46349 |
+| forest | 2 | 19 | 100 | 1075 | 1109 | 195 | 9 | 846 | 0 | 15 | 45/26/6 | 3.3 | 0 | 25 | 7.6 | 23 | 1 | 9351 | 281 | 42.6 | 5 |  | 73/0/2/1/21 | 93 | 10.3 | 45 | 0 | 0 | 89475 |
+| lakeland | 1 | 30 | 191 | 794 | 795 | 122 | 7 | 918 | 0 | 18 | 20/51/9 | 3.4 | 0 | 23.5 | 8.1 | 15 | 1 | 5296 | 146 | 31 | 5.1 |  | 76/1/0/0/21 | 80 | 6.5 | 37 | 1 | 0 | 69527 |
+| lakeland | 2 | 30 | 149 | 1181 | 1186 | 145 | 6 | 662 | 0 | 19 | 10/0/5 | 3.2 | 0 | 24.5 | 5.7 | 35 | 1.8 | 8895 | 268 | 43.3 | 5.6 | 2.5 (2) | 71/0/1/0/28 | 86 | 5.2 | 53 | 0 | 0 | 77718 |
+| highland | 1 | 12 | 96 | 176 | 217 | 38 | 6 | 328 | 0 | 17 | 1/26/6 | 3.6 | 23.8 | 23.1 | 10.5 | 1 | 1.2 | 278 | 153 | 23.7 | 3.8 | 0 (2) | 63/1/2/0/29 | 61 | 14.6 | 17 | 0 | 0 | 24470 |
+| highland | 2 | 13 | 74 | 156 | 167 | 38 | 2 | 250 | 1 | 18 | 0/24/7 | 3.4 | 0 | 14.6 | 11.6 | 1 | 0.8 | 1560 | 131 | 19.4 | 3 | 0 (7) | 71/2/1/0/21 | 49 | 10 | 21 | 1 | 0 | 19673 |
+| mean |  | 21.8 | 131.7 | 807.1 | 891.5 | 127.9 | 7.6 | 807.1 | 0.1 | 16.8 |  | 3.5 | 7.6 | 23.6 | 8.8 | 21.2 | 1.1 | 6779.2 | 246 | 30.9 | 4.6 |  |  | 75.9 | 8.9 | 36.2 | 0.2 | 0 | 69841.6 |

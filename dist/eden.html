@@ -236,7 +236,13 @@ function create(seed, opt) {
   // it, they feel their own cold and their own hunger, and the ground they sow is theirs. What is held in common (the store
   // by the fire) is only what households have put there because they had more than they could use, and what those without
   // a roof of their own live from.
-  const homeSite = a => a.house ? S.tribe.sites.find(q => q.id === a.house) || null : null;
+  /* where a person lives: looked up through an index of the sites by id, checked on every hit against the list itself,
+     and rebuilt whenever the list has changed under it (so it gives exactly what a search of the list would) */
+  let hsArr = null; const hsAt = new Map();
+  const hsBuild = arr => { hsArr = arr; hsAt.clear(); for (let k = arr.length - 1; k >= 0; k--) hsAt.set(arr[k].id, k); };
+  const homeSite = a => { if (!a.house) return null; const arr = S.tribe.sites; if (arr !== hsArr) hsBuild(arr);
+    let k = hsAt.get(a.house); if (k !== undefined && arr[k] && arr[k].id === a.house) return arr[k];
+    hsBuild(arr); k = hsAt.get(a.house); return k !== undefined ? arr[k] : null; };
   /* F2. Goods. Food is of four kinds, each keeping for as long as it does (the share of it lost in a year, before any pot or
      granary); a larder or the common store holds its total as before, and beside it how much of each kind (mix). Food is
      marked with its kind where it comes in; what is taken out without a kind (eaten, given) comes out of every kind alike.
@@ -281,8 +287,10 @@ function create(seed, opt) {
   // What the settlement knows of the land: every tile one of its people has stood within sight of (less far under trees).
   // It is only a record of what was seen. Nothing in the simulation reads it to decide anything.
   const known = new Uint8Array(N * N), SIGHT = 5, SIGHT_WOOD = 3;
+  const seenFrom = new Map();   /* where each one last looked from: looking again from the same spot adds nothing */
   function see(a) {
-    const r = tree[I(a.x, a.y)] > 0.5 ? SIGHT_WOOD : SIGHT;
+    const r = tree[I(a.x, a.y)] > 0.5 ? SIGHT_WOOD : SIGHT, at = I(a.x, a.y) * 8 + r;
+    if (seenFrom.get(a.id) === at) return; seenFrom.set(a.id, at); if (seenFrom.size > 4 * S.agents.length + 100) seenFrom.clear();
     for (let y = Math.max(0, a.y - r); y <= Math.min(N - 1, a.y + r); y++) for (let x = Math.max(0, a.x - r); x <= Math.min(N - 1, a.x + r); x++) if ((x - a.x) * (x - a.x) + (y - a.y) * (y - a.y) <= r * r + r) known[I(x, y)] = 1;
   }
   // what is left on a lot when a dwelling is pulled down to be rebuilt, or taken by a flood
@@ -366,16 +374,23 @@ function create(seed, opt) {
      and the walk is what it is around the water (or over a bridge) */
   function wetBetween(x0, y0, x1, y1) { const br = bridgeTiles(), n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
     for (let i = 1; i < n; i++) { const j = I(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n)); if (water[j] && !br[j]) return true; } return false; }
+  /* a binary heap of (cost, tile) on flat typed arrays: the same comparisons, in the same order, as a heap of pairs, without
+     making a small array for every entry */
+  function tileHeap() { let K = new Float64Array(4096), J = new Int32Array(4096), n = 0;
+    return { get size() { return n; }, clear() { n = 0; }, topK() { return K[0]; },
+      push(k, j) { if (n === K.length) { const K2 = new Float64Array(n * 2), J2 = new Int32Array(n * 2); K2.set(K); J2.set(J); K = K2; J = J2; }
+        let i = n++; K[i] = k; J[i] = j; while (i > 0) { const q = (i - 1) >> 1; if (K[q] <= K[i]) break; const tk = K[q], tj = J[q]; K[q] = K[i]; J[q] = J[i]; K[i] = tk; J[i] = tj; i = q; } },
+      pop() { const top = J[0]; n--; if (n > 0) { K[0] = K[n]; J[0] = J[n]; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < n && K[l] < K[m]) m = l; if (r < n && K[r] < K[m]) m = r; if (m === i) break; const tk = K[m], tj = J[m]; K[m] = K[i]; J[m] = J[i]; K[i] = tk; J[i] = tj; i = m; } } return top; } }; }
+  const WALK_HEAP = tileHeap(), ROUTE_HEAP = tileHeap(), WALK_OPEN = new Uint8Array(N * N);
   const walkFields = new Map(), WALK_G = new Float64Array(N * N); let walkKey = '', walkTribe = null;
   function walkField(s0) { const br = bridgeTiles(), key = bridgeKeys + ':' + (S.stat ? S.stat.ponds : 0) + ':' + (S.tribe ? S.tribe.roadGen : 0);   /* the walk changes only when water, bridges or roads do */ if (key !== walkKey || S.tribe !== walkTribe) { walkFields.clear(); walkKey = key; walkTribe = S.tribe; }
-    let f = walkFields.get(s0); if (f) return f; f = WALK_G.fill(Infinity); f[s0] = 0; const T = S.tribe, heap = [[0, s0]];
-    const push = (k, j) => { heap.push([k, j]); let i = heap.length - 1; while (i > 0) { const q = (i - 1) >> 1; if (heap[q][0] <= heap[i][0]) break; [heap[q], heap[i]] = [heap[i], heap[q]]; i = q; } };
-    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
-    const open = j => !water[j] || br[j];
-    while (heap.length) { const [g, c] = pop(); if (g > f[c]) continue; const cx = c % N, cy = (c / N) | 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
-        const j = I(nx, ny); if (!open(j) || (dx && dy && (!open(I(nx, cy)) || !open(I(cx, ny))))) continue;
-        const k = g + (dx && dy ? 1.41 : 1) * (T.road[j] ? 0.67 : 1); if (k < f[j]) { f[j] = k; push(k, j); } } }
+    let f = walkFields.get(s0); if (f) return f; f = WALK_G.fill(Infinity); f[s0] = 0; const T = S.tribe, heap = WALK_HEAP; heap.clear(); heap.push(0, s0);
+    const open = WALK_OPEN, road = T.road; for (let j = 0; j < N * N; j++) open[j] = !water[j] || br[j] ? 1 : 0;
+    while (heap.size) { const g = heap.topK(), c = heap.pop(); if (g > f[c]) continue; const cx = c % N, cy = (c - cx) / N;
+      for (let dy = -1; dy <= 1; dy++) { const ny = cy + dy; if (ny < 0 || ny >= N) continue;
+        for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const nx = cx + dx; if (nx < 0 || nx >= N) continue;
+          const j = ny * N + nx; if (!open[j] || (dx && dy && (!open[cy * N + nx] || !open[ny * N + cx]))) continue;
+          const k = g + (dx && dy ? 1.41 : 1) * (road[j] ? 0.67 : 1); if (k < f[j]) { f[j] = k; heap.push(k, j); } } } }
     const keep = Float32Array.from(f); if (walkFields.size >= 256) walkFields.clear(); walkFields.set(s0, keep); return keep; }
   function aroundDist(x0, y0, x1, y1) { const flat = flatDist(x0, y0, x1, y1), w = walkField(I(x0, y0))[I(x1, y1)];
     return w > flat.d ? { d: isFinite(w) ? w : Infinity, road: flat.road } : flat; }
@@ -769,6 +784,10 @@ function create(seed, opt) {
     for (const q of T.sites) q.members = 0; for (const b of P) { const h = homeSite(b); if (h) h.members++; }
     // More than a household can eat before it spoils goes to the common store. A household gone short is helped first by
     // its own kin, if they have it to give.
+    /* who lives under each roof, and the debts owed by each household, looked up once for the whole round */
+    const byHouse = new Map(); for (const b of P) if (b.house) { let l = byHouse.get(b.house); if (!l) byHouse.set(b.house, l = []); l.push(b); }
+    const inH = id => byHouse.get(id) || [];
+    const owes = new Map(); if (T.debts) for (const key in T.debts) { const from = +key.slice(0, key.indexOf('>')); let l = owes.get(from); if (!l) owes.set(from, l = []); l.push(key); }
     for (const q of T.sites) {
       if (!q.members) { if (q.larder > 0) moveFood(q, 'larder', T, 'store', q.larder); continue; }
       { const room = { tent: 4, hut: 6, house: 8 }[q.was || q.kind] || 6;            // too many under one roof: the eldest grown child with no partner goes to make a place of their own
@@ -778,19 +797,20 @@ function create(seed, opt) {
             return par && par.alive && par.house === q.id;
           })).sort((x, y) => y.age - x.age)[0];
           if (out) {
+            { const l = inH(q.id), k = l.indexOf(out); if (k >= 0) l.splice(k, 1); }
             out.house = 0;
             T.need.crowd += 1;
           }
         } }
       /* G3: what is owed is paid back first, out of plenty, before anything goes to the common store */
-      if (q.larder > q.members * 1.8 && T.debts) for (const key in T.debts) { const [from, to] = key.split('>').map(Number); if (from !== q.id) continue; const k = T.sites.find(h => h.id === to && h.members); if (!k) continue;
+      if (q.larder > q.members * 1.8 && T.debts) for (const key of owes.get(q.id) || []) { const to = +key.slice(key.indexOf('>') + 1); const k = T.sites.find(h => h.id === to && h.members); if (!k) continue;
         const pay = Math.min(T.debts[key], (q.larder - q.members * 1.8) * 0.3); if (pay > 0.01) { moveFood(q, 'larder', k, 'larder', pay); T.debts[key] -= pay; T.repaid = (T.repaid || 0) + pay; } }
       if (q.larder > q.members * 2.6) { const give = (q.larder - q.members * 2.6) * 0.3; moveFood(q, 'larder', T, 'store', give); }
       else if (q.larder < q.members * 0.25) {
-        const mine = P.filter(b => b.house === q.id), full = k => k !== q && k.members && k.larder > k.members * 1.2;
+        const mine = inH(q.id).slice(), full = k => k !== q && k.members && k.larder > k.members * 1.2;
         /* G3: kin first; failing kin, friends; never a stranger's household (the common store is for those) */
-        const kinRoof = T.sites.find(k => full(k) && P.some(b => b.house === k.id && mine.some(m => kin(m, b))))
-          || T.sites.find(k => full(k) && P.some(b => b.house === k.id && mine.some(m => friend(m, b) && friend(b, m))));
+        const kinRoof = T.sites.find(k => full(k) && inH(k.id).some(b => mine.some(m => kin(m, b))))
+          || T.sites.find(k => full(k) && inH(k.id).some(b => mine.some(m => friend(m, b) && friend(b, m))));
         if (!kinRoof && evening) {   /* nobody of their own gives: those living by a full larder that gives nothing are resented (G2) */
           for (const k of T.sites) if (k !== q && k.members && k.larder > k.members * 2 && cheb(k, q) <= PITCH * 1.5) for (const b of P) if (b.house === k.id && b.age >= WED) for (const m of mine) if (m.age >= WED) grudge(m, b, 0.08);
         }
@@ -798,7 +818,7 @@ function create(seed, opt) {
           const give = Math.min(kinRoof.larder - kinRoof.members * 1.0, q.members * 0.5);
           moveFood(kinRoof, 'larder', q, 'larder', give);
           /* remembered on both sides: a debt from the household that took to the one that gave */
-          if (give > 0) { if (!T.debts) T.debts = {}; const key = q.id + '>' + kinRoof.id; T.debts[key] = (T.debts[key] || 0) + give; T.gifts = (T.gifts || 0) + 1;
+          if (give > 0) { if (!T.debts) T.debts = {}; const key = q.id + '>' + kinRoof.id; if (!(key in T.debts)) { let l = owes.get(q.id); if (!l) owes.set(q.id, l = []); l.push(key); } T.debts[key] = (T.debts[key] || 0) + give; T.gifts = (T.gifts || 0) + 1;
             if (!mine.some(m => P.some(b => b.house === kinRoof.id && kin(m, b)))) T.friendGifts = (T.friendGifts || 0) + 1; }
           if (!T.gaveTold && give > 0.5) {
             T.gaveTold = true;
@@ -809,7 +829,8 @@ function create(seed, opt) {
       }
     }
     { const wl = T.sites.find(q => q.kind === 'well' && raised(q));                     // every household walks to the fire and fetches its water, every day
-      for (const q of T.sites) if (live(q)) { const n = P.filter(b => b.house === q.id).length; if (!n) continue; walk(q.x, q.y, T.x, T.y, 0.02 * n); if (wl) walk(q.x, q.y, wl.x, wl.y, 0.012 * n); }
+      const inHouse = new Map(); for (const b of P) if (b.house) inHouse.set(b.house, (inHouse.get(b.house) || 0) + 1);
+      for (const q of T.sites) if (live(q)) { const n = inHouse.get(q.id) || 0; if (!n) continue; walk(q.x, q.y, T.x, T.y, 0.02 * n); if (wl) walk(q.x, q.y, wl.x, wl.y, 0.012 * n); }
       if (!wl && T.waterAt) walk(T.x, T.y, T.waterAt % N, (T.waterAt / N) | 0, 0.01 * P.length);
       if (S.tickNo % 4 === 0) for (let i = 0; i < N * N; i++) if (tread[i] > 0) tread[i] *= 0.965; }
     for (const a of P) {
@@ -994,7 +1015,7 @@ function create(seed, opt) {
   const ROUTE_G = new Float64Array(N * N), ROUTE_FROM = new Int32Array(N * N), ROUTE_SEEN = new Int32Array(N * N); let routeGen = 0;
   function route(x0, y0, x1, y1, a, maxCost) {
     const T = S.tribe, br = bridgeTiles(), s0 = I(clamp(x0, 0, N - 1), clamp(y0, 0, N - 1)), goal = I(clamp(x1, 0, N - 1), clamp(y1, 0, N - 1)), gx = goal % N, gy = (goal / N) | 0;
-    const open = j => (!water[j] || br[j]) && !(a && T.fence && T.fence[j] && !a.d.people && !a.tame && !within(a));
+    const fenced = a && T.fence && !a.d.people && !a.tame && !within(a) ? T.fence : null, open = j => (!water[j] || br[j]) && !(fenced && fenced[j]);
     const hcost = j => { const dx = Math.abs(j % N - gx), dy = Math.abs(((j / N) | 0) - gy); return 0.67 * (Math.max(dx, dy) + 0.41 * Math.min(dx, dy)); };
     /* across open ground the way is simply straight: walked tile by tile, a diagonal step only where both sides are open */
     { let x = s0 % N, y = (s0 / N) | 0, ok = true, cost = 0; const line = [];
@@ -1002,13 +1023,11 @@ function create(seed, opt) {
         const nx = x + sx, ny = y + sy, j = I(nx, ny); if (!open(j) || (sx && sy && (!open(I(nx, y)) || !open(I(x, ny))))) { ok = false; break; }
         cost += (sx && sy ? 1.41 : 1) * (T.road[j] ? 0.67 : 1); x = nx; y = ny; line.push(j); }
       if (ok) return { tiles: line, reached: true, cost }; }
-    routeGen++; const heap = [];
-    const push = (j, k) => { heap.push([k, j]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
-    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    routeGen++; const heap = ROUTE_HEAP; heap.clear(); const push = (j, k) => heap.push(k, j);
     ROUTE_SEEN[s0] = routeGen; ROUTE_G[s0] = 0; ROUTE_FROM[s0] = -1; push(s0, hcost(s0));
     let best = s0, bh = hcost(s0), found = false;
-    while (heap.length) {
-      const [fk, c] = pop(); if (c === goal) { found = true; break; }
+    while (heap.size) {
+      const fk = heap.topK(), c = heap.pop(); if (c === goal) { found = true; break; }
       if (maxCost !== undefined && fk > maxCost) break;   /* nothing left that could arrive within the cost asked for */
       const cx = c % N, cy = (c / N) | 0, h = hcost(c); if (h < bh) { bh = h; best = c; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -1022,6 +1041,22 @@ function create(seed, opt) {
     const end = found ? goal : best, tiles = []; for (let c = end; c !== s0 && c >= 0; c = ROUTE_FROM[c]) tiles.push(c); tiles.reverse();
     return { tiles, reached: found, cost: found ? ROUTE_G[goal] : Infinity };
   }
+  /* which pieces of ground hang together for a person (dry land and bridges; a diagonal step needs both sides open, so only
+     side-by-side tiles join pieces): worked out at most once a step, and only when asked. reachable() says exactly what
+     route(...).reached says for a person when no cost limit is set */
+  const PIECE = new Int32Array(N * N), PIECE_Q = new Int32Array(N * N); let pieceTick = -1, pieceBr = null;
+  function reachable(x0, y0, x1, y1) {
+    const br = bridgeTiles(); if (pieceTick !== S.tickNo || pieceBr !== br) { pieceTick = S.tickNo; pieceBr = br; PIECE.fill(-1); let id = 0;
+      for (let s0 = 0; s0 < N * N; s0++) { if (PIECE[s0] >= 0 || (water[s0] && !br[s0])) continue; let h = 0, t = 0; PIECE_Q[t++] = s0; PIECE[s0] = id;
+        while (h < t) { const c = PIECE_Q[h++], cx = c % N; for (const j of [cx > 0 ? c - 1 : -1, cx < N - 1 ? c + 1 : -1, c >= N ? c - N : -1, c < N * N - N ? c + N : -1]) if (j >= 0 && PIECE[j] < 0 && (!water[j] || br[j])) { PIECE[j] = id; PIECE_Q[t++] = j; } }
+        id++; } }
+    const a = I(clamp(x0, 0, N - 1), clamp(y0, 0, N - 1)), b = I(clamp(x1, 0, N - 1), clamp(y1, 0, N - 1));
+    if (a === b) return true; if (PIECE[b] < 0) return false; if (PIECE[a] >= 0) return PIECE[a] === PIECE[b];
+    /* standing in the water: any open tile one step away will do (a diagonal step only where both sides are open) */
+    const ax = a % N, ay = (a - ax) / N, op = j => PIECE[j] >= 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const nx = ax + dx, ny = ay + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+      const j = ny * N + nx; if (!op(j) || (dx && dy && (!op(ay * N + nx) || !op(ny * N + ax)))) continue; if (PIECE[j] === PIECE[b]) return true; }
+    return false; }
   const roam = (a, r, n) => stepTo(a, a.x + ((rnd() * (2 * r + 1)) | 0) - r, a.y + ((rnd() * (2 * r + 1)) | 0) - r, n);
 
   // ---- homes: an animal with a home trait keeps a burrow or den, shares it with its kind, and digs a new one when it is full or too far
@@ -1391,7 +1426,7 @@ function create(seed, opt) {
     if (a.trip) { if (S.night || a.age < SMALL) { deposit(a, a.trip); a.trip = null; } }   /* night overtakes a trip: they come home with what they have */
     if (S.night) {                                                       // nights are spent at the camp; one of the able sits up by the fire
       const hm = a.house && T.sites.find(q => q.id === a.house);      /* home is their own roof once they have one; the fire until then */
-      { const h = hm || T; if (Math.max(Math.abs(a.x - h.x), Math.abs(a.y - h.y)) > 1 && (mass[I(a.x, a.y)] === mass[I(h.x, h.y)] || route(a.x, a.y, h.x, h.y, a).reached)) { a.x = h.x; a.y = h.y; } }   /* home by dusk, wherever the day ended */
+      { const h = hm || T; if (Math.max(Math.abs(a.x - h.x), Math.abs(a.y - h.y)) > 1 && (mass[I(a.x, a.y)] === mass[I(h.x, h.y)] || reachable(a.x, a.y, h.x, h.y))) { a.x = h.x; a.y = h.y; } }   /* home by dusk, wherever the day ended */
       const day = Math.floor(S.tickNo / (DAY || 1)); if (a.age >= WED && a.age <= 46 && a.e > 0.5 && T.watchDay !== day) { T.watchDay = day; T.watcher = a.id; }
       const onWatch = T.watcher === a.id && T.watchDay === day; a.act = { k: onWatch ? 'watch' : 'sleep' };
       if (onWatch) { const hw = hear(a, k => k === 'howl'); if (hw) T.threat += hw.l * 0.15; }   /* the one awake hears the pack, and says so in the morning */
@@ -1560,6 +1595,7 @@ function create(seed, opt) {
       /* where to stand: the place itself, or for fish the bank beside the water on this side */
       let sj = j; if (water[j]) { sj = -1; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N && !water[I(nx, ny)] && mass[I(nx, ny)] === mass[I(door.x, door.y)]) { sj = I(nx, ny); break; } } }
       if (sj < 0) continue;
+      if (!reachable(a.x, a.y, sj % N, (sj / N) | 0)) continue;   /* on another piece of ground: no way there at all */
       const lim = 1.6 * Math.max(4, Math.hypot(a.x - sj % N, a.y - ((sj / N) | 0))) + 2, rt = route(a.x, a.y, sj % N, (sj / N) | 0, a, lim * 1.41);
       if (!rt.reached || rt.tiles.length > lim) continue;
       for (const t of rt.tiles) if (!water[t]) tread[t] = Math.min(6, tread[t] + 0.03);   /* the ground is worn where the trip really goes */
@@ -2283,7 +2319,7 @@ function create(seed, opt) {
     const [x, y] = campSite(), fresh = newSettlement(x, y);
     for (const k of Object.keys(T)) delete T[k];
     Object.assign(T, fresh);
-    tread.fill(0); owner.fill(0); field.fill(0); known.fill(0);   /* newcomers know nothing of the place */
+    tread.fill(0); owner.fill(0); field.fill(0); known.fill(0); seenFrom.clear();   /* newcomers know nothing of the place */
   }
   // ---------------------------------------------------------------- one step of time
   function tick() {
@@ -2386,7 +2422,8 @@ function create(seed, opt) {
       const e0 = a.e;
       if (asleep) a.mood = 'asleep'; else if (a.held) a.mood = 'afraid'; else if (d.people) { trailA = a; trailNow = [I(a.x, a.y)]; person(a, d, dt); trailA = null;
         /* a move made in one jump (home by dusk, to the fire to eat) is filled in along the way it would be walked */
-        { const last = trailNow[trailNow.length - 1], here = I(a.x, a.y); if (last !== here) { const rt = route(last % N, (last / N) | 0, a.x, a.y, a, 160); for (const t of rt.tiles) trailNow.push(t); if (trailNow[trailNow.length - 1] !== here) trailNow.push(here); } }
+        /* worked out only when the view asks for this trail (trailOf): nothing in the simulation reads it */
+        { const last = trailNow[trailNow.length - 1], here = I(a.x, a.y); if (last !== here) trailNow.toFill = [last, here, a]; }
         trails.set(a.id, trailNow); tally(a); if (a.alive) see(a); } else { trailA = a; trailNow = [I(a.x, a.y)]; animal(a, d, dt); trailA = null; const here = I(a.x, a.y); if (trailNow[trailNow.length - 1] !== here) trailNow.push(here); trails.set(a.id, trailNow); }
       if (!a.mood) a.mood = a.e < 0.3 ? 'hungry' : a.e > e0 + 0.02 ? 'fed' : '';
       /* a household remembers going hungry: it is what makes it sow more next spring */
@@ -2584,6 +2621,7 @@ function create(seed, opt) {
   const TYPES = { Float32Array, Uint8Array, Int32Array };
   function pack(key, v) {
     if (key === 'd' && v && this.sp && v === SP[this.sp]) return undefined;
+    if (key === 'byId' && v instanceof Map) return undefined;   /* the same creatures as S.agents: rebuilt from them on restore */
     if (ArrayBuffer.isView(v)) return { __ta: v.constructor.name, b: b64(v) };
     if (v instanceof Map) return { __map: [...v.entries()] };
     return v;
@@ -2634,7 +2672,9 @@ function create(seed, opt) {
     wayDist,
     around,
     route,
-    trailOf: id => trails.get(id) || null,
+    trailOf: id => { const t = trails.get(id); if (!t) return null;
+      if (t.toFill) { const [last, here, a] = t.toFill; t.toFill = null; const rt = route(last % N, (last / N) | 0, here % N, (here / N) | 0, a, 160); for (const j of rt.tiles) t.push(j); if (t[t.length - 1] !== here) t.push(here); }
+      return t; },
     stats,
     tread,
     PITCH,
