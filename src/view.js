@@ -966,6 +966,19 @@ function preyReacts() {
     }
   }
 }
+/* one who is leaving the valley walks on towards the edge of the land a step's worth at a time, the grown carrying a bundle,
+   and is let go once past the edge (or after a few steps, if no way out is found) */
+function planLeave(r) {
+  const L = r.leave; L.n++;
+  if (r.x < -0.5 || r.y < -0.5 || r.x > N + 0.5 || r.y > N + 0.5 || L.n > 8) { actors.delete(r.id); return; }
+  const grown = r.a.age >= r.a.d.mature, P = new Plan(r), o = grown ? { item: 'sticks' } : {};
+  P.go(clamp(L.x, 0, N - 0.01), clamp(L.y, 0, N - 0.01), SPEED.person.walk, grown ? 'carry' : 'walk', o);
+  { const d = Math.hypot(L.x - P.x, L.y - P.y); if (d > 0.02) { const du = d / (SPEED.person.walk * TS); P.steps.push(Object.assign({ t: 'm', u0: P.u, u1: P.u + du, x1: L.x, y1: L.y, pose: grown ? 'carry' : 'walk' }, o)); P.u += du; } }
+  /* only what fits in this step: the rest of the way is walked in the next */
+  const steps = []; for (const st of P.steps) { if (st.u0 >= 1) break; if (st.u1 > 1 && st.t === 'm') { const k = (1 - st.u0) / (st.u1 - st.u0), x0 = steps.length ? steps[steps.length - 1].x1 : r.x, y0 = steps.length ? steps[steps.length - 1].y1 : r.y;
+      steps.push(Object.assign({}, st, { u1: 1, x1: x0 + (st.x1 - x0) * k, y1: y0 + (st.y1 - y0) * k })); break; } steps.push(st); }
+  r.plan = steps; r.si = -1;
+}
 function planDeath(r) {
   const d = r.dead, P = new Plan(r); if (d.u !== undefined && !d.instant) return;   // a hunt already laid out the end
   d.u = d.instant ? tickFrac : R(0.05, 0.25);
@@ -998,8 +1011,10 @@ function takeEvents(instant) {
         o.bub = 'love';
         o.bubT = now + 1500 + Math.random() * 3000;
       }
-    } else if (f.kind === 'leave') {   /* gone from the valley: no body, no grave */
-      actors.delete(f.id);
+    } else if (f.kind === 'leave') {   /* gone from the valley: no body, no grave. They take up a bundle and walk off by the nearest edge of the land */
+      const r = recOf(f.id); if (!r) continue; if (instant) { actors.delete(f.id); continue; }
+      const ex = r.x < N - r.x ? -1.5 : N + 1.5, ey = r.y < N - r.y ? -1.5 : N + 1.5;
+      r.leave = Math.min(r.x, N - r.x) < Math.min(r.y, N - r.y) ? { x: ex, y: r.y, n: 0 } : { x: r.x, y: ey, n: 0 }; r.pose = r.a.age < r.a.d.mature ? 'walk' : 'carry';
     } else if (f.kind === 'arrive') {
       const a = S.byId.get(f.id); if (!a) continue; const ex = a.x < N / 2 ? -0.4 : N + 0.4; newRec(a, ex, a.y + 0.5, { born: now, arrive: 1, alpha: 0 });
     }
@@ -1019,10 +1034,11 @@ function onTick() {
   const phase = S.tickNo % DAY;
   /* seats round the fire go out by friendship (G1): each person beside the one they are closest to, so friends sit together */
   const seatOf = new Map(); { const folk = S.agents.filter(a => a.alive && a.d.people), best = a => { let b = 0, v = 0.5; for (const id in a.ties || {}) if (a.ties[id] > v) { v = a.ties[id]; b = +id; } return b; };
-    const key = a => { const f = best(a); return f ? Math.min(a.id, f) : a.id; };
-    folk.sort((p, q) => key(p) - key(q) || p.id - q.id).forEach((a, k) => seatOf.set(a.id, k)); }
+    const keyOf = new Map(); for (const a of folk) { const f = best(a); keyOf.set(a.id, f ? Math.min(a.id, f) : a.id); }   /* worked out once each, not in every comparison */
+    folk.sort((p, q) => keyOf.get(p.id) - keyOf.get(q.id) || p.id - q.id).forEach((a, k) => seatOf.set(a.id, k)); }
   for (const r of actors.values()) {
     if (r.dead) { if (r.dead.shown) continue; planDeath(r); continue; }
+    if (r.leave) { planLeave(r); continue; }
     if (r.held) continue;
     if (r.a.d.people) planPerson(r, phase, seatOf.has(r.a.id) ? seatOf.get(r.a.id) : 0); else planAnimal(r);
   }

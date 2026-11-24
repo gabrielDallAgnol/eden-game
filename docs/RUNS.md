@@ -1376,3 +1376,12 @@ Plains 2 from its year-75 save (about 800 people): 3,632 to 1,872 ms per game ye
 | highland | 1 | 12 | 96 | 176 | 217 | 38 | 6 | 328 | 0 | 17 | 1/26/6 | 3.6 | 23.8 | 23.1 | 10.5 | 1 | 1.2 | 278 | 153 | 23.7 | 3.8 | 0 (2) | 63/1/2/0/29 | 61 | 14.6 | 17 | 0 | 0 | 24470 |
 | highland | 2 | 13 | 74 | 156 | 167 | 38 | 2 | 250 | 1 | 18 | 0/24/7 | 3.4 | 0 | 14.6 | 11.6 | 1 | 0.8 | 1560 | 131 | 19.4 | 3 | 0 (7) | 71/2/1/0/21 | 49 | 10 | 21 | 1 | 0 | 19673 |
 | mean |  | 21.8 | 131.7 | 807.1 | 891.5 | 127.9 | 7.6 | 807.1 | 0.1 | 16.8 |  | 3.5 | 7.6 | 23.6 | 8.8 | 21.2 | 1.1 | 6779.2 | 246 | 30.9 | 4.6 |  |  | 75.9 | 8.9 | 36.2 | 0.2 | 0 | 69841.6 |
+
+## Leaving shown, seats worked out once
+
+View only; the simulation and the table are unchanged (same as the table above).
+
+- People who leave the valley take up a bundle (children walk beside them) and walk off by the nearest edge of the land, a step's walk at a time, and are let go once past it. Before, they vanished on the spot. Checked in plains 1 at year 25 with a forced leaving: the couple and a small child walked from 72,70 to 81,70 over three steps carrying bundles; the log tells it; console clean.
+- Seats round the fire by friendship: each person's closest friend is found once per step, not inside every comparison of the sort (6% of a big village's frame time). Same seats.
+
+Tests 526 passed, 0 failed.
