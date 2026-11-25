@@ -1385,3 +1385,40 @@ View only; the simulation and the table are unchanged (same as the table above).
 - Seats round the fire by friendship: each person's closest friend is found once per step, not inside every comparison of the sort (6% of a big village's frame time). Same seats.
 
 Tests 526 passed, 0 failed.
+
+## Two clocks, builders at the plot, herds and packs, crops and fences, wolves stronger than people (2026-11-25)
+
+What changed:
+- **Two clocks.** A tick is still the same stretch of a life, but the seasons turn up to 3 times slower (`yearK` 3 in the game; deep winter keeps its old length). A year is 48 ticks instead of 24. The table's "years" are life-years (2,400 ticks), about 50 years on the calendar. In a long summer the fields are sown again after a full harvest.
+- **Builders at the plot.** Every stage takes work done on the spot. The view raises a building only while someone is at it.
+- **Family size from causes.** The norm is learned from the mother and starts at 6. It moves 20% a generation toward 2 (3 where the place farms) plus what was seen of children dying.
+- **Wolves and people.** Wolves take the weak and the lone. Three people (two once wolves are known) can kill one, but may lose one of their own. Kin hunt a killer.
+- **Animals.** They start in herds, packs and warrens. Young stay with their mothers. Packs keep their own ground, and a crowded pack sends its young off to find new ground.
+- **Crops.** Grazers eat unfenced crops. People chase them off or kill them, then fence their fields.
+- **Fixes to old faults:**
+  - One begun building that could not be supplied stopped all building in the place, which left dozens of households without a roof. Now such a plot is set aside for the day, and the last of a pile can finish a stage.
+  - The hungry only walked to the store along paths of at most 80 steps of cost, so far households starved beside a full store. Now anyone who can reach the store on foot goes.
+  - A household that went short and has less than half the ground it needs now leaves; before, only a household with no ground at all did.
+
+How it compares with the last table ("Leaving shown, seats worked out once"):
+- Mean population at year 100 is 953 (807 before), the peak 1,019 (892 before). The building fault had been holding towns back.
+- Hunger deaths are 16.8 a run (7.6 before). Most come in late, crowded years, among households far from the fire.
+- 310 leave a run (807 before).
+- Plains seed 1 dies out twice early on (cold and hunger in the first years) and is still small at year 100.
+- Wild animals are hunted down hard in big places: rabbits and wolves are near nothing at year 100 in most worlds.
+
+Tests: 534 passed, 0 failed (one warning: plains seed 1's first dwelling stands in year 8).
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 32 | 158 | 1221 | 1252 | 297 | 14 | 559 | 0 | 17 | 5/0/0 | 2.6 | 0 | 28.9 | 5.2 | 149 | 1.1 | 25572 | 824 | 100.4 | 7.3 | 3 (7) | 85/0/0/1/12 | 100 | 8.9 | 69 | 2 | 0 | 145603 |
+| valley | 2 | 35 | 169 | 1204 | 1378 | 340 | 21 | 831 | 0 | 16 | 1/0/0 | 2.8 | 0 | 31.5 | 5.5 | 143 | 1.2 | 33786 | 946 | 56.7 | 6.9 | 2.5 (8) | 81/0/0/1/15 | 100 | 7 | 96 | 0 | 0 | 196568 |
+| plains | 1 | 6 | 2 | 17 | 17 | 4 | 8 | 0 | 2 | 10 | 0/150/5 | 2.3 | 16.6 | 11.1 | 4.2 | 0 | 1 | 30 | 12 | 33.6 | 5.6 |  | 75/2/0/0/21 | 16 | 3.5 | 9 | 0 | 0 | 11787 |
+| plains | 2 | 24 | 93 | 1408 | 1419 | 339 | 7 | 20 | 0 | 17 | 5/0/0 | 2.6 | 0 | 31.7 | 6.1 | 72 | 0.9 | 42449 | 349 | 44.1 | 7.9 |  | 80/0/0/3/16 | 100 | 8 | 69 | 0 | 0 | 110691 |
+| forest | 1 | 33 | 144 | 1233 | 1483 | 379 | 20 | 560 | 0 | 16 | 0/0/0 | 2.8 | 0 | 28.7 | 4.5 | 131 | 1.2 | 47043 | 750 | 67.6 | 9.9 | 0.4 (5) | 82/0/0/0/14 | 100 | 8.4 | 96 | 0 | 0 | 217800 |
+| forest | 2 | 8 | 49 | 801 | 801 | 192 | 6 | 0 | 0 | 16 | 51/10/5 | 2.4 | 2 | 27.2 | 3.7 | 41 |  | 6058 | 264 | 62.6 | 6.5 |  | 83/0/0/3/13 | 69 | 5 | 53 | 0 | 0 | 61860 |
+| lakeland | 1 | 20 | 104 | 1315 | 1354 | 327 | 12 | 87 | 0 | 19 | 5/1/0 | 2.8 | 15.3 | 31.2 | 4.8 | 96 | 1.5 | 37370 | 540 | 80.6 | 7.9 | 6.125 (8) | 80/0/0/3/16 | 100 | 8.4 | 96 | 6 | 0 | 139899 |
+| lakeland | 2 | 22 | 108 | 1493 | 1501 | 343 | 16 | 14 | 0 | 17 | 7/0/0 | 2.7 | 0 | 31.8 | 4.5 | 37 | 1.5 | 406291 | 551 | 70 | 10.1 |  | 82/0/0/3/14 | 100 | 6.6 | 96 | 3 | 0 | 185636 |
+| highland | 1 | 21 | 106 | 141 | 245 | 22 | 12 | 353 | 0 | 17 | 1/31/0 | 4.2 | 23.7 | 18.4 | 15.6 | 4 | 1.3 | 170 | 110 | 23.8 | 3.7 | 0 (9) | 74/2/0/0/23 | 79 | 14.2 | 13 | 0 | 0 | 27582 |
+| highland | 2 | 35 | 167 | 698 | 736 | 178 | 52 | 675 | 0 | 17 | 6/6/0 | 3.1 | 14.7 | 24 | 9.4 | 70 | 1.1 | 8353 | 561 | 53.4 | 5.7 | 1.1363636363636365 (22) | 70/0/0/1/22 | 93 | 11.4 | 49 | 2 | 0 | 126741 |
+| mean |  | 23.6 | 110 | 953.1 | 1018.6 | 242.1 | 16.8 | 309.9 | 0.2 | 16.2 |  | 2.8 | 7.2 | 26.5 | 6.4 | 74.3 | 1.2 | 60712.2 | 490.7 | 59.3 | 7.2 |  |  | 85.7 | 8.1 | 64.6 | 1.3 | 0 | 122416.7 |
