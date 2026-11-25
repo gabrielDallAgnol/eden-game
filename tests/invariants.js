@@ -994,27 +994,33 @@ UNITS.push(['a building rises only under a builder standing at its plot, stage b
   }
   if (bad) return bad;
   if (rose < 10) return 'only ' + rose + ' steps of building seen in 25 years';
-  /* a stage is put up over more than one step: there were more steps of rising than stages completed */
+  /* stages are put up over more than one step (a skilled builder with a tool finishes a light one in one): there were more
+     steps of rising than stages completed */
   var stages = 0; steps.forEach(function (v) { stages += v; });
-  if (rose <= stages * 1.5) return rose + ' steps of building for ' + stages + ' stages: stages go up in one go';
+  if (rose <= stages) return rose + ' steps of building for ' + stages + ' stages: stages go up in one go';
   return '';
 }]);
-UNITS.push(['two grown people who see a wolf close by go at it together: it is driven off or killed, and nobody is taken', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96, yearK: 3 }), S = W.S, i, tries = 0, ok = 0, eaten = 0;
-  var grownFed = function () { return S.agents.filter(function (b) { return b.alive && b.d.people && b.age >= 12 && b.age <= 40 && b.e > 0.5; }).length; };
-  for (i = 0; i < 24 * 40 && (i < 24 * 8 || grownFed() < 2); i++) W.tick();
-  for (tries = 0; tries < 12; tries++) {
-    while (S.night || S.tickNo % 4 === 3) W.tick();
-    var P = S.agents.filter(function (b) { return b.alive && b.d.people && b.age >= 12 && b.age <= 40; }); if (P.length < 2) return 'fewer than two grown people at try ' + tries + ' (' + S.popPeople + ' people, year ' + S.t.toFixed(1) + ')';
-    var a = P[0], b = P[1], x = a.x, y = a.y; a.trip = null; b.trip = null; b.x = x; b.y = y; a.e = b.e = 0.9;   /* two fed people standing together */
-    var w = W.G.place('wolf', Math.min(W.N - 1, x + 2), y, 3, 0.6), d0 = S.deaths['human:eaten'] || 0; w.fear = 0;
+UNITS.push(['with sticks and stones three grown people stand against a wolf and kill or drive it off; two who do not yet know wolves back away', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96, yearK: 3 }), S = W.S, i, tries, ok = 0, fled = 0;
+  var grownN = function () { return S.agents.filter(function (b) { return b.alive && b.d.people && b.age >= 12 && b.age <= 40; }).length; };
+  for (i = 0; i < 24 * 60 && (i < 24 * 8 || grownN() < 5); i++) W.tick();
+  S.tribe.lore = 0;
+  for (tries = 0; tries < 16; tries++) {
+    while (S.tickNo % 4 >= 2) W.tick();   /* the next step is a day step */
+    var P = S.agents.filter(function (b) { return b.alive && b.d.people && b.age >= 12 && b.age <= 40; }); if (P.length < 3) return 'fewer than three grown people at try ' + tries;
+    var three = tries % 2 === 0, g = three ? P.slice(0, 3) : P.slice(0, 2), x = -1, y = -1, k, c;
+    /* somewhere on open dry ground with nobody else within four tiles */
+    for (k = 0; k < 400 && x < 0; k++) { c = { x: 4 + ((k * 37) % (W.N - 8)), y: 4 + ((k * 61) % (W.N - 8)) }; if (W.S.tribe && !W.water[c.y * W.N + c.x] && !W.water[c.y * W.N + c.x + 2] && !S.agents.some(function (b) { return b.alive && b.d.people && g.indexOf(b) < 0 && Math.max(Math.abs(b.x - c.x), Math.abs(b.y - c.y)) <= 4; })) { x = c.x; y = c.y; } }
+    if (x < 0) return 'no open ground';
+    g.forEach(function (b) { b.trip = null; b.x = x; b.y = y; b.e = 0.9; b.avenge = 0; });
+    var w = W.G.place('wolf', Math.min(W.N - 1, x + 2), y, 3, 0.9); w.fear = 0; S.tribe.lore = 0;
     W.tick();
-    if (!w.alive || w.fear > 0) ok++;
-    eaten += (S.deaths['human:eaten'] || 0) - d0;
+    if (three && (!w.alive || w.fear > 0)) ok++;
+    if (!three && g.every(function (b) { return !b.alive || (b.act && b.act.k === 'flee'); })) fled++;
     if (w.alive) w.alive = false;
   }
-  if (ok < 8) return 'the wolf was driven off or killed only ' + ok + ' times in 12';
-  if (eaten) return eaten + ' people taken by a wolf that met two of them';
+  if (ok < 6) return 'three people killed or drove off the wolf only ' + ok + ' times in 8';
+  if (fled < 6) return 'two people backed away only ' + fled + ' times in 8';
   return '';
 }]);
 UNITS.push(['family size is learned at home: children take their mother\'s norm, families shrink over generations where children live, and a couple stops at what it wants', function () {

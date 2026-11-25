@@ -26,12 +26,4 @@ Sickness is the main thing that killed children in the past, and it is what Eden
 
 ## Wolves and people (built now)
 
-- A wolf keeps away from people it hears working or shouting, unless it is hungry.
-- It goes for a lone person or a child once its energy is below 0.45, and for a band of grown people only below 0.25. These are planned numbers.
-- Two grown people who see a wolf within 4 tiles go at it together with shouts. It is driven off and fears people for a while; if it stands, it may be killed.
-- Someone alone backs away and shouts. Grown people within hearing come to the shout.
-- When a wolf kills someone, their partner, kin and friends go after that wolf together for about a third of a year, and kill it if they catch it.
-- Result in the five standard lands (seed 1, 100 life-years):
-  - wolves within 3 tiles of a person, sampled once a year: 0.25–0.53 before, 0–0.11 now;
-  - people taken by wolves: 5–19 a run before, 0–5 now;
-  - wolves driven off: 4–194 times a run; wolves killed: 0–66.
+See "Wolves and people" in `docs/ARCHITECTURE.md` under "Planned on purpose". In short: wolves do not shy from people. A hungry wolf takes the weak and the lone. Three grown people can kill a wolf but may lose one of their own. What the place learns of wolves (`T.lore`) lets two stand together and makes the fights less deadly. Weapons would come next, from the want of danger.

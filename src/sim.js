@@ -561,6 +561,31 @@ function create(seed, opt) {
     }
     return [cx, cy];
   }
+  const GROUP = { herd: 6, pack: 4, alone: 5 };   /* how many start together (planned on purpose) */
+  function placeGroups(sp, n) {
+    const d = SP[sp], g = Math.max(1, Math.min(n, GROUP[d.social] || 4)), centres = [];
+    for (let made = 0; made < n;) {
+      let bx = -1, by = -1, bs = -1e9;
+      for (let k = 0; k < 40; k++) {
+        const x = R(3, N - 3) | 0, y = R(3, N - 3) | 0, i = I(x, y); if (water[i]) continue;
+        let sc = (d.eats.grass ? grass[i] : 0) + (d.eats.fruit ? Math.min(1, fruit[i] + tree[i] * 0.3) * 0.5 : 0) + (d.eats.browse ? Math.min(0.6, tree[i]) * 0.5 : 0) + rnd() * 0.2;
+        if (d.eats.meat) sc = rnd();
+        /* well apart from the other groups of its kind: a pack's ground is its own */
+        for (const c of centres) { const dd = Math.max(Math.abs(c[0] - x), Math.abs(c[1] - y)); if (dd < (d.territory || 8)) sc -= (d.territory ? 3 : 0.6) * (1 - dd / (d.territory || 8)); }
+        if (sc > bs) { bs = sc; bx = x; by = y; }
+      }
+      if (bx < 0) { bx = R(0, N) | 0; by = R(0, N) | 0; }
+      centres.push([bx, by]);
+      const size = Math.min(g, n - made), grown = Math.max(1, Math.ceil(size * 0.6)); let mom = null, den = null;
+      if (d.home === 'den') { den = { id: S.nextId++, sp, kind: 'den', x: bx, y: by, n: 0, emptyT: 0 }; S.homes.set(den.id, den); }
+      for (let k = 0; k < size; k++) {
+        const young = k >= grown, a = add(sp, bx + ((rnd() * 5) | 0) - 2, by + ((rnd() * 5) | 0) - 2, young ? R(0.1, d.mature * 0.9) : undefined);
+        if (!young && !mom) mom = a; else if (young && mom) a.mom = mom.id;
+        if (den) { a.home = den.id; den.n++; }
+        made++;
+      }
+    }
+  }
   function add(sp, x, y, age, e) {
     const d = SP[sp], p = free(x, y);
     const a = { id: S.nextId++,
@@ -884,7 +909,10 @@ function create(seed, opt) {
     return Math.max(1, n);
   };
 
-  for (const sp in SP) { const d = SP[sp]; if (d.people) continue; const n = opt[sp] === undefined ? Math.round((d.start || 0) * N * N / 1600) : opt[sp]; for (let k = 0; k < n; k++) add(sp, R(0, N), R(0, N)); }
+  /* the wild start in their groups, each where its kind would be: herds on good grazing, packs round a den well apart from each
+     other, rabbits in warrens. A group is some grown ones and their young, who keep to their mothers. Not everywhere: the
+     land between groups starts empty */
+  for (const sp in SP) { const d = SP[sp]; if (d.people) continue; const n = opt[sp] === undefined ? Math.round((d.start || 0) * N * N / 1600) : opt[sp]; placeGroups(sp, n); }
   {
     const [bx, by] = campSite();
     S.tribe.x = bx; S.tribe.y = by;
@@ -963,7 +991,7 @@ function create(seed, opt) {
   }
   // what cannot be walked onto: water, and for anything on four legs that is not led, a closed fence met from the outside
   const within = a => { const w = S.tribe.wall; return !!w && a.x > w.x0 && a.x < w.x1 && a.y > w.y0 && a.y < w.y1; };
-  const shut = (a, x, y) => { const i = I(x, y); if (water[i]) return true; const T = S.tribe; return !!(T.fence && T.fence[i] && !a.d.people && !a.tame && !within(a)); };
+  const shut = (a, x, y) => { const i = I(x, y); if (water[i]) return true; const T = S.tribe; return !!(T.fence && T.fence[i] && !a.d.people && !a.tame && (T.fence[i] === 2 || !within(a))); };
   /* E3: the tiles each person passed through in the last step, in order, for the view to walk them along. Kept beside the
      state, not in it: a save does not carry it, and nothing in the simulation reads it */
   const trails = new Map(); let trailA = null, trailNow = null;
@@ -1037,11 +1065,25 @@ function create(seed, opt) {
   const roam = (a, r, n) => stepTo(a, a.x + ((rnd() * (2 * r + 1)) | 0) - r, a.y + ((rnd() * (2 * r + 1)) | 0) - r, n);
 
   // ---- homes: an animal with a home trait keeps a burrow or den, shares it with its kind, and digs a new one when it is full or too far
+  /* what the people have learned of wolves from meeting them (0 to 1): how they test the weak and the alone, and give way to a
+     crowd and a fire. It is learned from every meeting and most from the dead */
+  function learnWolf(k) { const T = S.tribe, was = T.lore || 0; T.lore = Math.min(1, was + k);
+    if (was < 0.5 && T.lore >= 0.5) tell('The people know the wolf now: it tests the weak and the one alone, and gives way to a crowd. Two stand together against it, and the children are kept close.'); }
+  /* a fight with a wolf, people with sticks and stones on one side: the more of them, the likelier it dies; while it lives it
+     may kill one of them */
+  function fightWolf(a, w, band) {
+    const T = S.tribe, lore = T.lore || 0;
+    const pKill = Math.min(0.85, 0.2 * band * (1 + 0.5 * lore) * (0.6 + 0.8 * a.skill.hunt)), pHurt = 0.35 * (1 - 0.5 * lore);
+    if (rnd() < pKill) { die(w, 'killed by people', a.id); practise(a, 'hunt'); S.stat.drivenKilled = (S.stat.drivenKilled || 0) + 1; learnWolf(0.05); return; }
+    w.fear = 1; w.fearSp = a.sp; S.stat.drivenOff = (S.stat.drivenOff || 0) + 1;
+    if (rnd() < pHurt) { const near = around(w, 1, b => b.alive && b.d.people); const v = near.length ? near[(rnd() * near.length) | 0] : a; die(v, 'eaten', w.id); S.stat.fightDeaths = (S.stat.fightDeaths || 0) + 1; }
+  }
+  const PACK_MAX = 7;   /* wolves to a den; the grown young of a bigger pack go off to find ground of their own */
   function homeOf(a) {
     let h = a.home && S.homes.get(a.home); if (h) return h;
     let bd = a.d.home === 'den' ? 22 : 9;
     for (const q of S.homes.values()) {
-      if (q.sp !== a.sp || q.n >= (a.d.home === 'den' ? 30 : 10)) continue;
+      if (q.sp !== a.sp || q.n >= (a.d.home === 'den' ? PACK_MAX : 10)) continue;
       const d = Math.max(Math.abs(q.x - a.x), Math.abs(q.y - a.y));
       if (d < bd) {
         bd = d;
@@ -1052,6 +1094,8 @@ function create(seed, opt) {
     if (!h && a.d.home === 'den' && (Math.max(Math.abs(a.x - S.tribe.x), Math.abs(a.y - S.tribe.y)) < 12 || S.tribe.sites.some(q => Math.max(Math.abs(a.x - q.x), Math.abs(a.y - q.y)) < 8))) return null;
     /* nor a burrow in the middle of a village: the small ones dig out where the ground is quiet */
     if (!h && a.d.home !== 'den' && S.popPeople && (Math.hypot(a.x - S.tribe.x, a.y - S.tribe.y) < 8 || nearBuilt(I(a.x, a.y)))) return null;
+    /* a young wolf that leaves a full pack digs its own den only off every other pack's ground */
+    if (!h && a.d.home === 'den' && [...S.homes.values()].some(q => q.kind === 'den' && Math.max(Math.abs(q.x - a.x), Math.abs(q.y - a.y)) < (a.d.territory || 14))) { roam(a, 4, a.d.speed + 1); return null; }
     if (!h) { if (water[I(a.x, a.y)] || field[I(a.x, a.y)]) return null; h = { id: S.nextId++, sp: a.sp, kind: a.d.home, x: a.x, y: a.y, n: 0, emptyT: 0 }; S.homes.set(h.id, h); }
     a.home = h.id; h.n++; return h;
   }
@@ -1061,9 +1105,10 @@ function create(seed, opt) {
     let got = 0; const need = Math.min((d.bite || 4) * dt * (d.social === 'herd' ? S.dayK : 1), 1.05 - a.e), sz = gut(d), fl = mouth(d);
     for (let q = 0; q < (sz > 1 ? 9 : 5) && got < need; q++) {
       const x = q ? clamp(a.x + ((rnd() * 3) | 0) - 1, 0, N - 1) : a.x, y = q ? clamp(a.y + ((rnd() * 3) | 0) - 1, 0, N - 1) : a.y, j = I(x, y); if (water[j]) continue;
-      if (field[j] && !a.tame && S.tribe.sown) continue;   /* a sown field is watched and its edges walked: the wild keep off it while the crop stands */
+      const onCrop = field[j] && !a.tame && S.tribe.sown && !S.tribe.resting;   /* a standing crop is food like any other: what is eaten of it is gone from the harvest */
       const open = 1 - snowBlock(j, d.mass);
-      if (d.eats.grass) { const g = grass[j], cv = 1.2 / sz; if (g > fl) { const take = Math.min((need - got) / cv, (g - fl) * 0.5 * open); grass[j] -= take; got += take * cv; } }
+      if (d.eats.grass) { const g = grass[j], cv = 1.2 / sz; if (g > fl) { const take = Math.min((need - got) / cv, (g - fl) * 0.5 * open); grass[j] -= take; got += take * cv;
+        if (onCrop && take > 0) { const h = S.tribe.sites.find(q => q.id === owner[j]); const lost = take * FIELD_YIELD; S.stat.cropEaten = (S.stat.cropEaten || 0) + lost; if (h) h.raided = (h.raided || 0) + lost; } } }
       if (got < need && d.eats.fruit && fruit[j] > 0.02) { const cv = 1.5 / sz, take = Math.min((need - got) / cv, fruit[j] * 0.5); fruit[j] -= take; got += take * cv; }
       if (got < need && d.eats.browse && tree[j] > 0.02 && tree[j] < 0.5) { const cv = 3 / sz, take = Math.min((need - got) / cv, tree[j] * 0.25, 0.03); tree[j] -= take; got += take * cv; }
       /* in the woods: leaves and twigs of grown trees within reach, a little at a time, at a little cost to the tree */
@@ -1116,7 +1161,7 @@ function create(seed, opt) {
       if (S.popPeople >= 3 && a.e > 0.3 && cheb(b, S.tribe) <= 3) return false;   // nothing hunts inside a peopled camp unless it is starving
       /* people are feared, not hunted: a wolf goes for a band of grown people only when starving, but for a child or someone
          alone once it is hungry */
-      if (b.d.people && a.e > (b.age < b.d.mature || !nearest(b, 2, c => c.alive && c.sp === b.sp && c.age >= c.d.mature) ? 0.45 : 0.25)) return false;
+      if (b.d.people && a.e > (b.age < b.d.mature || !nearest(b, 2, c => c.alive && c.sp === b.sp && c.age >= c.d.mature) ? 0.6 : 0.3)) return false;
       if (S.tribe.fence && within(b) && !within(a)) return false;                  // nor through a closed fence
       const j = I(b.x, b.y);
       if (bodyOf(b) > d.mass) {                                       // bigger than me: only when desperate, or when it is alone in thick cover
@@ -1135,7 +1180,10 @@ function create(seed, opt) {
       const watched = prey.d.social === 'herd' && herdSize(prey) >= 2 ? (nearest(prey, 3, c => c.sp === prey.sp && (c.watch === S.tickNo - 1
           || c.watch === S.tickNo)) ? 0.35 : 0.55) : 1;                 // many eyes
       const p = 0.42 * (pm < 1 ? 0.72 : 1) * Math.pow(Math.min(1, d.mass / pm), 5) * together * watched * (1 - cover(j)) * TPY * dt * 1.6;
-      if (rnd() < p) {
+      let defend = 0; if (prey.d.people) { defend = around(prey, 2, b => b.alive && b.d.people && b !== prey && b.age >= b.d.mature).length; learnWolf(0.01); }
+      if (prey.d.people && defend && rnd() < Math.min(0.85, 0.2 * defend * (1 + 0.5 * (S.tribe.lore || 0)))) { die(a, 'killed by people', prey.id); S.stat.drivenKilled = (S.stat.drivenKilled || 0) + 1; learnWolf(0.05); return true; }
+      if (rnd() < p / (1 + 0.5 * defend)) {
+        if (prey.d.people) learnWolf(0.1);
         die(prey, 'eaten', a.id); const meal = pm / d.mass; a.act = { k: 'kill', id: prey.id, x: prey.x, y: prey.y };
         const pk = d.social === 'pack' ? around(a, 5, b => b.sp === a.sp) : [];
         for (const b of pk) b.feedAt = { x: prey.x, y: prey.y };                    // the pack comes to the kill
@@ -1159,6 +1207,8 @@ function create(seed, opt) {
         }
       }
       if (c) return { x: Math.round(sx / c), y: Math.round(sy / c), r: 1 };
+      /* alone: it goes looking for others of its kind, as far as it can see and a little further */
+      const o = nearest(a, d.sense * 3, b => b.sp === a.sp && b.alive); if (o) return { x: o.x, y: o.y, r: 2 };
     }
     return null;
   }
@@ -1232,12 +1282,20 @@ function create(seed, opt) {
     }
     const anc = anchorOf(a, d, h);
     // the young keep close to their mother
-    const mom = a.mom && a.age < d.mature * 0.5 ? S.byId.get(a.mom) : null;
+    const mom = a.mom && a.age < d.mature * (d.social === 'herd' || d.social === 'pack' ? 1 : 0.5) ? S.byId.get(a.mom) : null;   /* in a herd or a pack, until grown */
     if (mom && mom.alive && !mom.hidden && cheb(mom, a) > 1) {
       stepTo(a, mom.x, mom.y, d.speed + 1);
       a.act = { k: 'follow', id: mom.id };
       if (plantEater(d) && a.e < 0.95) forage(a, d, dt, null, true);
       return;
+    }
+    if (d.social === 'pack' && h) {
+      /* a pack hunts together: one that sees a packmate on the hunt nearby runs to it */
+      if (a.e < 0.95 && !S.night) { const m = nearest(a, 8, b => b.sp === a.sp && b.home === a.home && b.act && (b.act.k === 'stalk' || b.act.k === 'chase' || b.act.k === 'kill')); if (m && cheb(m, a) > 1) { stepTo(a, m.act.x === undefined ? m.x : m.act.x, m.act.y === undefined ? m.y : m.act.y, d.speed + 1); a.act = { k: 'prowl', x: a.x, y: a.y, pack: m.id }; return; } }
+      /* its own ground: well fed, it keeps off another pack's, and turns back toward its own den */
+      if (a.e > 0.3) { const other = [...S.homes.values()].find(q => q.kind === 'den' && q.id !== h.id && Math.max(Math.abs(q.x - a.x), Math.abs(q.y - a.y)) < (d.territory || 14) * 0.6); if (other && Math.max(Math.abs(h.x - a.x), Math.abs(h.y - a.y)) > 4) { stepTo(a, h.x, h.y, d.speed); a.act = { k: 'prowl', x: a.x, y: a.y }; return; } }
+      /* a grown young wolf of a pack grown too big goes off on its own to find ground and a mate */
+      if (h.n > PACK_MAX - 1 && a.age >= d.mature && a.age < d.mature * 2 && a.e > 0.6 && rnd() < 0.1) { h.n--; a.home = 0; a.mom = 0; roam(a, 6, d.speed + 1); a.act = { k: 'prowl', x: a.x, y: a.y }; return; }
     }
     if (d.eats.meat && a.e < 0.8 && hunt(a, d, dt)) return;
     if (d.eats.fish && a.e < 0.85 && fishing(a, d, dt)) { a.act = { k: 'fish', x: a.x, y: a.y }; return; }
@@ -1416,7 +1474,7 @@ function create(seed, opt) {
       }
       return;
     }
-    // people fear what can eat them: the young run for the camp, one alone backs away; three together stand their ground
+    // people fear what can eat them: the young run for the camp, a few back away; enough together stand and fight
     const beast = nearest(a, 4, b => !b.hidden && canTake(b, a));
     if (beast) {
       let band = a.age >= d.mature ? 1 : 0;
@@ -1425,20 +1483,30 @@ function create(seed, opt) {
         if (x < 0 || y < 0 || x >= N || y >= N) continue;
         for (const b of cells[I(x, y)]) if (b.alive && b !== a && b.sp === a.sp && b.age >= d.mature) band++;
       }
-      /* two grown people together go at it with sticks, stones and shouting: it is driven off and remembers them, and if it
-         stands it may be killed. Someone alone backs away and shouts, and the grown within hearing come */
-      if (a.age >= d.mature && a.e > 0.4 && (band >= 2 || a.job === 'guard' || a.job === 'hunter')) {
-        stepTo(a, beast.x, beast.y, 2); beast.fear = 1; beast.fearSp = a.sp; sound(a.x, a.y, 5, 'alarm');
-        if (cheb(beast, a) <= 1 && rnd() < 0.35 * (0.5 + a.skill.hunt) * Math.min(1, band / 3)) { die(beast, 'killed by people', a.id); practise(a, 'hunt'); S.stat.drivenKilled = (S.stat.drivenKilled || 0) + 1; }
-        else S.stat.drivenOff = (S.stat.drivenOff || 0) + 1;
+      /* with nothing but sticks and stones a wolf is stronger than a person. Enough grown people together (three; two once they
+         know the wolf's ways) go at it: it is killed or driven off, but it fights, and may kill one of them. Fewer back away
+         and shout, and the grown within hearing come */
+      const lore = T.lore || 0, enough = lore >= 0.5 ? 2 : 3;
+      if (a.age >= d.mature && a.e > 0.4 && band >= enough) {
+        stepTo(a, beast.x, beast.y, 2); sound(a.x, a.y, 5, 'alarm'); learnWolf(0.02);
+        if (cheb(beast, a) <= 1) { fightWolf(a, beast, band); if (!a.alive) return; }
+        else { beast.fear = 1; beast.fearSp = a.sp; S.stat.drivenOff = (S.stat.drivenOff || 0) + 1; }
         a.act = { k: 'guard', id: beast.id }; return;
       }
-      if (a.age < d.mature || band < 2) {
+      if (a.age < d.mature || band < enough) {
         a.mood = 'afraid'; sound(a.x, a.y, 5, 'alarm');
         stepTo(a, dist > 1 ? T.x : a.x + (a.x - beast.x), dist > 1 ? T.y : a.y + (a.y - beast.y), 2);
         a.act = { k: 'flee', id: beast.id };
         return;
       }
+    }
+    /* a beast in the crop: anyone of the household old enough to run who sees it chases it off, and a grown one may kill it,
+       which is meat. What they own they keep, as any creature does */
+    if (a.age >= SMALL + 2 && a.e > 0.4 && !a.trip && a.house) {
+      const r = nearest(a, 6, b => !b.hidden && !b.tame && !b.d.people && !b.d.eats.meat && b.d.mass >= 0.5 && field[I(b.x, b.y)] && owner[I(b.x, b.y)] === a.house);
+      if (r) { stepTo(a, r.x, r.y, 3); r.fear = 1; r.fearSp = a.sp; S.stat.chased = (S.stat.chased || 0) + 1;
+        if (a.age >= GROWN && cheb(r, a) <= 1 && rnd() < 0.3 * (0.5 + a.skill.hunt) * (r.d.mass < 1 ? 1.5 : 1)) { dropPile(r.x, r.y, 'meat', bodyOf(r) * 0.9); die(r, 'hunted', a.id); practise(a, 'hunt'); S.stat.raidersKilled = (S.stat.raidersKilled || 0) + 1; }
+        a.act = { k: 'guard', id: r.id }; return; }
     }
     /* a shout of alarm nearby: the grown who are fed and not far off go to it */
     if (a.age >= d.mature && a.age <= 50 && a.e > 0.5 && !a.trip) { const al = hear(a, k => k === 'alarm'); if (al && al.l > 0.4) { const w = nearest(a, 7, b => !b.hidden && b.d.eats.meat && !b.d.people && b.d.mass > 3); if (w) { stepTo(a, w.x, w.y, 3); w.fear = 1; w.fearSp = a.sp; a.act = { k: 'guard', id: w.id }; return; } } }
@@ -1446,7 +1514,7 @@ function create(seed, opt) {
     if (a.avenge && a.age >= d.mature && a.e > 0.5 && !a.trip) { const w = S.byId.get(a.avenge); if (!w || !w.alive || S.t > a.avengeT) a.avenge = 0; else {
         let with2 = 1; for (const b of folk()) if (b !== a && b.avenge === w.id && cheb(b, a) <= 3) with2++;
         stepTo(a, w.x, w.y, 4); a.act = { k: 'guard', id: w.id };
-        if (cheb(w, a) <= 1 && with2 >= 2 && rnd() < 0.4 * (0.5 + a.skill.hunt)) { die(w, 'killed by people', a.id); practise(a, 'hunt'); S.stat.avenged = (S.stat.avenged || 0) + 1; for (const b of folk()) if (b.avenge === w.id) b.avenge = 0; }
+        if (cheb(w, a) <= 1 && with2 >= ((T.lore || 0) >= 0.5 ? 2 : 3)) { fightWolf(a, w, with2); if (!w.alive) { S.stat.avenged = (S.stat.avenged || 0) + 1; for (const b of folk()) if (b.avenge === w.id) b.avenge = 0; } if (!a.alive) return; }
         return; } }
     a.act = { k: 'idle' };
     const grown = a.age >= d.mature, old = a.age > 46, able = grown && !old, pace = able ? 1 : 0.6;   // children help close to home; the old keep the camp
@@ -1809,6 +1877,19 @@ function create(seed, opt) {
     grass[bestI] = Math.min(grass[bestI], 0.08); fruit[bestI] = 0;
     return s;
   }
+  const RAID_FENCE = 3;   /* food eaten from a household's fields by the wild before it fences them (planned on purpose) */
+  /* the stakes a household's fields still want: every dry tile touching one of its field tiles that is not itself its field,
+     another's field or a building */
+  function hedgeGap(h) {
+    const T = S.tribe, F = T.fence, mine = new Set(), out = [];
+    for (const i of fieldTiles()) if (field[i] && owner[i] === h.id) mine.add(i);
+    if (!mine.size) return null;
+    const built = new Set(T.sites.map(q => I(q.x, q.y)));
+    for (const i of mine) { const x = i % N, y = (i / N) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; const j = I(nx, ny);
+        if (mine.has(j) || water[j] || (field[j] && owner[j] !== h.id) || built.has(j) || (F && F[j]) || out.includes(j)) continue; out.push(j); } }
+    return out.length ? out : null;
+  }
   function plotFor(a) {
     const T = S.tribe, open = T.sites.filter(q => BUILDINGS[q.kind] && !raised(q));
     /* finish what is begun: a friend's or kinsman's house first (G1), else the first begun */
@@ -1822,6 +1903,10 @@ function create(seed, opt) {
       if (T.lotAcross && S.tickNo % 4 === 0) wishCross(T.lotAcross, 2);
     }
     if (T.wall && !T.wall.done) return T.wall;                                          // the fence, once begun, before comforts
+    /* a household that has watched the beasts eat its crop puts stakes round its fields; the one that lost most first */
+    { const h = T.sites.filter(q => isHome(q) && q.members > 0 && (q.raided || 0) > RAID_FENCE && hedgeGap(q)).sort((p, q) => q.raided - p.raided)[0];
+      if (h) { const cells = hedgeGap(h); h.hedge = { kind: 'hedge', id: -h.id, home: h.id, x: h.x, y: h.y, cells, n: 0, done: false }; h.raided = 0; return h.hedge; }
+      const open = T.sites.find(q => q.hedge && !q.hedge.done); if (open) return open.hedge; }
     if (allFood() < S.popPeople * 1.0) return null;                                     // the rest is for when there is food enough to spare the hands
     if (T.bridge && !T.bridge.done) return T.bridge;
     if (T.skills.well && !T.sites.some(q => q.kind === 'well')) return choosePlot('well', null);
@@ -1870,6 +1955,15 @@ function create(seed, opt) {
       if (s.wood >= s.need) { s.done = true; T.bridged[s.key] = true; tell('A bridge of logs now crosses the water where people waded every day.'); }
       return true;
     }
+    if (s.kind === 'hedge') {                                         // stakes round a household's fields, a few paces at a time
+      if (T.wood < 1) { if (fromPile(a, s.x, s.y, 'wood')) return true; const bj = standFor(s.x, s.y, a, 0.3); if (bj < 0) { stretch(a); return false; } return startHaul(a, 'timber', bj, { x: s.x, y: s.y }); }
+      T.wood -= 1; if (!T.fence) T.fence = new Uint8Array(N * N);
+      let at = -1, put = 0; for (const c of s.cells) { if (T.fence[c]) continue; T.fence[c] = 2; if (at < 0) at = c; if (++put >= 4) break; }
+      s.n = s.cells.filter(c => T.fence[c]).length; if (at < 0) at = s.cells[0]; a.act = { k: 'fence', j: at }; sound(at % N, (at / N) | 0, 3, 'work');
+      if (s.n >= s.cells.length) { s.done = true; S.stat.hedges = (S.stat.hedges || 0) + 1; const h = T.sites.find(q => q.id === s.home);
+        if (S.stat.hedges === 1) tell('Stakes now stand round ' + (h && folk().find(b => b.house === h.id) ? folk().find(b => b.house === h.id).name + '\'s' : 'a household\'s') + ' fields: the deer had been eating the crop.'); }
+      return true;
+    }
     if (s === T.wall) {                                               // stakes cut, carried and driven, a few paces of fence at a time
       if (T.wood < 1) {
         if (fromPile(a, T.x, T.y, 'wood')) return true;
@@ -1884,7 +1978,7 @@ function create(seed, opt) {
       if (s.n >= s.cells.length) {
         s.done = true;
         /* the new ring is closed: the old stakes now standing inside it are pulled up */
-        const ring = new Set(s.cells); for (let i = 0; i < N * N; i++) if (T.fence[i] && !ring.has(i)) T.fence[i] = 0;
+        const ring = new Set(s.cells); for (let i = 0; i < N * N; i++) if (T.fence[i] === 1 && !ring.has(i)) T.fence[i] = 0;
         tell(s.grown ? 'The fence has been carried out round the new houses.' : 'The fence is closed. Nothing on four legs comes in now unless it is led.');
       }
       return true;
@@ -2253,6 +2347,7 @@ function create(seed, opt) {
         const dear = T.price ? clamp(Math.sqrt(T.price.grain / Math.max(0.05, (T.price.fish + T.price.fruit) / 2)), 0.7, 1.6) : 1;
         /* a household that went hungry over the last year, or sees the common store emptier than a year ago, sows more ground
            this spring; one that went a whole year without either lets a little go again. Never more than its hands can work. */
+        h.raided = (h.raided || 0) * 0.5;   /* the beasts in last year's crop are half forgotten by the next sowing */
         const sh = h.shortT || 0; { h.sowK = clamp((h.sowK || 1) * (sh > 0.05 ? 1 + Math.min(0.5, sh) : T.storeFalling ? 1.15 : 0.95), 1, 3); h.shortT = 0; }
         const want = Math.min(hands * 6 + farmers * 3, Math.round((hands * 2 + farmers * 1.5 + mine.length * 0.7) * dear * 0.5 * h.sowK)); let have = 0;   /* half the ground it took before: a tile now gives three times as much */
         for (let k = 0; k < N * N; k++) if (field[k] && owner[k] === h.id) have++;
