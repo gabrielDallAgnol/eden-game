@@ -90,7 +90,7 @@ function WorldRun(land, seed, years, size) {
   add('haul', 'everyone on a timber, stone or firewood trip carries a sane load and has a way home (E2)');
   add('tripSum', 'each household\'s trips last year add up to its working days (B8)');
   add('lotOwner', 'every lot tile belongs to its own household and is not sown by another (B4)');
-  add('chopped', 'timber is only ever gained by someone chopping a tree');
+  add('chopped', 'timber is only ever gained from trees: someone chopping, or picking up logs where trees were felled');
   add('bank', 'no person is ever on a bank cut off from the camp (no bridge, no crossing)');
   add('fieldBank', 'every field lies on the same bank as the household that sows it');
   add('agentNums', 'each creature\'s energy and age are finite, age is not negative');
@@ -202,7 +202,8 @@ WorldRun.prototype.woodTick = function (before) {
   var S = this.W.S, T = S.tribe, c = this.C.chopped;
   var back = (S.stat.woodBack || 0) - (this.woodBack || 0); this.woodBack = S.stat.woodBack || 0;   /* E2: logs carried home from a felling trip */
   if (!T || !(T.wood > before + 1e-9)) return;
-  var chop = S.agents.some(function (a) { return a.act && a.act.k === 'chop' && (a.alive || a.d.people); });   /* a chopper may die later in the same step */
+  /* felled now, or picked up from logs lying where trees were felled before (a cleared field, a strike, a roof taken down) */
+  var chop = S.agents.some(function (a) { return a.act && (a.act.k === 'chop' || (a.act.k === 'fetch' && a.act.item === 'log')) && (a.alive || a.d.people); });   /* a chopper may die later in the same step */
   if (chop || back >= T.wood - before - 1e-6) c.ok(); else c.fail('tick ' + this.ticks + ': timber went from ' + show(before) + ' to ' + show(T.wood) + ' and nobody chopped');
 };
 WorldRun.prototype.killTick = function () {

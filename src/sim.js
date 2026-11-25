@@ -1758,9 +1758,12 @@ function create(seed, opt) {
     if (f < 0) return -1; const fx = f % N, fy = (f / N) | 0;
     let hx = wl.x, hy = wl.y, hd = Math.max(Math.abs(fx - hx), Math.abs(fy - hy));
     for (let i = 0; i < N * N; i++) if (T.ditch[i]) { const x = i % N, y = (i / N) | 0, d = Math.max(Math.abs(fx - x), Math.abs(fy - y)); if (d < hd) { hd = d; hx = x; hy = y; } }
-    const sx = Math.sign(fx - hx), sy = Math.sign(fy - hy);
-    for (const [dx, dy] of [[sx, sy], [sx, 0], [0, sy]]) { if (!dx && !dy) continue; const j = I(hx + dx, hy + dy); if (!water[j] && !T.ditch[j] && !field[j] && !T.sites.some(q => q.x === hx + dx && q.y === hy + dy)) return j; }   /* along the field's edge, never through the crop */
-    return -1;
+    /* the next tile of the ditch: of the dry tiles round its end that are not crop, a building or ditch already, the one nearest the
+       field; it goes round a field in its way rather than through it */
+    let bj = -1, bd = hd;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const x = hx + dx, y = hy + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y);
+      if (water[j] || T.ditch[j] || field[j] || T.sites.some(q => q.x === x && q.y === y)) continue; const d = Math.max(Math.abs(fx - x), Math.abs(fy - y)) + (dx && dy ? 0.01 : 0); if (d <= bd) { bd = d; bj = j; } }
+    return bj;
   }
   const best = () => ROOMS.find(k => !BUILDINGS[k].needsIdea || S.tribe.skills[BUILDINGS[k].needsIdea]);
   const NEXT = {}; for (const k in BUILDINGS) if (BUILDINGS[k].next) NEXT[k] = BUILDINGS[k].next;
@@ -2705,7 +2708,7 @@ function create(seed, opt) {
       const i = I(x, y), hit = S.agents.filter(a => a.alive && ((a.x === x && a.y === y) || a === aimed));
       for (const a of hit) { if (!a.d.people) dropPile(a.x, a.y, 'meat', bodyOf(a) * 0.9); die(a, 'struck'); }
       for (const q of [...S.homes.values()]) if (q.x === x && q.y === y) { S.homes.delete(q.id); for (const a of S.agents) if (a.home === q.id) a.home = 0; }   /* a den or burrow struck is broken; its keepers must find or dig another */
-      if (!water[i] && tree[i] > 0.1) { dropPile(x, y, 'wood', tree[i] * 12); tree[i] = 0; fruit[i] = 0; cut[i] = 0; }
+      if (!water[i] && tree[i] > 0.1) { dropPile(x, y, 'wood', tree[i] * WOOD_PER_STAND); tree[i] = 0; fruit[i] = 0; cut[i] = 0; }
       else if (!water[i] && rock[i] >= 0.15) { const dug = Math.min(rock[i], 0.06); rock[i] -= dug; pit[i] = Math.min(1, pit[i] + dug); dropPile(x, y, 'stone', dug * STONE_PER_TILE); }
       else if (!water[i] && snow[i] < 0.05 && soil[i] < 0.9 && grass[i] > 0.5) burn[i] = 1;
       heat[i] += 4; },
