@@ -408,7 +408,7 @@ function create(seed, opt) {
   // A settlement as it is when the first people arrive. The one place a settlement's fields are named, so a field added
   // here is reset wherever a settlement starts over.
   function newSettlement(x, y) {
-    const T = { x, y, store: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
+    const T = { x, y, store: 5, kidDied: 2, kidBorn: 5, huts: 0, wood: 0, stone: 0, roof: 0.7, level: 0, carts: 0, threat: 0,
       need: { cold: 0, hunger: 0, spoil: 0, water: 0, danger: 0, flood: 0, toil: 0, crowd: 0, loss: 0, reckon: 0, cross: 0, order: 0 },
       fordUse: {}, bridged: {}, bridge: null, rotYear: 0, tools: 0, pots: 0, cartsMade: 0, ore: 0, hay: 0, ditch: new Uint8Array(N * N), debts: {}, trades2: 0, tradesFailed: 0, swaps: {},
       plenty: 1, pave: 1, stoneWork: 0, floodSeen: false, got: { fish: 0, gather: 0, hunt: 0, farm: 0 }, eff: { fish: 0, gather: 0, hunt: 0, farm: 0 },
@@ -651,6 +651,12 @@ function create(seed, opt) {
   const craftOf = a => { let b = 'gather'; for (const k of CRAFTS) if (a.skill[k] > a.skill[b]) b = k; return b; };
   const practise = (a, k, amt) => { a.skill[k] = Math.min(1.6, a.skill[k] + (amt || 0.004)); };
   const kin = (a, b) => a.id === b.mom || a.id === b.dad || b.id === a.mom || b.id === a.dad || (a.mom && a.mom === b.mom) || (a.dad && a.dad === b.dad);
+  /* The size of family a person thinks right is learned at home: a child takes its mother's, moved a little toward what was
+     seen while she raised it (how many children in the place died before they were grown). It changes over generations, not
+     years: where children have lived for long, families grow small; a bad time for children makes them large again. The first
+     people bring the norm of the world they came from (FIRST_NORM, planned on purpose). */
+  const FIRST_NORM = 6;
+  const normOf = a => a.norm === undefined ? FIRST_NORM : a.norm;
   const childrenOf = a => folk().filter(b => b.mom === a.id || b.dad === a.id);
   const tell = text => S.log.push({ t: S.t, text });
   // a few words about one person, for whoever stops to look
@@ -911,7 +917,9 @@ function create(seed, opt) {
     }
     if (a.d.people) {
       S.tribe.dead++;
-      if (why === 'eaten') { S.tribe.threat += 2; const w = S.tribe.watcher && S.byId.get(S.tribe.watcher); if (w && w !== a) for (const b of folk()) if (b !== w && (b.partner === a.id || kin(a, b))) grudge(b, w, 1.0); }   /* the one on watch is blamed (G2) */
+      /* a child dead before it is grown: its parents remember it, and the place counts it against the children born */
+      if (a.age < GROWN) { S.tribe.kidDied += 1; for (const pid of [a.mom, a.dad]) { const p = pid && S.byId.get(pid); if (p && p.alive) p.lostKids = (p.lostKids || 0) + 1; } }
+      if (why === 'eaten') { S.tribe.threat += 2; { const k = by && S.byId.get(by); if (k) for (const b of folk()) if (b !== a && b.age >= b.d.mature && b.age <= 50 && (b.partner === a.id || kin(a, b) || friend(a, b))) { b.avenge = k.id; b.avengeT = S.t + 0.3; } } const w = S.tribe.watcher && S.byId.get(S.tribe.watcher); if (w && w !== a) for (const b of folk()) if (b !== w && (b.partner === a.id || kin(a, b))) grudge(b, w, 1.0); }   /* the one on watch is blamed (G2) */
       if (why === 'hunger' || why === 'cold and hunger') S.tribe.need.hunger += 0.4;
       if (why !== 'eaten' && why !== 'struck') S.tribe.need.loss += 1;
       if (a.name) { const near = folk().filter(b => b !== a && (b.partner === a.id || kin(a, b))); for (const b of near) { b.grief = 1; if (b.partner === a.id) b.partner = 0; }
@@ -1106,7 +1114,9 @@ function create(seed, opt) {
     const prey = nearestBy(a, d.sense, b => {
       if (b.hidden || !canTake(a, b)) return false;
       if (S.popPeople >= 3 && a.e > 0.3 && cheb(b, S.tribe) <= 3) return false;   // nothing hunts inside a peopled camp unless it is starving
-      if (b.d.people && a.e > 0.25) return false;   /* people are feared, not hunted: a wolf goes for a person only when it is starving */
+      /* people are feared, not hunted: a wolf goes for a band of grown people only when starving, but for a child or someone
+         alone once it is hungry */
+      if (b.d.people && a.e > (b.age < b.d.mature || !nearest(b, 2, c => c.alive && c.sp === b.sp && c.age >= c.d.mature) ? 0.45 : 0.25)) return false;
       if (S.tribe.fence && within(b) && !within(a)) return false;                  // nor through a closed fence
       const j = I(b.x, b.y);
       if (bodyOf(b) > d.mass) {                                       // bigger than me: only when desperate, or when it is alone in thick cover
@@ -1184,7 +1194,7 @@ function create(seed, opt) {
     // the din of people: anything big enough to be hunted, and any hunter with a full belly, keeps its distance from it.
     // A camp asleep is quiet, and then they come close.
     if (!threat && d.mass >= 1 && !a.held && (a.e > 0.6 || !d.eats.meat)) {
-      const n = hear(a, k => k === 'work' || k === 'play' || k === 'cry');
+      const n = hear(a, k => k === 'work' || k === 'play' || k === 'cry' || k === 'alarm');
       if (n && n.l > 0.9 && a.e > 0.25) {
         a.mood = 'afraid';
         a.act = { k: 'flee', id: 0, alarm: 1 };
@@ -1415,13 +1425,29 @@ function create(seed, opt) {
         if (x < 0 || y < 0 || x >= N || y >= N) continue;
         for (const b of cells[I(x, y)]) if (b.alive && b !== a && b.sp === a.sp && b.age >= d.mature) band++;
       }
-      if (a.age < d.mature || band < 3) {
-        a.mood = 'afraid';
+      /* two grown people together go at it with sticks, stones and shouting: it is driven off and remembers them, and if it
+         stands it may be killed. Someone alone backs away and shouts, and the grown within hearing come */
+      if (a.age >= d.mature && a.e > 0.4 && (band >= 2 || a.job === 'guard' || a.job === 'hunter')) {
+        stepTo(a, beast.x, beast.y, 2); beast.fear = 1; beast.fearSp = a.sp; sound(a.x, a.y, 5, 'alarm');
+        if (cheb(beast, a) <= 1 && rnd() < 0.35 * (0.5 + a.skill.hunt) * Math.min(1, band / 3)) { die(beast, 'killed by people', a.id); practise(a, 'hunt'); S.stat.drivenKilled = (S.stat.drivenKilled || 0) + 1; }
+        else S.stat.drivenOff = (S.stat.drivenOff || 0) + 1;
+        a.act = { k: 'guard', id: beast.id }; return;
+      }
+      if (a.age < d.mature || band < 2) {
+        a.mood = 'afraid'; sound(a.x, a.y, 5, 'alarm');
         stepTo(a, dist > 1 ? T.x : a.x + (a.x - beast.x), dist > 1 ? T.y : a.y + (a.y - beast.y), 2);
         a.act = { k: 'flee', id: beast.id };
         return;
       }
     }
+    /* a shout of alarm nearby: the grown who are fed and not far off go to it */
+    if (a.age >= d.mature && a.age <= 50 && a.e > 0.5 && !a.trip) { const al = hear(a, k => k === 'alarm'); if (al && al.l > 0.4) { const w = nearest(a, 7, b => !b.hidden && b.d.eats.meat && !b.d.people && b.d.mass > 3); if (w) { stepTo(a, w.x, w.y, 3); w.fear = 1; w.fearSp = a.sp; a.act = { k: 'guard', id: w.id }; return; } } }
+    /* kin of someone a beast has killed go after it, together, for a few days */
+    if (a.avenge && a.age >= d.mature && a.e > 0.5 && !a.trip) { const w = S.byId.get(a.avenge); if (!w || !w.alive || S.t > a.avengeT) a.avenge = 0; else {
+        let with2 = 1; for (const b of folk()) if (b !== a && b.avenge === w.id && cheb(b, a) <= 3) with2++;
+        stepTo(a, w.x, w.y, 4); a.act = { k: 'guard', id: w.id };
+        if (cheb(w, a) <= 1 && with2 >= 2 && rnd() < 0.4 * (0.5 + a.skill.hunt)) { die(w, 'killed by people', a.id); practise(a, 'hunt'); S.stat.avenged = (S.stat.avenged || 0) + 1; for (const b of folk()) if (b.avenge === w.id) b.avenge = 0; }
+        return; } }
     a.act = { k: 'idle' };
     const grown = a.age >= d.mature, old = a.age > 46, able = grown && !old, pace = able ? 1 : 0.6;   // children help close to home; the old keep the camp
     /* someone out on a trip carries on with it; time left at the door goes to whatever comes next */
@@ -1432,7 +1458,9 @@ function create(seed, opt) {
     if (DAY && S.tickNo % DAY === DAY - 2 && !a.trip && a.e > 0.65 && (hm ? (hm.larder || 0) >= mouths * 1.2 : T.store >= pop * 1.2) && a.likes && a.likes.length && rnd() < 0.6 && hobby(a, d)) return;
     if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { const sh = standing('church') || standing('shrine'), to = sh || T; stepTo(a, to.x, to.y, 2); a.act = { k: 'mourn', x: to.x, y: to.y }; return; }   /* at the shrine, once there is one */   // the newly bereaved sit by the fire and do little
     // foul weather: with a roof, food in the store and nothing pressing, people stay in
-    if (T.huts > 0 && a.e > 0.6 && (hm ? (hm.larder || 0) > mouths * 0.9 : T.store > pop * 1.1)) {
+    /* ...except a herder whose beasts are going thin in the pen: they go out to feed them whatever the weather */
+    const beastsThin = a.job === 'herder' && S.agents.some(b => b.alive && b.tame && b.e < 0.6);
+    if (T.huts > 0 && a.e > 0.6 && !beastsThin && (hm ? (hm.larder || 0) > mouths * 0.9 : T.store > pop * 1.1)) {
       const ct = tempAt(I(T.x, T.y)); if (ct < d.comfort - 9 || (S.precip > 0 && ct >= 0 && ct < 5)) { stepTo(a, T.x, T.y, 3); a.act = { k: 'shelter' }; return; }
     }
     const adults = S.adults[a.sp] || 0, campT = tempAt(I(T.x, T.y));
@@ -2147,6 +2175,7 @@ function create(seed, opt) {
     /* the year's food, by where it came from, kept for the Town panel and the tests; a new count begins */
     { const T0 = S.tribe; T0.foodLast = S.foodIn || {}; S.foodIn = {}; }
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
+    T.kidDied *= 0.85; T.kidBorn *= 0.85;   /* what was seen of children living and dying fades over the years */
     // wants that are only seen over a year
     N_.crowd += Math.max(0, households() - T.sites.filter(isHome).length);
     if (T.waterDist == null) {
@@ -2426,14 +2455,19 @@ function create(seed, opt) {
           }
           const q = S.byId.get(a.partner);
           if (!q || !q.alive || (a.house ? q.house !== a.house : cheb(q, a) > 3)) continue;   /* a couple under one roof (they are not side by side all day) */
-          if (childrenOf(a).filter(c => c.age < GROWN).length >= 3) continue;
+          const kids = childrenOf(a); if (kids.filter(c => c.age < GROWN).length >= 3) continue;
+          /* how many children a couple has: as many as a family had where the mother grew up (her norm, below), one more for
+             each child of theirs that died, and one more while their fields are more than their hands can work */
+          { const hm = homeSite(a), grownIn = hm ? folk().filter(b => b.house === hm.id && b.age >= GROWN && b.age <= 60).length : 2;
+            const want = normOf(a) + Math.min(3, (a.lostKids || 0)) + (hm && (hm.fields || 0) > 5 * Math.max(1, grownIn) ? 1 : 0); a.wantKids = want;
+            if (kids.length >= want) continue; }
         }   // a household can carry only so many small children at once
         else {
           if (!nearest(a, 7, b => b.sp === a.sp && b.age >= d.mature)) continue;
           if (d.territory) { const c = around(a, d.territory * 2, b => b.sp === a.sp).length + 1; if (c > d.territory) continue; }
         }
         const n = d.litter[0] + ((rnd() * (d.litter[1] - d.litter[0] + 1)) | 0); a.e -= 0.25 + 0.08 * n; a.cd = d.interval * (d.people ? 0.85 : 1) * R(0.85, 1.2);
-        for (let k = 0; k < n; k++) born.push([a.sp, a.x, a.y, a.home, a.id]);
+        for (let k = 0; k < n; k++) born.push([a.sp, a.x, a.y, a.home, a.id]); if (d.people) S.tribe.kidBorn += n;
       }
     }
     /* test levers (G.hold, G.ban): no young beyond a held number, none at all of a banned kind */
@@ -2442,6 +2476,7 @@ function create(seed, opt) {
       if (S.levers.banned[b[0]] || (cap !== undefined && (SP[b[0]].people ? folk().length : S.pop[b[0]]) >= cap)) continue;
       const c = add(b[0], b[1], b[2], 0, 0.55);
       c.mom = b[4];
+      if (SP[b[0]].people) { const mm = S.byId.get(b[4]), T2 = S.tribe, loss = T2.kidDied / (T2.kidBorn + 1); c.norm = clamp(normOf(mm || {}) * 0.7 + 0.3 * (2 + 8 * loss + Math.min(3, (mm && mm.lostKids) || 0)), 1.5, 9); }
       {
         const mm = S.byId.get(b[4]);
         if (mm && mm.tame) c.tame = true;
@@ -2513,6 +2548,8 @@ function create(seed, opt) {
     }
   };
   const G = {
+    /* put a creature down at a place (tests and scenarios): returns it */
+    place(sp, x, y, age, e) { return add(sp, x, y, age === undefined ? SP[sp].mature : age, e === undefined ? 0.8 : e); },
     // water from the sky: snow on frozen ground, rain on warm ground, and it cools what it falls on
     rain(x, y, r, amt) {
       let n = 0;

@@ -967,7 +967,6 @@ window.EdenTests = { done: false, passed: 0, failed: 0, warnings: 0, skipped: 0,
 window.EdenTestsRun = start;
 function boot() { var btn = $('run'); if (btn) btn.addEventListener('click', start); start(); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-})();
 UNITS.push(['two clocks: with yearK 3 a tick is the same stretch of a life, the warm months last longer and the winter keeps its length', function () {
   var A = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), B = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley', yearK: 3 }), i;
   var a0 = A.S.t, b0 = B.S.t; for (i = 0; i < 24; i++) { A.tick(); B.tick(); }
@@ -1000,3 +999,39 @@ UNITS.push(['a building rises only under a builder standing at its plot, stage b
   if (rose <= stages * 1.5) return rose + ' steps of building for ' + stages + ' stages: stages go up in one go';
   return '';
 }]);
+UNITS.push(['two grown people who see a wolf close by go at it together: it is driven off or killed, and nobody is taken', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96, yearK: 3 }), S = W.S, i, tries = 0, ok = 0, eaten = 0;
+  var grownFed = function () { return S.agents.filter(function (b) { return b.alive && b.d.people && b.age >= 12 && b.age <= 40 && b.e > 0.5; }).length; };
+  for (i = 0; i < 24 * 40 && (i < 24 * 8 || grownFed() < 2); i++) W.tick();
+  for (tries = 0; tries < 12; tries++) {
+    while (S.night || S.tickNo % 4 === 3) W.tick();
+    var P = S.agents.filter(function (b) { return b.alive && b.d.people && b.age >= 12 && b.age <= 40; }); if (P.length < 2) return 'fewer than two grown people at try ' + tries + ' (' + S.popPeople + ' people, year ' + S.t.toFixed(1) + ')';
+    var a = P[0], b = P[1], x = a.x, y = a.y; a.trip = null; b.trip = null; b.x = x; b.y = y; a.e = b.e = 0.9;   /* two fed people standing together */
+    var w = W.G.place('wolf', Math.min(W.N - 1, x + 2), y, 3, 0.6), d0 = S.deaths['human:eaten'] || 0; w.fear = 0;
+    W.tick();
+    if (!w.alive || w.fear > 0) ok++;
+    eaten += (S.deaths['human:eaten'] || 0) - d0;
+    if (w.alive) w.alive = false;
+  }
+  if (ok < 8) return 'the wolf was driven off or killed only ' + ok + ' times in 12';
+  if (eaten) return eaten + ' people taken by a wolf that met two of them';
+  return '';
+}]);
+UNITS.push(['family size is learned at home: children take their mother\'s norm, families shrink over generations where children live, and a couple stops at what it wants', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96, yearK: 3 }), S = W.S, i, seen = {}, early = [], late = [], over = 0, births = 0;
+  for (i = 0; i < 24 * 70; i++) {
+    var kidsBefore = {}; S.agents.forEach(function (b) { if (b.alive && b.d.people && b.fem && b.partner) kidsBefore[b.id] = S.agents.filter(function (c) { return c.alive && c.d.people && c.mom === b.id; }).length; });
+    W.tick();
+    S.agents.forEach(function (c) { if (!c.d.people || seen[c.id]) return; seen[c.id] = 1; if (i === 0 || !c.mom) return;   /* strangers from over the hills bring the first norm */
+      if (c.norm === undefined) { over += 1000; return; } if (c.norm < 1.5 || c.norm > 9) over += 100;
+      (S.t < 25 ? early : S.t > 55 ? late : []).push(c.norm);
+      var m = S.byId.get(c.mom); births++; if (m && kidsBefore[m.id] !== undefined && m.wantKids !== undefined && kidsBefore[m.id] >= m.wantKids) over++; });
+  }
+  if (births < 20) return 'only ' + births + ' children born in 70 years';
+  if (over) return over + ' children born without a norm, out of range, or past what their mother wanted';
+  var mean = function (v) { return v.reduce(function (p, q) { return p + q; }, 0) / v.length; };
+  if (!early.length || !late.length) return 'no children born early or late';
+  if (!(mean(late) < mean(early) - 0.5)) return 'family size did not fall where children lived: ' + mean(early).toFixed(2) + ' then ' + mean(late).toFixed(2);
+  return '';
+}]);
+})();
