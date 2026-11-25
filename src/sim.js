@@ -240,7 +240,8 @@ function create(seed, opt) {
   const pit = new Float32Array(N * N), STONE_PER_TILE = 50;
   // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
   // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
-  const cut = new Uint8Array(N * N), CHOP = 0.3;   /* how much of a stand one day's felling takes (the owner asked for felling to clear ground sooner) */
+  const cut = new Uint8Array(N * N), CHOP = 0.3, WOOD_PER_STAND = 4, FUEL_PER_WOOD = 4;   /* a full stand of trees on a tile is 4 timber, enough for two thirds of a house; a timber split for the hearth is 4 days' fires (planned on purpose) */
+  const fellPace = a => 1 + (a.job === 'woodcutter' ? 0.5 : 0) + (hasTool(a) ? 0.3 : 0);   /* skill and an axe fell faster; a tree holds what it holds */   /* how much of a stand one day's felling takes (the owner asked for felling to clear ground sooner) */
   function fell(j, amt) { const t = Math.min(tree[j], amt); tree[j] -= t; cut[j] = 1; if (tree[j] < 0.08) { tree[j] = 0; cut[j] = 0; S.stumps.push(j); if (S.stumps.length > 160) S.stumps.shift(); } return t; }   /* a felled stand leaves a stump */
   /* where the next wood comes from: a begun stand in reach, else the nearest new one big enough to be worth starting */
   // Piles: what lies on the ground ready to be taken (meat from a body, logs, loose stone). People take from a pile in reach
@@ -991,15 +992,21 @@ function create(seed, opt) {
   }
   // what cannot be walked onto: water, and for anything on four legs that is not led, a closed fence met from the outside
   const within = a => { const w = S.tribe.wall; return !!w && a.x > w.x0 && a.x < w.x1 && a.y > w.y0 && a.y < w.y1; };
-  const shut = (a, x, y) => { const i = I(x, y); if (water[i]) return true; const T = S.tribe; return !!(T.fence && T.fence[i] && !a.d.people && !a.tame && (T.fence[i] === 2 || !within(a))); };
+  const shut = (a, x, y) => { const i = I(x, y); if (water[i] && !bridgeTiles()[i]) return true; const T = S.tribe; return !!(T.fence && T.fence[i] && !a.d.people && !a.tame && (T.fence[i] === 2 || !within(a))); };
   /* E3: the tiles each person passed through in the last step, in order, for the view to walk them along. Kept beside the
      state, not in it: a save does not carry it, and nothing in the simulation reads it */
   const trails = new Map(); let trailA = null, trailNow = null;
   const trailStep = a => { if (a === trailA) { const t = I(a.x, a.y); if (trailNow[trailNow.length - 1] !== t) trailNow.push(t); } };
   function stepTo(a, tx, ty, n) {
+    tx = clamp(tx, 0, N - 1); ty = clamp(ty, 0, N - 1);
     for (let k = 0; k < n; k++) {
-      const dx = Math.sign(tx - a.x), dy = Math.sign(ty - a.y); if (!dx && !dy) return;
+      const dx = Math.sign(tx - a.x), dy = Math.sign(ty - a.y); if (!dx && !dy) { a.via = null; return; }
+      /* a person who found the straight way shut by water goes round by the way they worked out, step by step, until there */
+      if (a.via && a.via.g === I(tx, ty) && a.via.path.length) { const t = a.via.path.shift(); if (!shut(a, t % N, (t / N) | 0)) { a.x = t % N; a.y = (t / N) | 0; trailStep(a); continue; } a.via = null; }
       let nx = clamp(a.x + dx, 0, N - 1), ny = clamp(a.y + dy, 0, N - 1);
+      if (a.d.people && (shut(a, nx, ny) || (nx !== a.x && ny !== a.y && (shut(a, nx, a.y) || shut(a, a.x, ny))))) {
+        const rt = route(a.x, a.y, tx, ty, a, 240); if (rt.tiles && rt.tiles.length) { a.via = { g: I(tx, ty), path: rt.tiles.slice() }; if (a.via.path[0] === I(a.x, a.y)) a.via.path.shift(); if (a.via.path.length) { k--; continue; } }
+      }
       if (shut(a, nx, ny)) {
         if (!shut(a, nx, a.y)) ny = a.y; else if (!shut(a, a.x, ny)) nx = a.x; else {
           nx = clamp(a.x + ((rnd() * 3) | 0) - 1, 0, N - 1);
@@ -1386,8 +1393,8 @@ function create(seed, opt) {
       n = Math.max(0, n); for (const m in K.from) { if (m === 'ore') T.ore = Math.max(0, T.ore - n * K.from[m]); else T.wood = Math.max(0, T.wood - n * K.from[m]); }
       if (K.makes === 'tools') T.tools += n; else if (K.makes === 'pots') T.pots += n; else T.cartsMade += n;
       a.act = { k: 'craft', j, at: q.kind }; sound(j % N, (j / N) | 0, 3, 'work'); return 0; }
-    if (kind === 'timber') { const got = fell(j, CHOP * budget), ld = cartload(j); a.act = { k: 'chop', j, site: 0 }; sound(j % N, (j / N) | 0, 3.5, 'work'); if (!T.carts) T.need.toil += 0.12; return (2 + (a.job === 'woodcutter' ? 1 : 0) + (hasTool(a) ? 1 : 0)) * ld * got / CHOP; }
-    if (kind === 'fuel') { const got = fell(j, 0.03 * budget); a.act = { k: 'wood', j }; a.wood = j; return got / 0.03; }
+    if (kind === 'timber') { const ld = cartload(j), got = fell(j, Math.min(CHOP * budget * fellPace(a), 2 * ld / WOOD_PER_STAND)); a.act = { k: 'chop', j, site: 0 }; sound(j % N, (j / N) | 0, 3.5, 'work'); if (!T.carts) T.need.toil += 0.12; return got * WOOD_PER_STAND; }   /* what one can carry home: 2 timber, 4 with a cart */
+    if (kind === 'fuel') { const per = 1 / (WOOD_PER_STAND * FUEL_PER_WOOD), got = fell(j, per * 2 * budget); a.act = { k: 'wood', j }; a.wood = j; return got / per; }   /* an armful of sticks: two days' fires */
     if (kind === 'stone') {
       const quarry = rock[j] >= 0.15, ld = cartload(j), brought = ((quarry ? 2 : 1) + (a.job === 'mason' ? 1 : 0) + (hasTool(a) ? 1 : 0)) * ld * budget * (quarry ? 1 - 0.5 * pit[j] : 1); if (quarry) T.ore += brought * 0.12;   /* a bright vein now and then in broken stone: ore for the smith */
       if (quarry) { const dug = Math.min(rock[j], brought / STONE_PER_TILE); rock[j] -= dug; pit[j] = Math.min(1, pit[j] + dug); S.stat.pitD += wayDist(T.x, T.y, j % N, (j / N) | 0, true).d; S.stat.pitN++; }
@@ -1570,7 +1577,9 @@ function create(seed, opt) {
     { const hearth = doorOf(a);
       if (T.skills.fire && tempAt(I(hearth.x, hearth.y)) < d.comfort - 3 && (hearth.fuel || 0) < FUEL_KEEP && rnd() < dt * 8) {
         const lp = pileFor(hearth.x, hearth.y, 'wood', a);
-        if (lp) { const ef = 1 / (1 + lp.d / (WALK * pace)); hearth.fuel = (hearth.fuel || 0) + takePile(lp, 1) * ef; a.act = { k: 'fetch', x: lp.p.x, y: lp.p.y, item: 'sticks' }; walk(hearth.x, hearth.y, lp.p.x, lp.p.y, 0.02); a.tripD = lp.d; return; }
+        /* split from the timber stacked by the fire, for a hearth not far from it */
+        if (T.wood >= 0.25 && cheb(hearth, T) <= 12) { T.wood -= 0.25; hearth.fuel = (hearth.fuel || 0) + 0.25 * FUEL_PER_WOOD / (1 + cheb(hearth, T) / (WALK * pace)); a.act = { k: 'fetch', x: T.x, y: T.y, item: 'sticks' }; walk(hearth.x, hearth.y, T.x, T.y, 0.02); a.tripD = cheb(hearth, T); S.stat.fuelFromStack = (S.stat.fuelFromStack || 0) + 0.25; return; }
+        if (lp) { const ef = 1 / (1 + lp.d / (WALK * pace)); hearth.fuel = (hearth.fuel || 0) + takePile(lp, 0.25) * FUEL_PER_WOOD * ef; a.act = { k: 'fetch', x: lp.p.x, y: lp.p.y, item: 'sticks' }; walk(hearth.x, hearth.y, lp.p.x, lp.p.y, 0.02); a.tripD = lp.d; return; }
         const j = standFor(hearth.x, hearth.y, a, 0.1);
         if (j < 0) stretch(a);
         if (j >= 0 && startHaul(a, 'fuel', j, hearth)) return;
@@ -1991,8 +2000,8 @@ function create(seed, opt) {
     /* trees standing on the plot come down first: felled where they stand, and the first timber for the build */
     for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) {
       const j = I(s.x + nx, s.y + ny); if (water[j] || tree[j] <= 0.05) continue;
-      const got = fell(j, CHOP);
-      T.wood += (2 + (a.job === 'woodcutter' ? 1 : 0) + (hasTool(a) ? 1 : 0)) * got / 0.16;
+      const got = fell(j, CHOP * fellPace(a));
+      T.wood += got * WOOD_PER_STAND;
       a.act = { k: 'chop', j, site: s.id }; sound(s.x + nx, s.y + ny, 3.5, 'work'); return true;
     }
     const K = BUILDINGS[s.kind], needW = stageNeed(K, s.stage, 'wood') + (s.lake ? 2 : 0), needS = stageNeed(K, s.stage, 'stone');   // what must lie on the plot before the next stage; posts for a house over water
@@ -2375,6 +2384,7 @@ function create(seed, opt) {
         for (const [cx, cy] of lots) {
           if (have >= want) break; sowVeg = 1 - sowVeg;
           for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = I(cx + dx, cy + dy); if (field[t] || water[t] || pit[t] > 0.1 || rock[t] > 0.4 || tree[t] > 0.3 || mass[t] !== mass[I(h.x, h.y)] || (T.wall && T.wall.cells.includes(t))) continue;
+            if (tree[t] > 0.05) dropPile(cx + dx, cy + dy, 'wood', tree[t] * WOOD_PER_STAND);   /* the trees cleared for the field lie as logs */
             field[t] = 1; owner[t] = h.id; crop[t] = sowVeg; tree[t] = 0; grass[t] = Math.max(grass[t], 0.15); have++; }
         }
         h.fields = have; total += have;

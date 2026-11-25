@@ -1042,4 +1042,32 @@ UNITS.push(['family size is learned at home: children take their mother\'s norm,
   if (!(mean(late) < mean(early) - 0.5)) return 'family size did not fall where children lived: ' + mean(early).toFixed(2) + ' then ' + mean(late).toFixed(2);
   return '';
 }]);
+UNITS.push(['a small child with water between it and the fire finds the way round (or over a bridge) instead of standing at the bank', function () {
+  var out = [], ok = 0, tried = 0;
+  [[1, 'valley'], [2, 'valley'], [1, 'lakeland'], [2, 'lakeland']].forEach(function (w) {
+    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, N = W.N, i, r, dx, dy, k;
+    for (i = 0; i < 24 * 15; i++) W.tick();
+    var kid = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 1 && a.age < 4; })[0]; if (!kid) return;
+    var spot = null;
+    for (r = 8; r <= 20 && !spot; r++) for (dy = -r; dy <= r && !spot; dy++) for (dx = -r; dx <= r && !spot; dx++) { var x = T.x + dx, y = T.y + dy; if (x < 1 || y < 1 || x >= N - 1 || y >= N - 1 || W.water[y * N + x]) continue;
+      var wet = false; for (k = 1; k < r; k++) if (W.water[Math.round(T.y + dy * k / r) * N + Math.round(T.x + dx * k / r)]) wet = true;
+      if (wet && W.route(x, y, T.x, T.y, kid, 400).reached) spot = [x, y]; }
+    if (!spot) return; tried++;
+    kid.x = spot[0]; kid.y = spot[1];
+    for (i = 0; i < 90 && kid.alive; i++) { W.tick(); if (Math.max(Math.abs(kid.x - T.x), Math.abs(kid.y - T.y)) <= 2) break; }
+    if (Math.max(Math.abs(kid.x - T.x), Math.abs(kid.y - T.y)) <= 2) ok++; else out.push(w[1] + ' ' + w[0] + ': still at ' + kid.x + ',' + kid.y + ' from ' + spot);
+  });
+  if (tried < 2) return 'only ' + tried + ' worlds with a child and a spot across water';
+  return ok === tried ? '' : out.join('; ');
+}]);
+UNITS.push(['a tree holds what it holds: a full stand is 4 timber however it is felled, and a trip brings home no more than one can carry', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'forest', size: 96 }), S = W.S, T = S.tribe, N = W.N, i;
+  var tree0 = 0, wood0 = T.wood; for (i = 0; i < N * N; i++) tree0 += W.tree[i];
+  var piles0 = S.piles.filter(function (p) { return p.kind === 'wood'; }).reduce(function (t, p) { return t + p.amt; }, 0);
+  for (i = 0; i < 24 * 30; i++) W.tick();
+  if (S.stat.timberN && (S.stat.woodBack || 0) > 2 * 2 * S.stat.timberN + 1e-6) return 'timber trips brought ' + S.stat.woodBack.toFixed(1) + ' in ' + S.stat.timberN + ' trips: more than can be carried';
+  var built = 0; T.sites.forEach(function (q) { var K = W.BUILDINGS[q.kind]; if (K) for (var k = 0; k < Math.min(q.stage, K.stages.length); k++) built += K.stages[k].wood || 0; });
+  if (T.wood > 200) return 'a pile of ' + T.wood.toFixed(0) + ' timber after 30 years with ' + built + ' built into ' + T.sites.length + ' sites: trees give too much';
+  return '';
+}]);
 })();
