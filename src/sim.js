@@ -2545,7 +2545,7 @@ function create(seed, opt) {
        for the pot, and fewer mouths at the crops */
     if (S.popPeople && T.skills.hunt && (!DAY || S.tickNo % DAY === 0)) for (const h of T.sites) { if (!live(h) || !isHome(h) || h.upon || !(h.members > 0)) continue;
       if (!folk().some(b => b.house === h.id && b.age >= 8 && b.age <= 60 && b.e > 0.3)) continue;
-      for (const r of around(h, SNARE_R, b => !b.tame && b.d.mass < 1 && !b.d.people && !b.d.eats.meat)) if (rnd() < SNARE_P) { const m = bodyOf(r) * 0.9; die(r, 'snared'); addFood(h, 'larder', 'meat', m); S.stat.snared = (S.stat.snared || 0) + 1; T.got.hunt += m; } }
+      for (const r of around(h, SNARE_R, b => !b.tame && b.d.mass < 1 && !b.d.people && !b.d.eats.meat)) if (rnd() < SNARE_P) { const m = bodyOf(r) * 0.9; die(r, 'snared'); addFood(h, 'larder', 'meat', m); S.stat.snared = (S.stat.snared || 0) + 1; }   /* the snare line is a morning's chore, not a hunter's trade: it is not counted toward what hunting pays */ }
     for (const a of S.agents) {
       if (!a.alive) continue; const d = a.d, i = I(a.x, a.y), Tc = tempAt(i); if (a.fear > 0) a.fear -= dt * 1.4;
       if (S.popPeople && !d.people && d.eats.meat && d.mass > 3 && cheb(a, T) <= 4 && !a.hidden) T.threat += dt * 3; /* a hunter in among the houses is remembered */
