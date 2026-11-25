@@ -1455,7 +1455,8 @@ function create(seed, opt) {
       if (T.storeShort && !(hm && hm.larder > want)) { want = Math.min(want, Math.max(0, 0.6 - a.e)); if (hm) hm.shortT = (hm.shortT || 0) + dt * 0.25; else a.shortT = (a.shortT || 0) + dt * 0.25; }   /* a rationed meal is remembered as a lean time */
       if (want > 0.05 && T.store > 0.05 && dist <= 2) { const t = Math.min(T.store, want); T.store -= t; a.e += t; }
       else if (want > 0.05 && a.e < 0.4 && T.store > want && a.age >= SMALL && !S.night) {
-        if (route(a.x, a.y, T.x, T.y, a, 80).reached) { a.x = T.x; a.y = T.y; const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return; }   /* only if there is a way to the fire */
+        /* however far: someone going hungry walks to where the food is, if there is a way there on foot */
+        if (reachable(a.x, a.y, T.x, T.y)) { a.x = T.x; a.y = T.y; const t = Math.min(T.store, want); T.store -= t; a.e += t; a.act = { k: 'eat' }; S.stat.fireMeals++; return; }   /* only if there is a way to the fire */
       }
     }
     if (a.age < SMALL) { stepTo(a, T.x, T.y, 1); a.act = { k: S.night ? 'sleep' : a.age < 2 ? 'baby' : 'play' };
@@ -2377,8 +2378,8 @@ function create(seed, opt) {
             field[t] = 1; owner[t] = h.id; crop[t] = sowVeg; tree[t] = 0; grass[t] = Math.max(grass[t], 0.15); have++; }
         }
         h.fields = have; total += have;
-        /* no ground to be had near its door and a lean year behind it: the household goes to find land of its own */
-        if (!have && want > 0 && sh > 0.05) leaving.push(h);
+        /* not half the ground it needs to be had near its door, and a lean year behind it: the household goes to find land of its own */
+        if (want > 0 && have < want * 0.5 && sh > 0.05) leaving.push(h);   /* not half the ground it needs, and hungry: it goes */
       }
       /* a couple with no roof of their own who went short over the year go too, with their small children */
       const goers = [];
@@ -2558,9 +2559,7 @@ function create(seed, opt) {
           /* how many children a couple has: as many as a family had where the mother grew up (her norm, below), one more for
              each child of theirs that died, and one more while their fields are more than their hands can work */
           { const hm = homeSite(a), grownIn = hm ? folk().filter(b => b.house === hm.id && b.age >= GROWN && b.age <= 60).length : 2;
-            /* and more while there is plenty put by to feed them: food in the house and its share of the common store, in years of eating a mouth */
-            const mouths = hm ? Math.max(1, hm.members || 1) : 2, years = ((hm ? hm.larder || 0 : 0) + S.tribe.store * mouths / Math.max(1, S.popPeople)) / (mouths * HUMAN.metab), plenty = years > 4 ? 2 : years > 2 ? 1 : 0;
-            const want = normOf(a) + Math.min(3, (a.lostKids || 0)) + (hm && (hm.fields || 0) > 5 * Math.max(1, grownIn) ? 1 : 0) + plenty; a.wantKids = want;
+            const want = normOf(a) + Math.min(3, (a.lostKids || 0)) + (hm && (hm.fields || 0) > 5 * Math.max(1, grownIn) ? 1 : 0); a.wantKids = want;
             if (kids.length >= want) continue; }
         }   // a household can carry only so many small children at once
         else {

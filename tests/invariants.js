@@ -1001,7 +1001,7 @@ UNITS.push(['a building rises only under a builder standing at its plot, stage b
   return '';
 }]);
 UNITS.push(['with sticks and stones three grown people stand against a wolf and kill or drive it off; two who do not yet know wolves back away', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96, yearK: 3 }), S = W.S, i, tries, ok = 0, fled = 0;
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley', size: 96, yearK: 3 }), S = W.S, i, tries, ok = 0, fled = 0;
   var grownN = function () { return S.agents.filter(function (b) { return b.alive && b.d.people && b.age >= 12 && b.age <= 40; }).length; };
   for (i = 0; i < 24 * 60 && (i < 24 * 8 || grownN() < 5); i++) W.tick();
   S.tribe.lore = 0;
@@ -1024,7 +1024,7 @@ UNITS.push(['with sticks and stones three grown people stand against a wolf and 
   return '';
 }]);
 UNITS.push(['family size is learned at home: children take their mother\'s norm, families shrink over generations where children live, and a couple stops at what it wants', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96, yearK: 3 }), S = W.S, i, seen = {}, early = [], late = [], over = 0, births = 0;
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley', size: 96, yearK: 3 }), S = W.S, i, seen = {}, early = [], late = [], over = 0, births = 0;
   for (i = 0; i < 24 * 70; i++) {
     var kidsBefore = {}; S.agents.forEach(function (b) { if (b.alive && b.d.people && b.fem && b.partner) kidsBefore[b.id] = S.agents.filter(function (c) { return c.alive && c.d.people && c.mom === b.id; }).length; });
     W.tick();
