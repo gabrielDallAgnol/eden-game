@@ -4,10 +4,10 @@ Written 2026-11-25 after the owner's note: early people died young and had many 
 
 ## Built now
 
-- **Family size is learned at home.** Every person carries `norm`: how many children they think a family should have. A child takes its mother's norm, moved 30% toward what the place showed while she raised it. That is 2 plus 8 times the share of children who died before they were grown, plus her own dead children, up to 3. The first people bring a norm of 6 (`FIRST_NORM`, planned).
-- **A couple has children** while their living children are fewer than the mother's norm, plus each child of theirs that died (up to 3), plus one while their fields need more hands than the house has. Food, the mother's health, the season and spacing between births still decide whether a child comes.
+- **Family size is learned at home.** Every person carries `norm`: how many children they think a family should have. A child takes its mother's norm, moved 20% toward what the place showed while she raised it. That is 2 (3 once the place farms, because children are hands on the land) plus 8 times the share of children who died before they were grown, plus her own dead children, up to 3. The first people bring a norm of 6 (`FIRST_NORM`, planned).
+- **A couple has children** while their living children are fewer than the mother's norm, plus each child of theirs that died (up to 3), plus one while their fields need more hands than the house has, plus one or two while the house and its share of the common store hold more than two or four years' food a mouth. Food, the mother's health, the season and spacing between births still decide whether a child comes.
 - **The place remembers** children born (`T.kidBorn`) and children dead before they were grown (`T.kidDied`), both fading by 15% a year.
-- **Result today:** children rarely die in Eden, so the norm falls from 6 to about 3 over a hundred years, and births slow down. Nothing sets that number. It follows from children living.
+- **Result today:** children rarely die in Eden, so the norm falls from 6 toward 3 to 4 over a hundred years. Births slow where food is short and speed up where it piles up. Nothing sets these numbers. They follow from children living, land to farm and food to spare.
 
 ## Where sickness plugs in
 

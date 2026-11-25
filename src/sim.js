@@ -2554,7 +2554,9 @@ function create(seed, opt) {
           /* how many children a couple has: as many as a family had where the mother grew up (her norm, below), one more for
              each child of theirs that died, and one more while their fields are more than their hands can work */
           { const hm = homeSite(a), grownIn = hm ? folk().filter(b => b.house === hm.id && b.age >= GROWN && b.age <= 60).length : 2;
-            const want = normOf(a) + Math.min(3, (a.lostKids || 0)) + (hm && (hm.fields || 0) > 5 * Math.max(1, grownIn) ? 1 : 0); a.wantKids = want;
+            /* and more while there is plenty put by to feed them: food in the house and its share of the common store, in years of eating a mouth */
+            const mouths = hm ? Math.max(1, hm.members || 1) : 2, years = ((hm ? hm.larder || 0 : 0) + S.tribe.store * mouths / Math.max(1, S.popPeople)) / (mouths * HUMAN.metab), plenty = years > 4 ? 2 : years > 2 ? 1 : 0;
+            const want = normOf(a) + Math.min(3, (a.lostKids || 0)) + (hm && (hm.fields || 0) > 5 * Math.max(1, grownIn) ? 1 : 0) + plenty; a.wantKids = want;
             if (kids.length >= want) continue; }
         }   // a household can carry only so many small children at once
         else {
@@ -2571,7 +2573,7 @@ function create(seed, opt) {
       if (S.levers.banned[b[0]] || (cap !== undefined && (SP[b[0]].people ? folk().length : S.pop[b[0]]) >= cap)) continue;
       const c = add(b[0], b[1], b[2], 0, 0.55);
       c.mom = b[4];
-      if (SP[b[0]].people) { const mm = S.byId.get(b[4]), T2 = S.tribe, loss = T2.kidDied / (T2.kidBorn + 1); c.norm = clamp(normOf(mm || {}) * 0.7 + 0.3 * (2 + 8 * loss + Math.min(3, (mm && mm.lostKids) || 0)), 1.5, 9); }
+      if (SP[b[0]].people) { const mm = S.byId.get(b[4]), T2 = S.tribe, loss = T2.kidDied / (T2.kidBorn + 1); c.norm = clamp(normOf(mm || {}) * 0.8 + 0.2 * ((T2.skills.farm ? 3 : 2) + 8 * loss + Math.min(3, (mm && mm.lostKids) || 0)), 1.5, 9);   /* where the ground is farmed, children are hands: one more */ }
       {
         const mm = S.byId.get(b[4]);
         if (mm && mm.tame) c.tame = true;

@@ -1031,7 +1031,9 @@ UNITS.push(['family size is learned at home: children take their mother\'s norm,
     S.agents.forEach(function (c) { if (!c.d.people || seen[c.id]) return; seen[c.id] = 1; if (i === 0 || !c.mom) return;   /* strangers from over the hills bring the first norm */
       if (c.norm === undefined) { over += 1000; return; } if (c.norm < 1.5 || c.norm > 9) over += 100;
       (S.t < 25 ? early : S.t > 55 ? late : []).push(c.norm);
-      var m = S.byId.get(c.mom); births++; if (m && kidsBefore[m.id] !== undefined && m.wantKids !== undefined && kidsBefore[m.id] >= m.wantKids) over++; });
+      var m = S.byId.get(c.mom); births++;
+      /* her other children still alive after the step (one may have died in it, before she gave birth) */
+      if (m && m.wantKids !== undefined) { var others = S.agents.filter(function (o) { return o.alive && o.d.people && o.mom === m.id && o !== c && !(seen[o.id] === 1 && o.age < 0.06 && o.id > c.id); }).length; if (others >= m.wantKids) over++; } });
   }
   if (births < 20) return 'only ' + births + ' children born in 70 years';
   if (over) return over + ' children born without a norm, out of range, or past what their mother wanted';
