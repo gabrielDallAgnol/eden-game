@@ -1422,3 +1422,36 @@ Tests: 534 passed, 0 failed (one warning: plains seed 1's first dwelling stands 
 | highland | 1 | 21 | 106 | 141 | 245 | 22 | 12 | 353 | 0 | 17 | 1/31/0 | 4.2 | 23.7 | 18.4 | 15.6 | 4 | 1.3 | 170 | 110 | 23.8 | 3.7 | 0 (9) | 74/2/0/0/23 | 79 | 14.2 | 13 | 0 | 0 | 27582 |
 | highland | 2 | 35 | 167 | 698 | 736 | 178 | 52 | 675 | 0 | 17 | 6/6/0 | 3.1 | 14.7 | 24 | 9.4 | 70 | 1.1 | 8353 | 561 | 53.4 | 5.7 | 1.1363636363636365 (22) | 70/0/0/1/22 | 93 | 11.4 | 49 | 2 | 0 | 126741 |
 | mean |  | 23.6 | 110 | 953.1 | 1018.6 | 242.1 | 16.8 | 309.9 | 0.2 | 16.2 |  | 2.8 | 7.2 | 26.5 | 6.4 | 74.3 | 1.2 | 60712.2 | 490.7 | 59.3 | 7.2 |  |  | 85.7 | 8.1 | 64.6 | 1.3 | 0 | 122416.7 |
+
+## Children who get lost, timber in a tree, fields on dry ground (2026-11-25)
+
+What changed (owner's report: a child stuck at a river bank, too much wood from a tree, fields with water in them):
+- **Lost children.** People walking somewhere by straight steps (small children going back to the fire, anyone fleeing or chasing) used to treat a bridge as water, and pressed against a bank they could not cross. Now a bridge is ground, and a person whose straight way is shut by water works out the way round and follows it. Of 5 children set down across water from the fire, 2 never got back before; now all 5 do, in 1 to 58 steps.
+- **Timber.**
+  - A full stand of trees is now 4 timber, however it is felled. Skill and an axe fell faster but no longer multiply the wood; one person carries 2 a trip, 4 with a cart. Before, clearing a plot gave 12.5 to 25 for a stand, and a forest village had 287 timber stacked at year 10 with 5 buildings, and 1,095 by year 40.
+  - Trees cleared for fields leave logs. A strike leaves a tree's own timber.
+  - Hearths near the fire burn from the stack first.
+  - Now the stack is used up, and timber trips into the woods start once the cleared ground's logs are gone.
+- **Fields.** A field lot must be dry all across (up to three of its nine tiles could be water before). Ditches go round fields, always stepping nearer the field they water, and nothing is sown on a ditch.
+- **Also fixed:** parents who leave the valley take their small children wherever they are; a calf caught in the crop is led home to be raised.
+
+How it compares with the last table:
+- Mean population at year 100 is 592 (953 before). Building now costs real trees, so places grow more slowly: 87.6 at year 50 (110 before).
+- Hunger deaths 6.2 a run (16.8 before), 317 left (310).
+- No resettling in the mean.
+
+Tests: 534 passed, 0 failed (two warnings: plains seed 1 and highland seed 2 at 128 die out once early on).
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 31 | 127 | 1084 | 1086 | 235 | 7 | 529 | 0 | 18 | 5/0/0 | 2.8 | 25 | 28.2 | 9.1 | 92 | 0.9 | 19785 | 720 | 99.4 | 7.3 | 0.14285714285714285 (7) | 85/0/0/1/13 | 98 | 9.1 | 65 | 3 | 0 | 146122 |
+| valley | 2 | 35 | 147 | 1088 | 1412 | 330 | 5 | 690 | 0 | 16 | 6/15/0 | 3.2 | 26.1 | 32 | 8 | 138 | 1.7 | 102262 | 936 | 55.5 | 6.1 | 0.5 (2) | 79/0/0/0/17 | 100 | 13.8 | 96 | 0 | 0 | 235503 |
+| plains | 1 | 23 | 46 | 113 | 148 | 7 | 3 | 205 | 0 | 11 | 1/166/6 | 3.3 | 11.2 | 9.6 | 11.8 | 4 | 1.8 | 36 | 7 | 9.5 | 4.3 |  | 64/1/0/0/23 | 52 | 10.9 | 9 | 0 | 0 | 20702 |
+| plains | 2 | 17 | 65 | 279 | 381 | 62 | 16 | 228 | 0 | 14 | 5/192/0 | 5.4 | 20.1 | 23 | 13.4 | 16 | 1.5 | 2805 | 122 | 33 | 4.3 |  | 46/1/0/22/31 | 73 | 9.6 | 25 | 0 | 0 | 43493 |
+| forest | 1 | 27 | 120 | 778 | 1150 | 293 | 6 | 646 | 0 | 15 | 10/0/0 | 2.7 | 19.1 | 27.5 | 5.7 | 72 | 1.2 | 15539 | 533 | 59.2 | 8.2 | 0 (1) | 76/0/0/0/19 | 95 | 5.6 | 65 | 0 | 0 | 130768 |
+| forest | 2 | 11 | 67 | 746 | 815 | 191 | 5 | 278 | 0 | 17 | 40/26/2 | 2.6 | 18.1 | 26 | 5.7 | 36 | 1.1 | 5048 | 274 | 62.7 | 5.8 | 0 (3) | 85/0/0/0/13 | 85 | 5.8 | 53 | 0 | 0 | 99861 |
+| lakeland | 1 | 11 | 34 | 425 | 425 | 102 | 6 | 0 | 0 | 17 | 3/160/20 | 2.6 | 21.4 | 22.3 | 7.1 | 19 | 0.9 | 3706 | 204 | 35.8 | 5.5 | 2.6666666666666665 (3) | 75/0/0/5/17 | 66 | 10 | 41 | 0 | 0 | 36810 |
+| lakeland | 2 | 17 | 85 | 1189 | 1320 | 316 | 7 | 139 | 0 | 18 | 5/2/0 | 2.8 | 24.1 | 30.9 | 6.7 | 34 | 1.5 | 27070 | 550 | 67.9 | 9.6 | 1.5 (2) | 80/0/0/3/15 | 100 | 6.8 | 96 | 3 | 0 | 154249 |
+| highland | 1 | 33 | 61 | 75 | 87 | 7 | 2 | 221 | 0 | 15 | 11/47/0 | 3.6 | 21.8 | 25.4 | 20 | 1 | 1.5 | 92 | 46 | 25.4 | 4.3 | 0 (1) | 72/1/0/0/24 | 70 | 13.2 | 9 | 0 | 0 | 25032 |
+| highland | 2 | 26 | 124 | 142 | 167 | 10 | 5 | 232 | 0 | 17 | 6/81/5 | 4 | 14.3 | 7.9 | 13.2 | 0 | 1 | 154 | 55 | 15.9 | 3.8 | 0 (1) | 76/0/0/0/21 | 34 | 14 | 13 | 0 | 0 | 34548 |
+| mean |  | 23.1 | 87.6 | 591.9 | 699.1 | 155.3 | 6.2 | 316.8 | 0 | 15.8 |  | 3.3 | 20.1 | 23.3 | 10.1 | 41.2 | 1.3 | 17649.7 | 344.7 | 46.4 | 5.9 |  |  | 77.3 | 9.9 | 47.2 | 0.6 | 0 | 92708.8 |

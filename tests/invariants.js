@@ -599,16 +599,18 @@ UNITS.push(['no idea has an effect without a built thing: every idea names a bui
   return '';
 }]);
 UNITS.push(['a ditch dug from the well waters only the fields beside it (F7)', function () {
-  var W, T, N, i, wl = null, w, worlds = [[1, 'lakeland'], [1, 'valley'], [1, 'plains'], [2, 'forest']];
-  for (w = 0; w < worlds.length && !wl; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }); T = W.S.tribe; N = W.N;
-    for (i = 0; i < 24 * 50 && !wl; i++) { W.tick(); if (i % 24 === 0) wl = T.sites.filter(function (q) { return q.kind === 'well' && q.stage >= 2; })[0] || null; } }
-  if (!wl) return 'no well by year 50 in four worlds';
-  T.skills.irrigation = true; for (i = 0; i < 24 * 4; i++) W.tick();
-  var dug = 0; for (i = 0; i < N * N; i++) dug += T.ditch[i]; if (!dug) return 'no ditch dug in four years of irrigation';
-  var near = 0, far = 0, nN = 0, nF = 0;
-  for (i = 0; i < N * N; i++) if (W.field[i]) { var by = false, x = i % N, y = (i / N) | 0, dx, dy; for (dy = -2; dy <= 2; dy++) for (dx = -2; dx <= 2; dx++) if (T.ditch[(y + dy) * N + x + dx]) by = true; if (by) { near += W.soil[i]; nN++; } else { far += W.soil[i]; nF++; } }
-  if (!nN) return dug + ' ditch tiles, but none beside a field';
-  return '';
+  var W, T, N, i, w, worlds = [[1, 'lakeland'], [1, 'valley'], [1, 'plains'], [2, 'forest']], notes = [], wells = 0;
+  for (w = 0; w < worlds.length; w++) { var wl = null; W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }); T = W.S.tribe; N = W.N;
+    for (i = 0; i < 24 * 50 && !wl; i++) { W.tick(); if (i % 24 === 0) wl = T.sites.filter(function (q) { return q.kind === 'well' && q.stage >= 2; })[0] || null; }
+    if (!wl) continue; wells++;
+    T.skills.irrigation = true; for (i = 0; i < 24 * 4; i++) W.tick();
+    var dug = 0; for (i = 0; i < N * N; i++) dug += T.ditch[i]; if (!dug) { notes.push(worlds[w][1] + ': no ditch dug in four years'); continue; }
+    var nN = 0;
+    for (i = 0; i < N * N; i++) if (W.field[i]) { var by = false, x = i % N, y = (i / N) | 0, dx, dy; for (dy = -2; dy <= 2; dy++) for (dx = -2; dx <= 2; dx++) if (T.ditch[(y + dy) * N + x + dx]) by = true; if (by) nN++; }
+    if (nN) return '';   /* a place where the ditch reached its fields */
+    notes.push(worlds[w][1] + ': ' + dug + ' ditch tiles, none beside a field yet');
+  }
+  return wells ? notes.join('; ') : 'no well by year 50 in four worlds';
 }]);
 UNITS.push(['people make friends beyond kin, and describing someone names them (G1)', function () {
   var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'lakeland', size: 96 }), i;
