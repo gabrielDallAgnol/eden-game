@@ -227,7 +227,8 @@ function create(seed, opt) {
         let e = b; while (e < N && water[horiz ? I(e, a) : I(a, e)]) e++;
         if (b > 0 && e < N && e - b <= FORD_W && a % 2 === 0) {   /* every other row is enough: neighbouring fords are near the same */
           const ax = horiz ? b - 1 : a, ay = horiz ? a : b - 1, bx = horiz ? e : a, by = horiz ? a : e, ma = mass[I(ax, ay)], mb = mass[I(bx, by)];
-          if (ma !== mb) { const tiles = []; for (let k = b; k < e; k++) tiles.push(horiz ? I(k, a) : I(a, k)); fords.push({ key: ax + ',' + ay, ax, ay, bx, by, w: e - b, ma, mb, horiz, tiles }); }
+          /* a narrow place between two banks of the same ground (a river bend, an inlet) is kept too: the walk round may be long, and a bridge there is a short cut */
+          if (ma >= 0 && mb >= 0) { const tiles = []; for (let k = b; k < e; k++) tiles.push(horiz ? I(k, a) : I(a, k)); fords.push({ key: ax + ',' + ay, ax, ay, bx, by, w: e - b, ma, mb, horiz, tiles, same: ma === mb }); }
         }
         b = e;
       }
@@ -402,7 +403,7 @@ function create(seed, opt) {
           const k = g + (dx && dy ? 1.41 : 1) * (road[j] ? 0.67 : 1); if (k < f[j]) { f[j] = k; heap.push(k, j); } } } }
     const keep = Float32Array.from(f); if (walkFields.size >= 256) walkFields.clear(); walkFields.set(s0, keep); return keep; }
   function aroundDist(x0, y0, x1, y1) { const flat = flatDist(x0, y0, x1, y1), w = walkField(I(x0, y0))[I(x1, y1)];
-    return w > flat.d ? { d: isFinite(w) ? w : Infinity, road: flat.road } : flat; }
+    return w > flat.d ? { d: isFinite(w) ? w : Infinity, road: flat.road, round: w > 1.5 * flat.d + 4 } : flat; }
   function flatDist(x0, y0, x1, y1) {
     const T = S.tribe, vx = snapWay(x0, T.x), hy = snapWay(y1, T.y);
     /* along the ways, or straight across open ground where that is shorter: rough ground costs half again as much per tile */
@@ -414,7 +415,14 @@ function create(seed, opt) {
   }
   const walkEff = (x0, y0, x1, y1, v) => { const w = wayDist(x0, y0, x1, y1); return 1 / (1 + w.d / (WALK * v * (1 + 0.5 * w.road))); };
   // a trip that went through a ford: the ford is remembered as used, and the wading is felt as toil (the want a bridge answers)
-  function crossed(w) { }
+  function crossed(w, x0, y0, x1, y1, k) { if (!w || !w.round || !isFinite(w.d)) return; const f = shortcut(x0, y0, x1, y1, w.d); if (f) wishCross(f, (k || 1) * (w.d - f.via) / 8); }
+  /* the narrow place on the same ground that would cut a walk round the water short: the one that makes the walk least,
+     if that is well under the walk round */
+  function shortcut(x0, y0, x1, y1, walked) { const br = bridgeTiles(); let best = null, bd = walked * 0.6;
+    for (const f of fords) { if (!f.same || br[f.tiles[0]]) continue;
+      const d = f.w + 1 + Math.min(Math.hypot(x0 - f.ax, y0 - f.ay) + Math.hypot(f.bx - x1, f.by - y1), Math.hypot(x0 - f.bx, y0 - f.by) + Math.hypot(f.ax - x1, f.ay - y1));
+      if (d < bd) { bd = d; best = f; } }
+    if (best) best.via = bd; return best; }
   // something better was seen across the water, out of reach: it is remembered at the narrow place it would be crossed,
   // and felt as the want of a way over (the want a bridge answers)
   function wishCross(f, k) { const T = S.tribe; T.fordUse[f.key] = (T.fordUse[f.key] || 0) + (k || 1); T.need.cross += 0.01 * (k || 1); S.stat.wishes++; }
@@ -1720,7 +1728,7 @@ function create(seed, opt) {
       const lim = 1.6 * Math.max(4, Math.hypot(a.x - sj % N, a.y - ((sj / N) | 0))) + 2, rt = route(a.x, a.y, sj % N, (sj / N) | 0, a, lim * 1.41);
       if (!rt.reached || rt.tiles.length > lim) continue;
       for (const t of rt.tiles) if (!water[t]) tread[t] = Math.min(6, tread[t] + 0.03);   /* the ground is worn where the trip really goes */
-      { const w = wayDist(door.x, door.y, cx, cy); crossed(w); a.tripD = w.d; }
+      { const w = wayDist(door.x, door.y, cx, cy); crossed(w, door.x, door.y, cx, cy); a.tripD = w.d; }
       a.trip = { kind: ck, j: sj, phase: 'out', path: rt.tiles.slice(), back: [I(a.x, a.y)].concat(rt.tiles.slice(0, -1)).reverse(), load: 0, walked: 0 }; runTrip(a, d, pace, budget); break;
     }
     // a strong camp drives off whatever would hunt it
@@ -1872,7 +1880,7 @@ function create(seed, opt) {
       const x = T.x + k * PITCH + 2, y = T.y + m * PITCH + 2; if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) continue;   // the middle of each lot
       const i = I(x, y); if (water[i]) continue;
       /* across water, a lot is as far as the way round by the ford or bridge; with no crossing at all it is out of reach */
-      const dc = mass[i] === mass[I(T.x, T.y)] ? Math.hypot(x - T.x, y - T.y) : wayDist(T.x, T.y, x, y).d;
+      const dc = wayDist(T.x, T.y, x, y).d;   /* on the same ground too: round a river bend the walk is what counts, not the line across */
       if (!isFinite(dc)) { if (!across && !T.sites.some(q => q.x === x && q.y === y) && !water[i]) { const wh = wayDist(T.x, T.y, x, y, true); if (wh.ford) across = wh.ford; } continue; }
       if (T.sites.some(q => q.x === x && q.y === y)) continue;                                                // one roof to a lot, for now
       /* the lots round the fire are the market's (H4): only a household with a trade may build there, a shop below and its home above (I4) */
@@ -2366,6 +2374,10 @@ function create(seed, opt) {
       tell(d.say);
       break;
     }   // one thing at a time; an answer eases the want
+    /* every day of the year each household walks between its door and the fire; where that walk goes far round the water,
+       the want of a way over is felt at the narrow place that would cut it short */
+    for (const q of T.sites) { if (!live(q) || !isHome(q) || q.upon) continue; const k = S.agents.filter(b => b.alive && b.d.people && b.house === q.id).length; if (!k) continue;
+      crossed(wayDist(T.x, T.y, q.x, q.y), T.x, T.y, q.x, q.y, k * 2); }
     /* a bridge is laid where the wading was worst this year, while the want of one is still felt */
     if (T.skills.bridge && !(T.bridge && !T.bridge.done) && N_.cross >= IDEAS.bridge.at * 0.5) {
       let bf = null, bu = 0; for (const f of fords) { const u = T.fordUse[f.key] || 0; if (!T.bridged[f.key] && u > bu) { bu = u; bf = f; } }

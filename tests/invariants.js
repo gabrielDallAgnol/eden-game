@@ -681,9 +681,10 @@ UNITS.push(['a bad harvest raises the price of grain (H2): with half the grain g
 }]);
 UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)', function () {
   var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: land, size: 96 }), S = W.S, N = W.N, i, j, f = 0;
-    for (i = 0; i < 24 * 40; i++) W.tick(); while (S.t % 1 > 0.05) W.tick();
-    for (i = 0; i < 24; i++) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j]) W.grass[j] = 0; W.tick(); }
-    for (i = 0; i < 14; i++) W.tick(); for (j = 0; j < N * N; j++) f += W.field[j];
+    for (i = 0; i < 24 * 40; i++) W.tick(); while (S.cal % 1 > 0.05) W.tick();
+    /* one calendar year blighted (the season clock, not the life clock: summer is long), then on to next summer's sowing */
+    var c0 = S.cal; while (S.cal < c0 + 1) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j]) W.grass[j] = 0; W.tick(); }
+    while (S.cal < c0 + 1.6) W.tick(); for (j = 0; j < N * N; j++) f += W.field[j];
     var hands = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 8 && a.age <= 60; }).length; return f / Math.max(1, hands); };   /* per working hand: a bad year also kills */
   var out = [], ok = true;
   var sa = 0, sb = 0; [[1, 'lakeland'], [1, 'valley'], [2, 'valley']].forEach(function (w) { var a = run(false, w[0], w[1]), b = run(true, w[0], w[1]); sa += a; sb += b; out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(2) + ' field tiles a hand sown after a normal year, ' + b.toFixed(2) + ' after a blighted one'); });
@@ -818,7 +819,7 @@ UNITS.push(['the common store is eaten only at the fire: everyone who went to ea
   return bad ? bad + ' of ' + seen + ' ate from the store away from the fire' : '';
 }]);
 UNITS.push(['across the river: no way over without a bridge; a bridge makes it a walk', function () {
-  var W = Eden.create(1, { land: 'valley' }), T = W.S.tribe, f = W.fords()[0];
+  var W = Eden.create(1, { land: 'valley' }), T = W.S.tribe, f = W.fords().filter(function (q) { return !q.same; })[0];
   if (!f) return 'no narrow place on valley #1';
   var none = W.wayDist(f.ax, f.ay, f.bx, f.by).d, wish = W.wayDist(f.ax, f.ay, f.bx, f.by, true).d, out = [];
   T.bridged[f.key] = true; var bridged = W.wayDist(f.ax, f.ay, f.bx, f.by).d;
@@ -1065,6 +1066,26 @@ UNITS.push(['a small child with water between it and the fire finds the way roun
   });
   if (tried < 2) return 'only ' + tried + ' worlds with a child and a spot across water';
   return ok === tried ? '' : out.join('; ');
+}]);
+UNITS.push(['a household living across a river bend from the fire wants a bridge at the narrow place, and gets one: the walk home is cut short', function () {
+  var out = [], ok = 0, tried = 0;
+  [[1, 'valley'], [4, 'forest'], [6, 'valley'], [2, 'lakeland']].forEach(function (w) {
+    if (ok) return;
+    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, N = W.N, i, dx, dy;
+    for (i = 0; i < 24 * 10; i++) W.tick();
+    var home = T.sites.filter(function (q) { return !q.upon && (q.kind === 'hut' || q.kind === 'house') && S.agents.some(function (b) { return b.alive && b.house === q.id; }); })[0]; if (!home) return;
+    var spot = null, narrow = W.fords().filter(function (f) { return f.same; });
+    for (dy = -14; dy <= 14 && !spot; dy++) for (dx = -14; dx <= 14 && !spot; dx++) { var x = T.x + dx, y = T.y + dy; if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2 || W.water[y * N + x]) continue;
+      var wd = W.wayDist(T.x, T.y, x, y), st = Math.hypot(dx, dy);
+      if (wd.round && isFinite(wd.d) && wd.d > st + 15 && narrow.some(function (f) { return Math.hypot(f.ax - x, f.ay - y) + Math.hypot(f.bx - T.x, f.by - T.y) < wd.d * 0.5 || Math.hypot(f.bx - x, f.by - y) + Math.hypot(f.ax - T.x, f.ay - T.y) < wd.d * 0.5; })) spot = [x, y, wd.d]; }
+    if (!spot) return; tried++;
+    home.x = spot[0]; home.y = spot[1]; T.skills.bridge = true; T.wood = Math.max(T.wood, 12);
+    var y0 = S.cal; while (S.cal < y0 + 4 && !Object.keys(T.bridged).length) W.tick();
+    var now = W.wayDist(T.x, T.y, spot[0], spot[1]).d;
+    if (Object.keys(T.bridged).length && now < spot[2] * 0.6) ok++; else out.push(w[1] + ' ' + w[0] + ': home at ' + spot[0] + ',' + spot[1] + ' walk ' + spot[2].toFixed(0) + ' -> ' + now.toFixed(0) + ', want ' + T.need.cross.toFixed(2) + ', bridges ' + JSON.stringify(T.bridged));
+  });
+  if (!tried) return 'no world with a home spot across a bend';
+  return ok ? '' : out.join('; ');
 }]);
 UNITS.push(['a tree holds what it holds: a full stand is 4 timber however it is felled, and a trip brings home no more than one can carry', function () {
   var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'forest', size: 96 }), S = W.S, T = S.tribe, N = W.N, i;

@@ -1455,3 +1455,27 @@ Tests: 534 passed, 0 failed (two warnings: plains seed 1 and highland seed 2 at 
 | highland | 1 | 33 | 61 | 75 | 87 | 7 | 2 | 221 | 0 | 15 | 11/47/0 | 3.6 | 21.8 | 25.4 | 20 | 1 | 1.5 | 92 | 46 | 25.4 | 4.3 | 0 (1) | 72/1/0/0/24 | 70 | 13.2 | 9 | 0 | 0 | 25032 |
 | highland | 2 | 26 | 124 | 142 | 167 | 10 | 5 | 232 | 0 | 17 | 6/81/5 | 4 | 14.3 | 7.9 | 13.2 | 0 | 1 | 154 | 55 | 15.9 | 3.8 | 0 (1) | 76/0/0/0/21 | 34 | 14 | 13 | 0 | 0 | 34548 |
 | mean |  | 23.1 | 87.6 | 591.9 | 699.1 | 155.3 | 6.2 | 316.8 | 0 | 15.8 |  | 3.3 | 20.1 | 23.3 | 10.1 | 41.2 | 1.3 | 17649.7 | 344.7 | 46.4 | 5.9 |  |  | 77.3 | 9.9 | 47.2 | 0.6 | 0 | 92708.8 |
+
+
+## Bridges over a river bend (2026-11-25)
+
+What changed (owner's report: a house built across the river, everyone walking round instead of bridging it):
+- **Cause.** Lots on the same piece of ground were judged by the straight line to the fire, so a lot just over a stream bend looked close even when the walk round was 40 tiles. And a bridge could only be wanted between two pieces of land with no way between them at all, so a long walk round never made anyone want one.
+- **Fix.** A lot is judged by the real walk. Narrow places between two banks of the same ground are now places a bridge can go. Each year a household whose daily walk to the fire goes far round the water feels the want of a crossing where it would cut that walk short; trips that go round add to it.
+- **Checked.** 30 worlds (5 lands x 6 seeds, 15 years): homes whose walk goes far round water 18 -> 5. Valley seed 1 (the owner's map): the household that moved in at calendar year 8 had a bridge at the 1-tile narrows by year 12; their walk 37 -> 8 tiles. New unit: a home moved across a bend gets a bridge within 4 calendar years and the walk falls below 0.6 of what it was.
+- Bridges per 100-year run: 0.6 -> 3.5. Valley seed 1 is smaller (1084 -> 400 at year 100, more left); the mean is up (592 -> 642).
+- Test fixes: the "no way over without a bridge" check takes a narrow place between separate land; the H3 bad-harvest check now blights one calendar year (it was one life year, which under the long summer missed the harvest).
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 31 | 135 | 400 | 607 | 112 | 6 | 872 | 0 | 17 | 6/89/5 | 3.3 | 26 | 25.9 | 10.3 | 67 | 1.3 | 3414 | 285 | 30.2 | 4 |  | 80/0/0/0/17 | 93 | 12.6 | 33 | 10 | 0 | 58593 |
+| valley | 2 | 34 | 161 | 1323 | 1340 | 295 | 4 | 552 | 0 | 17 | 0/1/4 | 3.1 | 26 | 31.3 | 8.8 | 96 | 1.2 | 30308 | 804 | 46.7 | 5.5 | 0 (3) | 83/0/0/0/15 | 100 | 14 | 96 | 2 | 0 | 196008 |
+| plains | 1 | 23 | 46 | 113 | 148 | 7 | 3 | 205 | 0 | 11 | 1/166/6 | 3.3 | 11.2 | 9.6 | 11.8 | 4 | 1.8 | 36 | 7 | 9.5 | 4.3 |  | 64/1/0/0/23 | 52 | 10.9 | 9 | 0 | 0 | 18956 |
+| plains | 2 | 22 | 97 | 522 | 836 | 75 | 12 | 500 | 0 | 18 | 0/60/0 | 4.6 | 24.5 | 24.5 | 13.3 | 24 | 1.5 | 2514 | 60 | 30.2 | 4.9 |  | 73/0/0/0/22 | 86 | 12.8 | 25 | 2 | 0 | 59243 |
+| forest | 1 | 27 | 126 | 1402 | 1458 | 356 | 12 | 273 | 0 | 19 | 0/0/0 | 2.8 | 15.5 | 29.9 | 5.9 | 122 | 1.1 | 92008 | 514 | 63.6 | 8.2 | 0 (1) | 81/0/0/2/14 | 100 | 8.9 | 96 | 4 | 0 | 220001 |
+| forest | 2 | 11 | 68 | 712 | 809 | 192 | 4 | 271 | 0 | 18 | 85/43/5 | 2.8 | 14.5 | 26.5 | 5.6 | 36 | 1.4 | 5653 | 229 | 62.5 | 5.3 |  | 81/0/0/0/15 | 82 | 5.7 | 49 | 2 | 0 | 61224 |
+| lakeland | 1 | 11 | 37 | 404 | 404 | 93 | 5 | 0 | 0 | 16 | 16/103/0 | 2.6 | 22.4 | 25.2 | 6.2 | 14 | 0.9 | 3211 | 130 | 26.4 | 4.8 |  | 81/0/0/3/13 | 57 | 5.3 | 41 | 9 | 0 | 27863 |
+| lakeland | 2 | 17 | 92 | 1323 | 1351 | 331 | 9 | 59 | 0 | 20 | 5/0/0 | 2.7 | 25.2 | 32.7 | 6.3 | 48 | 1.5 | 31341 | 415 | 73.6 | 8.6 | 11.666666666666666 (3) | 81/0/0/2/15 | 100 | 7.5 | 96 | 5 | 0 | 127010 |
+| highland | 1 | 30 | 136 | 74 | 206 | 8 | 7 | 332 | 0 | 19 | 1/10/0 | 4 | 28.2 | 20.6 | 18.2 | 13 | 1.5 | 438 | 101 | 26.9 | 3.6 | 0 (4) | 74/0/0/0/24 | 73 | 13.4 | 17 | 0 | 0 | 30371 |
+| highland | 2 | 26 | 117 | 148 | 198 | 20 | 4 | 364 | 0 | 18 | 0/27/5 | 3.5 | 19.7 | 12.5 | 12.4 | 14 | 1.2 | 205 | 101 | 16.5 | 3.7 | 0 (2) | 77/1/0/1/17 | 39 | 13 | 13 | 1 | 0 | 26329 |
+| mean |  | 23.2 | 101.5 | 642.1 | 735.7 | 148.9 | 6.6 | 342.8 | 0 | 17.3 |  | 3.3 | 21.3 | 23.9 | 9.9 | 43.8 | 1.3 | 16912.8 | 264.6 | 38.6 | 5.3 |  |  | 78.2 | 10.4 | 47.5 | 3.5 | 0 | 82559.8 |
