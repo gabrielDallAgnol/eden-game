@@ -56,6 +56,8 @@ function create(seed, opt) {
      ticks in one turn of the seasons at its slowest. S.t counts life-years; S.cal counts turns of the seasons (the year shown).
      The warm months are drawn out most: at midsummer the sun moves YK times slower than before, in deep winter WK times
      (opt.winterK, default 1: a winter as long as it always was). In between it goes by the height of the sun. */
+  const SNARE_R = 12, SNARE_P = 0.05;   /* a line of snares within a short walk of the door, each beast in reach caught one morning in twenty */
+  const CROWD = opt.crowdK !== undefined ? opt.crowdK : 1;   /* grass on a mother's ground for each unit of grazing need, at the least, before she bears young */
   const YK = Math.max(1, opt.yearK || 1), WK = Math.max(1, Math.min(YK, opt.winterK || 1)), CAL = TPY * YK;
   const stretchAt = ph => WK + (YK - WK) * (0.5 - 0.5 * Math.cos(2 * Math.PI * (ph - 0.08)));
   const QUARTER = c => Math.floor(((c % 1) + 1) % 1 * 4);
@@ -2538,11 +2540,17 @@ function create(seed, opt) {
     }
     /* carried from the well, a bucket at a time; and where a ditch runs beside a field, the water runs to it (F7) */
     if (T.well && S.popPeople) for (const i of fieldTiles()) if (field[i]) { const wet = ditchBy(i) ? 0.7 : 0.45; if (soil[i] < wet) soil[i] = wet; }
+    /* snares: each morning a household that has hands for it (anyone from eight years up) walks its line of snares set at
+       the runs and burrows within a short walk of its door, and takes what was caught. Small game near the houses is meat
+       for the pot, and fewer mouths at the crops */
+    if (S.popPeople && T.skills.hunt && (!DAY || S.tickNo % DAY === 0)) for (const h of T.sites) { if (!live(h) || !isHome(h) || h.upon || !(h.members > 0)) continue;
+      if (!folk().some(b => b.house === h.id && b.age >= 8 && b.age <= 60 && b.e > 0.3)) continue;
+      for (const r of around(h, SNARE_R, b => !b.tame && b.d.mass < 1 && !b.d.people && !b.d.eats.meat)) if (rnd() < SNARE_P) { const m = bodyOf(r) * 0.9; die(r, 'snared'); addFood(h, 'larder', 'meat', m); S.stat.snared = (S.stat.snared || 0) + 1; T.got.hunt += m; } }
     for (const a of S.agents) {
       if (!a.alive) continue; const d = a.d, i = I(a.x, a.y), Tc = tempAt(i); if (a.fear > 0) a.fear -= dt * 1.4;
       if (S.popPeople && !d.people && d.eats.meat && d.mass > 3 && cheb(a, T) <= 4 && !a.hidden) T.threat += dt * 3; /* a hunter in among the houses is remembered */
       a.age += dt;
-      a.cd -= dt;
+      a.cd -= d.people ? dt : dt / stretchAt(S.cal % 1);   /* a beast's litters follow the seasons, not the length of a life: a long summer is not more summers */
       a.mood = '';
       a.act = null;
       const wasHidden = a.hidden;
@@ -2596,6 +2604,12 @@ function create(seed, opt) {
         else {
           if (!nearest(a, 7, b => b.sp === a.sp && b.age >= d.mature)) continue;
           if (d.territory) { const c = around(a, d.territory * 2, b => b.sp === a.sp).length + 1; if (c > d.territory) continue; }
+          /* a grazing mother bears young only where the grass around her will feed them as well as the mouths already there:
+             her ground is as wide as a beast of her size ranges (rabbit 3 tiles, deer 8, cattle 10) */
+          if (d.eats.grass && !d.eats.meat && !a.tame) { const r = Math.round(3.9 * Math.sqrt(d.mass)); let food = 0;
+            for (let y = Math.max(0, a.y - r); y <= Math.min(N - 1, a.y + r); y++) for (let x = Math.max(0, a.x - r); x <= Math.min(N - 1, a.x + r); x++) { const j = I(x, y); if (!water[j]) food += grass[j]; }
+            let mouths = d.mass * d.metab * (1 + d.litter[1]); for (const b of around(a, r, b => !b.tame && !b.d.people && b.d.eats.grass && !b.d.eats.meat)) mouths += bodyOf(b) * b.d.metab;
+            if (food < CROWD * mouths) continue; }
         }
         const n = d.litter[0] + ((rnd() * (d.litter[1] - d.litter[0] + 1)) | 0); a.e -= 0.25 + 0.08 * n; a.cd = d.interval * (d.people ? 0.85 : 1) * R(0.85, 1.2);
         for (let k = 0; k < n; k++) born.push([a.sp, a.x, a.y, a.home, a.id]); if (d.people) S.tribe.kidBorn += n;

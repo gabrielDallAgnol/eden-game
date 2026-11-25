@@ -1087,6 +1087,19 @@ UNITS.push(['a household living across a river bend from the fire wants a bridge
   if (!tried) return 'no world with a home spot across a bend';
   return ok ? '' : out.join('; ');
 }]);
+UNITS.push(['rabbits breed only where there is grass for the young: no yearly boom and starving crash; people snare them near their doors', function () {
+  var out = [], snared = 0, ratios = [], alive = 0;
+  [[1, 'plains'], [1, 'valley']].forEach(function (w) {
+    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, y, i;
+    for (y = 0; y < 30; y++) { var hi = 0, lo = 1e9; for (i = 0; i < 24; i++) { W.tick(); hi = Math.max(hi, S.pop.rabbit | 0); lo = Math.min(lo, S.pop.rabbit | 0); } if (y >= 3) ratios.push(hi / Math.max(1, lo)); }
+    if (S.pop.rabbit > 20) alive++; else out.push(w[1] + ' ' + w[0] + ': only ' + (S.pop.rabbit | 0) + ' rabbits at year 30');
+    snared += S.stat.snared || 0;
+  });
+  ratios.sort(function (a, b) { return a - b; }); var mid = ratios[ratios.length >> 1];
+  if (mid > 2.5) out.push('rabbits still swing ' + mid.toFixed(1) + ' times over in a typical year');
+  if (!snared) out.push('no rabbit snared in two worlds over 30 years');
+  return out.join('; ');
+}]);
 UNITS.push(['a tree holds what it holds: a full stand is 4 timber however it is felled, and a trip brings home no more than one can carry', function () {
   var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'forest', size: 96 }), S = W.S, T = S.tribe, N = W.N, i;
   var tree0 = 0, wood0 = T.wood; for (i = 0; i < N * N; i++) tree0 += W.tree[i];
