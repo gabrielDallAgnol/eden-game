@@ -1765,7 +1765,7 @@ function create(seed, opt) {
        field; it goes round a field in its way rather than through it */
     let bj = -1, bd = hd;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const x = hx + dx, y = hy + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const j = I(x, y);
-      if (water[j] || T.ditch[j] || field[j] || T.sites.some(q => q.x === x && q.y === y)) continue; const d = Math.max(Math.abs(fx - x), Math.abs(fy - y)) + (dx && dy ? 0.01 : 0); if (d <= bd) { bd = d; bj = j; } }
+      if (water[j] || T.ditch[j] || field[j] || T.sites.some(q => q.x === x && q.y === y)) continue; const d = Math.max(Math.abs(fx - x), Math.abs(fy - y)) + (dx && dy ? 0.01 : 0) + 0.3 * Math.hypot(fx - x, fy - y) / N; if (d < bd) { bd = d; bj = j; } }   /* always nearer the field: no wandering */
     return bj;
   }
   const best = () => ROOMS.find(k => !BUILDINGS[k].needsIdea || S.tribe.skills[BUILDINGS[k].needsIdea]);

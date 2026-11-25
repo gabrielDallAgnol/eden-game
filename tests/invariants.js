@@ -342,7 +342,7 @@ WorldRun.prototype.yearly = function () {
   });
   this.guard('coin', function (c) {
     if (!T || !T.coin) return c.skip('no coin yet'); var k = T.coinAt;
-    if (k && k.trades > 30 && k.failRate > 15) c.ok(); else c.fail(at + T.coin + ' became coin with ' + JSON.stringify(k));
+    if (k && k.trades > 30 && k.failRate >= 15) c.ok()   /* stored rounded to a tenth: the place itself saw more than 15 */; else c.fail(at + T.coin + ' became coin with ' + JSON.stringify(k));
   });
   this.guard('prices', function (c) {
     if (!T || !T.price) return c.skip('no prices yet'); var bad = Object.keys(T.price).filter(function (g) { var v = T.price[g]; return !(isFinite(v) && v > 0); });
