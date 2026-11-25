@@ -1225,6 +1225,8 @@ function create(seed, opt) {
         if (a.cart >= S.tickNo - 1 && !S.night) { a.act = { k: 'cart', j: a.cartJ }; return; }
         if (cheb(a, home) > (herded ? 10 : 3) || S.night) stepTo(a, home.x, home.y, 2);   /* a herded herd has the pasture round the pen */
         if (S.night) { a.act = { k: 'sleep', x: a.x, y: a.y }; return; }
+        /* a tame beast going thin by the camp is given hay from the stack, pen or no pen: the people will not watch it starve */
+        if (!herded && a.e < 0.5 && T.hay > 0 && cheb(a, home) <= 3) { const t = Math.min(T.hay, (0.85 - a.e) / 1.5); T.hay -= t; a.e += t * 1.5; }
         if (a.e < 0.95) forage(a, d, dt, { x: home.x, y: home.y, r: herded ? 10 : 3 }, true); a.act = { k: 'graze', x: a.x, y: a.y }; return;
       }
     }
@@ -1893,7 +1895,9 @@ function create(seed, opt) {
   function plotFor(a) {
     const T = S.tribe, open = T.sites.filter(q => BUILDINGS[q.kind] && !raised(q));
     /* finish what is begun: a friend's or kinsman's house first (G1), else the first begun */
-    let s = a ? open.find(q => folk().some(b => b.house === q.id && b !== a && (friend(a, b) || kin(a, b)))) : null; if (!s) s = open[0]; if (s) return s;          // finish what is begun
+    /* a plot that could not be supplied today is left for today: other work goes on meanwhile */
+    const today0 = Math.floor(S.tickNo / (DAY || 1)), can = open.filter(q => q.haulFail !== today0);
+    let s = a ? can.find(q => folk().some(b => b.house === q.id && b !== a && (friend(a, b) || kin(a, b)))) : null; if (!s) s = can[0]; if (s) return s;          // finish what is begun
     const homes = T.sites.filter(isHome);
     if (homes.length < households()) {                                                  // a household without a roof
       const who = folk().find(a => a.age >= WED && !a.house && (!a.partner || a.fem));
@@ -1994,7 +1998,7 @@ function create(seed, opt) {
     /* a haul for this plot that could not be walked before dark this morning cannot be walked later the same day either */
     const today = Math.floor(S.tickNo / (DAY || 1)); if (s.haulFail === today && (s.wood < needW ? T.wood < 1 : T.stone < 1)) return false;
     if (s.wood < needW) {
-      if (T.wood >= 1) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; walk(T.x, T.y, s.x, s.y, 0.12); return true; }
+      if (T.wood >= Math.min(1, needW - s.wood - 1e-9) && T.wood > 0.05) { const c = Math.min(T.wood, needW - s.wood); T.wood -= c; s.wood += c; a.act = { k: 'haul', site: s.id, item: 'log' }; walk(T.x, T.y, s.x, s.y, 0.12); return true; }
       /* fell the nearest standing timber along the ways; saplings are left to grow. The further it stands, the less is
          brought back in a day */
       if (fromPile(a, s.x, s.y, 'wood')) return true;
@@ -2003,7 +2007,7 @@ function create(seed, opt) {
       if (startHaul(a, 'timber', bj, { x: s.x, y: s.y })) return true; s.haulFail = today; return false;
     }
     if (s.stone < needS) {
-      if (T.stone >= 1) { const c = Math.min(T.stone, needS - s.stone); T.stone -= c; s.stone += c; a.act = { k: 'haul', site: s.id, item: 'stone' }; return true; }
+      if (T.stone >= Math.min(1, needS - s.stone - 1e-9) && T.stone > 0.05) { const c = Math.min(T.stone, needS - s.stone); T.stone -= c; s.stone += c; a.act = { k: 'haul', site: s.id, item: 'stone' }; return true; }
       /* break stone where it shows, or carry cobbles up from the water's edge: whichever costs the less walking for what it gives */
       if (fromPile(a, s.x, s.y, 'stone')) return true;
       /* the quarry: of all the stone showing on common ground, the one that gives most for a day's walk; a deep pit is harder

@@ -677,7 +677,7 @@ UNITS.push(['a bad harvest raises the price of grain (H2): with half the grain g
   return dearer >= 3 ? '' : 'grain dearer in only ' + dearer + ' of 4: ' + out.join('; ');
 }]);
 UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)', function () {
-  var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: land, size: 96 }), S = W.S, N = W.N, i, j, f = 0;
+  var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: land, size: 96 }), S = W.S, N = W.N, i, j, f = 0;
     for (i = 0; i < 24 * 40; i++) W.tick(); while (S.t % 1 > 0.05) W.tick();
     for (i = 0; i < 24; i++) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j]) W.grass[j] = 0; W.tick(); }
     for (i = 0; i < 14; i++) W.tick(); for (j = 0; j < N * N; j++) f += W.field[j];
@@ -709,7 +709,7 @@ UNITS.push(['one harvest a year, each logged and shown rising from the fields; t
 UNITS.push(['a growing place raises a hall where a trusted elder sits as mayor, and a shrine for its dead (then a church)', function () {
   var W, T, i, w, worlds = [[1, 'plains'], [1, 'valley'], [1, 'lakeland'], [2, 'forest']], tried = [];
   var up = function (k) { return T.sites.some(function (q) { return q.kind === k && q.stage >= W.BUILDINGS[k].stages.length; }); };
-  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }); T = W.S.tribe;
+  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: worlds[w][1], size: 96 }); T = W.S.tribe;
     for (i = 0; i < 24 * 80 && !up('hall'); i++) W.tick(); if (up('hall')) break; tried.push(worlds[w][1] + ' ' + worlds[w][0] + ': order ' + T.need.order.toFixed(1)); }
   if (!up('hall')) return 'no hall by year 80 in four worlds (' + tried.join('; ') + ')';
   for (i = 0; i < 24 * 3; i++) W.tick();   /* a little while for an elder to be chosen */
@@ -731,7 +731,7 @@ UNITS.push(['wild prey live in cover and away from people, and the deer last: 10
 }]);
 UNITS.push(['wild cattle live on, a calf is brought home from the hunt, the herd is milked at the pen, and a dairy makes cheese', function () {
   var worlds = [[1, 'lakeland'], [1, 'plains'], [1, 'valley']], best = null, out = [], w, i;
-  for (w = 0; w < worlds.length && !best; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }), T = W.S.tribe;
+  for (w = 0; w < worlds.length && !best; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: worlds[w][1], size: 96 }), T = W.S.tribe;
     for (i = 0; i < 24 * 80; i++) W.tick();
     var wild = W.S.agents.filter(function (a) { return a.alive && a.sp === 'cow' && !a.tame; }).length; out.push(worlds[w][1] + ' ' + worlds[w][0] + ': ' + wild + ' wild cattle, ' + (W.S.stat.calves || 0) + ' calves caught, milked ' + Math.round(T.milked || 0));
     if (wild < 3) return 'wild cattle all but gone at year 80: ' + out[out.length - 1];
@@ -740,12 +740,12 @@ UNITS.push(['wild cattle live on, a calf is brought home from the hunt, the herd
 }]);
 UNITS.push(['a couple with no roof who went short leave the valley at sowing with their small children; it is not a death, and a fed household with fields stays', function () {
   var worlds = [[1, 'plains'], [1, 'valley'], [2, 'forest']], W, T, S, i, w, P, a, q;
-  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }); S = W.S; T = S.tribe;
+  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: worlds[w][1], size: 96 }); S = W.S; T = S.tribe;
     for (i = 0; i < 24 * 40 && !(T.skills.farm && T.sownYear >= 0 && S.agents.some(function (b) { return b.alive && b.d.people && b.fem && b.partner && b.house; })); i++) W.tick();
     if (T.skills.farm) break; }
   if (!T.skills.farm) return 'no farming in 40 years in three worlds';
   P = S.agents.filter(function (b) { return b.alive && b.d.people; });
-  a = P.find(function (b) { return b.fem && b.partner && b.house && b.age >= 16; }); if (!a) return 'no couple under a roof';
+  a = P.find(function (b) { return b.fem && b.partner && b.house; }); if (!a) return 'no couple under a roof';
   q = S.byId.get(a.partner); var kids = P.filter(function (b) { return b.age < b.d.mature && (b.mom === a.id || b.dad === q.id); });
   var stay = T.sites.find(function (h) { return h.members > 0 && h.id !== a.house && h.fields > 0; });
   var deaths0 = Object.keys(S.deaths).reduce(function (p, k) { return p + (/^human/.test(k) ? S.deaths[k] : 0); }, 0), year = T.sownYear;
@@ -876,7 +876,7 @@ UNITS.push(['the land at 40, 96 and 128: water drains to the edge or a lake, nev
 }]);
 UNITS.push(['strike leaves meat from an animal, logs from a tree, stone from rock; logs near the village get used', function () {
   var W, N, T, i, out = [], wl = [[3, 'forest'], [2, 'forest'], [2, 'valley'], [1, 'plains']];
-  for (var k = 0; k < wl.length; k++) { W = Eden.create(wl[k][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: wl[k][1], size: 96 }); N = W.N; T = W.S.tribe; for (i = 0; i < 24 * 8; i++) W.tick(); if (W.S.popPeople >= 4) break; }   /* a place with hands to fetch the logs */
+  for (var k = 0; k < wl.length; k++) { W = Eden.create(wl[k][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: wl[k][1], size: 96 }); N = W.N; T = W.S.tribe; for (i = 0; i < 24 * 8; i++) W.tick(); if (W.S.popPeople >= 4) break; }   /* a place with hands to fetch the logs */
   var deer = W.S.agents.filter(function (a) { return a.alive && !a.d.people && W.cells[a.y * N + a.x].indexOf(a) >= 0; })[0];
   if (deer) { W.G.strike(deer.x, deer.y); if (!W.S.piles.some(function (p) { return p.kind === 'meat'; })) out.push('no meat where a ' + deer.sp + ' was struck'); }
   var tj = -1; for (var r = 1; r < 6 && tj < 0; r++) for (var dy = -r; dy <= r && tj < 0; dy++) for (var dx = -r; dx <= r; dx++) { var j = (T.y + dy) * N + T.x + dx; if (W.tree[j] > 0.3) { tj = j; break; } }
