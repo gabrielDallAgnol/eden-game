@@ -56,7 +56,7 @@ function create(seed, opt) {
      ticks in one turn of the seasons at its slowest. S.t counts life-years; S.cal counts turns of the seasons (the year shown).
      The warm months are drawn out most: at midsummer the sun moves YK times slower than before, in deep winter WK times
      (opt.winterK, default 1: a winter as long as it always was). In between it goes by the height of the sun. */
-  const SNARE_R = 12, SNARE_P = 0.05;   /* a line of snares within a short walk of the door, each beast in reach caught one morning in twenty */
+  const SNARE_R = 12, SNARE_P = opt.snareP !== undefined ? opt.snareP : 0.05;   /* a line of snares within a short walk of the door, each beast in reach caught one morning in twenty */
   const CROWD = opt.crowdK !== undefined ? opt.crowdK : 1;   /* grass on a mother's ground for each unit of grazing need, at the least, before she bears young */
   const YK = Math.max(1, opt.yearK || 1), WK = Math.max(1, Math.min(YK, opt.winterK || 1)), CAL = TPY * YK;
   const stretchAt = ph => WK + (YK - WK) * (0.5 - 0.5 * Math.cos(2 * Math.PI * (ph - 0.08)));

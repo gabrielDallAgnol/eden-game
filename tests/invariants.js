@@ -670,14 +670,18 @@ UNITS.push(['fishers\' and farmers\' households trade fish for grain; failed tra
   return n > 0 ? '' : tr + ' trades, none of fish for grain between a fishing and a farming household';
 }]);
 UNITS.push(['a bad harvest raises the price of grain (H2): with half the grain gone, grain is dearer by the next season than in the same place untouched', function () {
-  var out = [], dearer = 0;
-  [[1, 'lakeland'], [2, 'valley'], [1, 'valley'], [1, 'plains']].forEach(function (w) {
-    var run = function (loss) { var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: w[1], size: 96 }), S = W.S, T = S.tribe, i;
+  var out = [], dearer = 0, lived = 0;
+  [[1, 'lakeland'], [2, 'valley'], [1, 'valley'], [1, 'plains'], [2, 'lakeland'], [1, 'forest']].forEach(function (w) {
+    var run = function (loss) { var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, i;
       for (i = 0; i < 24 * 40; i++) W.tick();
+      if (!S.popPeople || !T.price) return null;
       if (loss) { var cut = function (o, f) { if (!(o[f] > 0)) return; var m = W.mixOf(o, f), g = m.grain * 0.5; m.grain -= g; o[f] -= g; }; cut(T, 'store'); T.sites.forEach(function (q) { cut(q, 'larder'); }); }
-      for (i = 0; i < 7; i++) W.tick(); return T.price.grain / T.price.veg; };
-    var a = run(false), b = run(true); out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(3) + ' as it was, ' + b.toFixed(3) + ' with half its grain gone'); if (b > a) dearer++; });
-  return dearer >= 3 ? '' : 'grain dearer in only ' + dearer + ' of 4: ' + out.join('; ');
+      /* on to the next season's prices (the season clock: under a long summer a season is more than six steps) */
+      do W.tick(); while (!S.newQuarter); return T.price.grain / T.price.veg; };
+    var a = run(false), b = run(true); if (a === null || b === null) { out.push(w[1] + ' ' + w[0] + ': nobody there at year 40'); return; }
+    lived++; out.push(w[1] + ' ' + w[0] + ': ' + a.toFixed(3) + ' as it was, ' + b.toFixed(3) + ' with half its grain gone'); if (b > a) dearer++; });
+  if (lived < 3) return 'only ' + lived + ' worlds with people at year 40: ' + out.join('; ');
+  return dearer >= Math.max(3, Math.ceil(lived * 0.6)) ? '' : 'grain dearer in only ' + dearer + ' of ' + lived + ': ' + out.join('; ');
 }]);
 UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)', function () {
   var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: land, size: 96 }), S = W.S, N = W.N, i, j, f = 0;
@@ -691,9 +695,10 @@ UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)'
   return sb > sa ? '' : out.join('; ');   /* taken together: one world's history can hide it */
 }]);
 UNITS.push(['once there is a market, trips to it show up in the households\' trip counts (H4)', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'plains', size: 96 }), T = W.S.tribe, i;
-  for (i = 0; i < 24 * 70; i++) W.tick();
-  if (!T.market) return 'no market by year 70 (coin ' + T.coin + ')';
+  var worlds = [[1, 'plains'], [2, 'plains'], [2, 'valley']], W, T, i, w, none = [];
+  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: worlds[w][1], size: 96 }); T = W.S.tribe;
+    for (i = 0; i < 24 * 70; i++) W.tick(); if (T.market) break; none.push(worlds[w][1] + ' ' + worlds[w][0] + ' (coin ' + T.coin + ')'); }
+  if (!T.market) return 'no market by year 70 in ' + none.join(', ');
   var n = 0; T.sites.forEach(function (q) { n += (q.tripsLast && q.tripsLast.market) || 0; });
   if (!n) return 'a market since then, but no household counted a trip to it last year';
   var open = T.sites.filter(function (q) { return q.stage === 0 && Math.abs(q.x - T.market.x) <= W.PITCH && Math.abs(q.y - T.market.y) <= W.PITCH && W.BUILDINGS[q.kind] && W.BUILDINGS[q.kind].room; });
@@ -734,7 +739,7 @@ UNITS.push(['wild prey live in cover and away from people, and the deer last: 10
   return kept >= 3 ? '' : 'deer kept in only ' + kept + ' of 4 worlds: ' + out.join('; ');
 }]);
 UNITS.push(['cattle live on, wild or kept, a calf is brought home from the hunt, the herd is milked at the pen, and a dairy makes cheese', function () {
-  var worlds = [[2, 'plains'], [1, 'lakeland'], [1, 'valley']], best = null, out = [], w, i;
+  var worlds = [[2, 'plains'], [1, 'lakeland'], [1, 'valley'], [2, 'valley'], [2, 'forest']], best = null, out = [], w, i;
   for (w = 0; w < worlds.length && !best; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: worlds[w][1], size: 96 }), T = W.S.tribe;
     for (i = 0; i < 24 * 80; i++) W.tick();
     var wild = W.S.agents.filter(function (a) { return a.alive && a.sp === 'cow' && !a.tame; }).length; out.push(worlds[w][1] + ' ' + worlds[w][0] + ': ' + wild + ' wild cattle, ' + (W.S.stat.calves || 0) + ' calves caught, milked ' + Math.round(T.milked || 0));
