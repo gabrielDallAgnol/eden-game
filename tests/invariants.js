@@ -1070,4 +1070,17 @@ UNITS.push(['a tree holds what it holds: a full stand is 4 timber however it is 
   if (T.wood > 200) return 'a pile of ' + T.wood.toFixed(0) + ' timber after 30 years with ' + built + ' built into ' + T.sites.length + ' sites: trees give too much';
   return '';
 }]);
+UNITS.push(['fields are laid on dry ground all across: no crop on water or on a ditch, and no field round a pool', function () {
+  var out = [];
+  [[1, 'valley'], [1, 'lakeland']].forEach(function (w) {
+    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, N = W.N, D, i, x, y, f, k, n = 0;
+    for (i = 0; i < 24 * 40; i++) W.tick(); D = S.tribe.ditch;
+    for (i = 0; i < N * N; i++) { if (W.field[i]) n++;
+      if (W.field[i] && W.water[i]) out.push(w[1] + ': crop on water at ' + i);
+      if (W.field[i] && D && D[i]) out.push(w[1] + ': crop on a ditch at ' + i);
+      if (W.water[i] && !W.field[i]) { x = i % N; y = (i / N) | 0; f = 0; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { k = (y + d[1]) * N + x + d[0]; if (k >= 0 && k < N * N && W.field[k]) f++; }); if (f >= 3) out.push(w[1] + ': water with field on three sides at ' + x + ',' + y); } }
+    if (!n) out.push(w[1] + ': no fields in 40 years');
+  });
+  return out.slice(0, 4).join('; ');
+}]);
 })();

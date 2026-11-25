@@ -1759,7 +1759,7 @@ function create(seed, opt) {
     let hx = wl.x, hy = wl.y, hd = Math.max(Math.abs(fx - hx), Math.abs(fy - hy));
     for (let i = 0; i < N * N; i++) if (T.ditch[i]) { const x = i % N, y = (i / N) | 0, d = Math.max(Math.abs(fx - x), Math.abs(fy - y)); if (d < hd) { hd = d; hx = x; hy = y; } }
     const sx = Math.sign(fx - hx), sy = Math.sign(fy - hy);
-    for (const [dx, dy] of [[sx, sy], [sx, 0], [0, sy]]) { if (!dx && !dy) continue; const j = I(hx + dx, hy + dy); if (!water[j] && !T.ditch[j] && !T.sites.some(q => q.x === hx + dx && q.y === hy + dy)) return j; }
+    for (const [dx, dy] of [[sx, sy], [sx, 0], [0, sy]]) { if (!dx && !dy) continue; const j = I(hx + dx, hy + dy); if (!water[j] && !T.ditch[j] && !field[j] && !T.sites.some(q => q.x === hx + dx && q.y === hy + dy)) return j; }   /* along the field's edge, never through the crop */
     return -1;
   }
   const best = () => ROOMS.find(k => !BUILDINGS[k].needsIdea || S.tribe.skills[BUILDINGS[k].needsIdea]);
@@ -2374,7 +2374,8 @@ function create(seed, opt) {
           if (T.sites.some(q => Math.abs(q.x - cx) <= 1 && Math.abs(q.y - cy) <= 1)) continue;
           let ok = 0, fe = 0, mine2 = 0, theirs = false;
           for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = I(cx + dx, cy + dy); if (owner[t] && owner[t] !== h.id) theirs = true; if (field[t] && owner[t] === h.id) mine2++; if (water[t] || pit[t] > 0.1 || rock[t] > 0.4 || tree[t] > 0.3 || mass[t] !== mass[I(h.x, h.y)] || (T.wall && T.wall.cells.includes(t))) continue; ok++; fe += fert[t]; }
-          if (theirs || ok < 6 || mine2 >= ok) continue;
+          let wet = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (water[I(cx + dx, cy + dy)]) wet = true;
+          if (theirs || wet || ok < 6 || mine2 >= ok) continue;   /* a field is laid on ground dry all across: not round a pool or a bend of the stream */
           lots.push([cx, cy, Math.hypot(cx - h.x, cy - h.y) * 0.22 - fe / ok]);
         }
         lots.sort((p, q) => p[2] - q[2]);
@@ -2383,7 +2384,7 @@ function create(seed, opt) {
         let sowVeg = (hm.veg + vv < hm.grain + gv) ? 0 : 1;   /* flipped before the first lot: the first new lot is of what it has less of, in the larder and the ground together */
         for (const [cx, cy] of lots) {
           if (have >= want) break; sowVeg = 1 - sowVeg;
-          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = I(cx + dx, cy + dy); if (field[t] || water[t] || pit[t] > 0.1 || rock[t] > 0.4 || tree[t] > 0.3 || mass[t] !== mass[I(h.x, h.y)] || (T.wall && T.wall.cells.includes(t))) continue;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = I(cx + dx, cy + dy); if (field[t] || water[t] || (T.ditch && T.ditch[t]) || pit[t] > 0.1 || rock[t] > 0.4 || tree[t] > 0.3 || mass[t] !== mass[I(h.x, h.y)] || (T.wall && T.wall.cells.includes(t))) continue;
             if (tree[t] > 0.05) dropPile(cx + dx, cy + dy, 'wood', tree[t] * WOOD_PER_STAND);   /* the trees cleared for the field lie as logs */
             field[t] = 1; owner[t] = h.id; crop[t] = sowVeg; tree[t] = 0; grass[t] = Math.max(grass[t], 0.15); have++; }
         }
