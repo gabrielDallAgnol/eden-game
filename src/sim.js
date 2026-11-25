@@ -1515,6 +1515,9 @@ function create(seed, opt) {
     if (a.age >= SMALL + 2 && a.e > 0.4 && !a.trip && a.house) {
       const r = nearest(a, 6, b => !b.hidden && !b.tame && !b.d.people && !b.d.eats.meat && b.d.mass >= 0.5 && field[I(b.x, b.y)] && owner[I(b.x, b.y)] === a.house);
       if (r) { stepTo(a, r.x, r.y, 3); r.fear = 1; r.fearSp = a.sp; S.stat.chased = (S.stat.chased || 0) + 1;
+        /* a calf of the wild cattle caught in the crop is not killed but led home on a rope, to be raised */
+        if (r.sp === 'cow' && r.age < r.d.mature * 0.6 && cheb(r, a) <= 1 && rnd() < 0.3) { r.tame = true; r.fear = 0; r.mom = 0; { const p = free(T.x, T.y); r.x = p[0]; r.y = p[1]; } S.stat.calves = (S.stat.calves || 0) + 1;
+          if (!T.skills.herd) { T.skills.herd = true; tell(a.name + ' caught a wild calf in the crop and led it home on a rope. It will be raised among the people.'); } a.act = { k: 'guard', id: r.id }; return; }
         if (a.age >= GROWN && cheb(r, a) <= 1 && rnd() < 0.3 * (0.5 + a.skill.hunt) * (r.d.mass < 1 ? 1.5 : 1)) { dropPile(r.x, r.y, 'meat', bodyOf(r) * 0.9); die(r, 'hunted', a.id); practise(a, 'hunt'); S.stat.raidersKilled = (S.stat.raidersKilled || 0) + 1; }
         a.act = { k: 'guard', id: r.id }; return; }
     }
@@ -2403,6 +2406,8 @@ function create(seed, opt) {
         const q = S.byId.get(a.partner); if (!q || !q.alive || q.house || (a.shortT || 0) + (q.shortT || 0) <= 0.05) continue;
         goers.push(a, q); for (const b of P) if (!b.house && b.age < GROWN && (b.mom === a.id || b.dad === q.id)) goers.push(b);
       }
+      /* parents who go take their small children with them, wherever the children are */
+      { const ids = new Set(goers.map(b => b.id)); for (const b of P) if (!ids.has(b.id) && b.age < GROWN && !b.partner && (ids.has(b.mom) || ids.has(b.dad))) { goers.push(b); ids.add(b.id); } }
       for (const b of P) b.shortT = 0;
       if (goers.length) { const n = new Set(goers).size; for (const b of goers) leave(b); S.stat.leftYears = (S.stat.leftYears || 0) + 1;
         tell(n + ' people have left the valley to find land of their own: there was no ground to sow near the village and the store was running low.'); }

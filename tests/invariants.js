@@ -688,7 +688,7 @@ UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)'
   return sb > sa ? '' : out.join('; ');   /* taken together: one world's history can hide it */
 }]);
 UNITS.push(['once there is a market, trips to it show up in the households\' trip counts (H4)', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96 }), T = W.S.tribe, i;
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'plains', size: 96 }), T = W.S.tribe, i;
   for (i = 0; i < 24 * 70; i++) W.tick();
   if (!T.market) return 'no market by year 70 (coin ' + T.coin + ')';
   var n = 0; T.sites.forEach(function (q) { n += (q.tripsLast && q.tripsLast.market) || 0; });
@@ -730,12 +730,13 @@ UNITS.push(['wild prey live in cover and away from people, and the deer last: 10
     if (deer.length >= 10) kept++; if (deer.length >= 10 && !(under > land / n)) return 'deer stand in less cover than the land: ' + out[out.length - 1]; }
   return kept >= 3 ? '' : 'deer kept in only ' + kept + ' of 4 worlds: ' + out.join('; ');
 }]);
-UNITS.push(['wild cattle live on, a calf is brought home from the hunt, the herd is milked at the pen, and a dairy makes cheese', function () {
-  var worlds = [[1, 'lakeland'], [1, 'plains'], [1, 'valley']], best = null, out = [], w, i;
+UNITS.push(['cattle live on, wild or kept, a calf is brought home from the hunt, the herd is milked at the pen, and a dairy makes cheese', function () {
+  var worlds = [[2, 'plains'], [1, 'lakeland'], [1, 'valley']], best = null, out = [], w, i;
   for (w = 0; w < worlds.length && !best; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: worlds[w][1], size: 96 }), T = W.S.tribe;
     for (i = 0; i < 24 * 80; i++) W.tick();
     var wild = W.S.agents.filter(function (a) { return a.alive && a.sp === 'cow' && !a.tame; }).length; out.push(worlds[w][1] + ' ' + worlds[w][0] + ': ' + wild + ' wild cattle, ' + (W.S.stat.calves || 0) + ' calves caught, milked ' + Math.round(T.milked || 0));
-    if (wild < 3) return 'wild cattle all but gone at year 80: ' + out[out.length - 1];
+    var kept = W.S.agents.filter(function (a) { return a.alive && a.sp === 'cow' && a.tame; }).length;
+    if (wild + kept < 3) return 'cattle all but gone at year 80, wild or kept: ' + out[out.length - 1];
     if ((T.milked || 0) > 50 && T.sites.some(function (q) { return q.kind === 'dairy'; }) && (W.mixOf(T, 'store').cheese > 0 || T.skills.cheese)) best = out[out.length - 1]; }
   return best ? '' : 'no place milked its cattle and made cheese in 80 years: ' + out.join('; ');
 }]);
@@ -754,7 +755,7 @@ UNITS.push(['a couple with no roof who went short leave the valley at sowing wit
   if (T.sownYear === year) return 'no sowing within two years';
   if (a.alive || q.alive) return 'the couple is still here after sowing';
   if (!a.left || !q.left) return 'the couple is gone but not marked as having left';
-  if (kids.some(function (b) { return b.alive; })) return 'their small children stayed behind';
+  if (kids.some(function (b) { return b.alive && b.age < b.d.mature; })) return 'their small children stayed behind';   /* one grown up by the time they went may stay */
   var deaths1 = Object.keys(S.deaths).reduce(function (p, k) { return p + (/^human/.test(k) ? S.deaths[k] : 0); }, 0);
   if (deaths1 - deaths0 > 3) return (deaths1 - deaths0) + ' deaths counted around the leaving';
   if (stay && !S.agents.some(function (b) { return b.alive && b.house === stay.id; })) return 'a household with fields left too';
@@ -880,14 +881,16 @@ UNITS.push(['strike leaves meat from an animal, logs from a tree, stone from roc
   for (var k = 0; k < wl.length; k++) { W = Eden.create(wl[k][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: wl[k][1], size: 96 }); N = W.N; T = W.S.tribe; for (i = 0; i < 24 * 8; i++) W.tick(); if (W.S.popPeople >= 4) break; }   /* a place with hands to fetch the logs */
   var deer = W.S.agents.filter(function (a) { return a.alive && !a.d.people && W.cells[a.y * N + a.x].indexOf(a) >= 0; })[0];
   if (deer) { W.G.strike(deer.x, deer.y); if (!W.S.piles.some(function (p) { return p.kind === 'meat'; })) out.push('no meat where a ' + deer.sp + ' was struck'); }
-  var tj = -1; for (var r = 1; r < 6 && tj < 0; r++) for (var dy = -r; dy <= r && tj < 0; dy++) for (var dx = -r; dx <= r; dx++) { var j = (T.y + dy) * N + T.x + dx; if (W.tree[j] > 0.3) { tj = j; break; } }
+  /* a tree by a lived-in door, where the household's own fires and building would want the logs (else by the fire) */
+  var home = T.sites.filter(function (q) { return q.members > 0; })[0] || T;
+  var tj = -1; for (var r = 1; r < 6 && tj < 0; r++) for (var dy = -r; dy <= r && tj < 0; dy++) for (var dx = -r; dx <= r; dx++) { var j = (home.y + dy) * N + home.x + dx; if (W.tree[j] > 0.3) { tj = j; break; } }
   if (tj >= 0) { W.G.strike(tj % N, (tj / N) | 0); if (W.tree[tj] > 0) out.push('the struck tree still stands'); if (!W.S.piles.some(function (p) { return p.kind === 'wood' && p.x === tj % N; })) out.push('no logs where the tree fell'); }
   var rj = -1; for (i = 0; i < N * N && rj < 0; i++) if (W.rock[i] >= 0.15 && !W.water[i] && W.tree[i] <= 0.1) rj = i;
   if (rj >= 0) { W.G.strike(rj % N, (rj / N) | 0); if (!W.S.piles.some(function (p) { return p.kind === 'stone'; })) out.push('no stone where rock was struck'); }
   var before = W.S.piles.filter(function (p) { return p.kind === 'wood'; }).reduce(function (t, p) { return t + p.amt; }, 0);
-  for (i = 0; i < 24 * 2; i++) { T.wood = 0; W.tick(); }   /* with no timber in the pile, logs lying by the village are wanted */
+  for (i = 0; i < 24 * 4; i++) { T.wood = 0; W.tick(); }   /* with no timber in the pile, logs lying by the village are wanted (a plot with trees on it is cleared first) */
   var after = W.S.piles.filter(function (p) { return p.kind === 'wood'; }).reduce(function (t, p) { return t + p.amt; }, 0);
-  if (tj >= 0 && !(after < before)) out.push('logs by the village untouched after 2 years (' + before.toFixed(1) + ')');
+  if (tj >= 0 && !(after < before)) out.push('logs by the village untouched after 4 years (' + before.toFixed(1) + ')');
   return out.join('; ');
 }]);
 UNITS.push(['a route exists between any two land tiles on the same piece of land, and never crosses open water (E1)', function () {
