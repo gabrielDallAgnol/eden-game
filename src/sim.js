@@ -1243,8 +1243,11 @@ function create(seed, opt) {
         if (cheb(a, home) > (herded ? 10 : 3) || S.night) stepTo(a, home.x, home.y, 2);   /* a herded herd has the pasture round the pen */
         if (S.night) { a.act = { k: 'sleep', x: a.x, y: a.y }; return; }
         /* a tame beast going thin by the camp is given hay from the stack, pen or no pen: the people will not watch it starve */
-        if (!herded && a.e < 0.5 && T.hay > 0 && cheb(a, home) <= 3) { const t = Math.min(T.hay, (0.85 - a.e) / 1.5); T.hay -= t; a.e += t * 1.5; }
-        if (a.e < 0.95) forage(a, d, dt, { x: home.x, y: home.y, r: herded ? 10 : 3 }, true); a.act = { k: 'graze', x: a.x, y: a.y }; return;
+        /* a beast going thin walks back to where it is fed, and there it is given hay from the stack, herder or none, pen or no pen: the people will not watch it starve */
+        if (a.e < 0.5 && cheb(a, home) > 2) stepTo(a, home.x, home.y, 2);
+        if (a.e < 0.5 && T.hay > 0 && cheb(a, home) <= 3) { const t = Math.min(T.hay, (0.85 - a.e) / 1.5); T.hay -= t; a.e += t * 1.5; }
+        /* a herded beast moves on over the pasture to where the grass is; one kept by the camp stays put */
+        if (a.e < 0.95) forage(a, d, dt, { x: home.x, y: home.y, r: herded ? 10 : 3 }, !herded); a.act = { k: 'graze', x: a.x, y: a.y }; return;
       }
     }
     // fear: whatever could eat it is fled from when close; from further off when it is plainly hunting and can be seen,
@@ -2337,6 +2340,15 @@ function create(seed, opt) {
       tell(d.say);
       break;
     }   // one thing at a time; an answer eases the want
+    /* the autumn slaughter: a kept herd is only as big as its pasture round the pen and the hay put by can carry through
+       the winter; the rest, the oldest first, go to the store as meat */
+    { const kept = S.agents.filter(b => b.alive && b.tame && !b.d.people && b.d.eats.grass); if (kept.length) {
+        const home = standing('pen') || T, r = 10; let food = T.hay || 0;
+        for (let y = Math.max(0, home.y - r); y <= Math.min(N - 1, home.y + r); y++) for (let x = Math.max(0, home.x - r); x <= Math.min(N - 1, home.x + r); x++) { const j = I(x, y); if (!water[j] && !field[j]) food += grass[j]; }
+        let need = 0; for (const b of kept) need += bodyOf(b) * b.d.metab;
+        if (need > food / CROWD) { kept.sort((p, q) => q.age - p.age); let cut = 0;
+          for (const b of kept) { if (need <= food / CROWD) break; need -= bodyOf(b) * b.d.metab; addFood(T, 'store', 'meat', bodyOf(b) * 0.9); die(b, 'slaughtered'); cut++; }
+          S.stat.slaughtered = (S.stat.slaughtered || 0) + cut; } } }
     /* every day of the year each household walks between its door and the fire; where that walk goes far round the water,
        the want of a way over is felt at the narrow place that would cut it short */
     for (const q of T.sites) { if (!live(q) || !isHome(q) || q.upon) continue; const k = S.agents.filter(b => b.alive && b.d.people && b.house === q.id).length; if (!k) continue;
