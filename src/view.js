@@ -19,8 +19,10 @@ try {
   }
 } catch (e) { /* no storage */ }
 let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { console.warn('the saved valley could not be loaded; starting a new one', e); } }
+/* a turn of the seasons takes up to this many times as long as a year of a life (midsummer); winter keeps its old length */
+const yearQ = clamp(+(qs.get('yearK') || 3), 1, 8);
 const sizeQ = clamp(+(qs.get('size') || 96), 24, 160);   /* the map, in tiles a side */
-const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ }), N = W.N, S = W.S, A = EdenArt.build();
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -514,8 +516,8 @@ const huts = [];
 function syncHuts() {
   const sites = campOn ? T0.sites : [];
   for (let k = 0; k < sites.length; k++) {
-    const st = sites[k], n = W.DWELL[st.kind].stages, tp = 0.05 + 0.95 * Math.min(1, st.stage / n); let h = huts[k];
-    if (!h || h.die || h.id !== st.id) h = huts[k] = { k, id: st.id, x: st.x + 0.5, y: st.y + 0.5, p: S.tickNo < 3 ? tp : 0, born: now, die: 0, kind: st.kind };
+    const st = sites[k], n = W.DWELL[st.kind].stages, tp = 0.05 + 0.95 * Math.min(1, (st.stage + (st.part || 0)) / n); let h = huts[k];
+    if (!h || h.die || h.id !== st.id) h = huts[k] = { k, id: st.id, x: st.x + 0.5, y: st.y + 0.5, p: tp, born: now, die: 0, kind: st.kind };
     if (h.kind !== st.kind || tp < h.p - 0.02) {
       if (!st.was && tp < h.p - 0.02) burst(h.x, h.y, 'debris', 16);
       h.p = Math.min(h.p, tp);
@@ -1023,10 +1025,10 @@ function takeEvents(instant) {
 function onTick() {
   syncCrossings();
   /* the year and the season, from how high the sun stands */
-  { const el = document.getElementById('when'); if (el) { const ph = (((S.t - 0.08) % 1) + 1) % 1; el.textContent = 'Year ' + Math.floor(S.t) + ' \u00b7 ' + (ph < 0.125 || ph >= 0.875 ? 'winter' : ph < 0.375 ? 'spring' : ph < 0.625 ? 'summer' : 'autumn'); } }
+  { const el = document.getElementById('when'); if (el) { const ph = (((S.cal - 0.08) % 1) + 1) % 1; el.textContent = 'Year ' + Math.floor(S.cal) + ' \u00b7 ' + (ph < 0.125 || ph >= 0.875 ? 'winter' : ph < 0.375 ? 'spring' : ph < 0.625 ? 'summer' : 'autumn'); } }
   /* newcomers to an emptied valley may camp somewhere else: the fixed places of the camp follow the fire */
   if (camp.x !== T0.x + 0.5 || camp.y !== T0.y + 0.5) { camp.x = T0.x + 0.5; camp.y = T0.y + 0.5; fire.x = camp.x + 0.55; fire.y = camp.y + 0.15; store.x = camp.x - 0.45; store.y = camp.y + 0.35; }
-  if (S.tickNo % W.TPY === 0 && !window.EDEN_NOSAVE) { try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }   /* autosave once a game year */
+  if ((W.YK === 1 ? S.tickNo % W.TPY === 0 : S.newYear) && !window.EDEN_NOSAVE) { try { localStorage.setItem('eden.save', W.save()); } catch (e) { /* storage full or off: play on unsaved */ } }   /* autosave once a game year */
   takeEvents(false); syncHuts();
   /* the dead are shown falling for a while on screen; when steps run faster than the screen (a long jump, a slow device) they are let go after a few steps all the same */
   for (const [id, r] of actors) if (r.dead) { if (r.dead.tick === undefined) r.dead.tick = S.tickNo; else if (S.tickNo - r.dead.tick > 3) actors.delete(id); }
@@ -1328,7 +1330,9 @@ function frame(t) {
     const h = huts[k]; if (!h) continue; const wx = isoX(h.x, h.y), wy = isoY(h.x, h.y) + 20;
     let al = 1; if (h.die) { al = 1 - (now - h.die) / 2500; if (al <= 0) { huts[k] = null; continue; } }
     const working = workingOn.has(h.k);
-    if (h.p < h.target && dts > 0) h.p = Math.min(h.target, h.p + dts * (working ? 1 / 10 : 1 / 45));
+    if (working) h.workedAt = now;
+    /* it rises only under someone's hands: while a builder is at it, and for a few moments after they put down their tools */
+    if (h.p < h.target && dts > 0 && (working || now - (h.workedAt || -1e9) < 6000)) h.p = Math.min(h.target, h.p + dts * (working ? 1 / 10 : 1 / 30));
     const snowy = W.snow[(h.y | 0) * N + (h.x | 0)] > 0.08;
     /* a house turns its door toward the fire and the way its people walk: the drawing has the door on its left, so a house
        with the fire off to its right on screen is drawn mirrored (straight below the fire, half each way) */
@@ -1875,7 +1879,7 @@ bS2.onclick = () => {
     const felt = Object.keys(T0.need).filter(k => T0.need[k] > 0.15).sort((p, q) => T0.need[q] - T0.need[p]);
     const bar = v => '<span style="display:inline-block;height:6px;width:' + Math.round(Math.min(1, v / 3) * 70 + 4) + 'px;background:#b8453a;border-radius:2px;vertical-align:middle"></span>';
     const near = ideas.filter(q => q.can).sort((p, q) => (T0.need[q.need] / q.at) - (T0.need[p.need] / p.at)).slice(0, 4);
-    el.innerHTML = '<b>' + names[T0.level] + ' of ' + S.popPeople + '</b>, year ' + Math.floor(S.t) + '<br>' + T0.huts + ' roofs' + (T0.wall ? (T0.wall.done
+    el.innerHTML = '<b>' + names[T0.level] + ' of ' + S.popPeople + '</b>, year ' + Math.floor(S.cal) + '<br>' + T0.huts + ' roofs' + (T0.wall ? (T0.wall.done
         ? ', fenced' : ', fence going up') : '') + (T0.carts ? ', ' + T0.carts + ' cart' + (T0.carts > 1 ? 's' : '') : '')
       + '<p><b>What weighs on them</b><br>' + (felt.length ? felt.map(k => bar(T0.need[k]) + ' ' + WANT[k]).join('<br>') : 'nothing much: a good season') + '</p>'
       + (() => { const f = T0.foodLast || {}, src = [['grain', 'the fields, grain'], ['veg', 'the fields, greens'], ['fruit', 'gathered'], ['fish', 'fished'], ['meat', 'hunted']], tot = src.reduce((p, [k]) => p + (f[k] || 0), 0); if (!tot) return '';

@@ -13,7 +13,7 @@ var CONFIG = {
   years: 40,                                   // simulated years per world
   seeds: [1, 2, 3],
   lands: ['valley', 'forest', 'plains'],       // any of: valley, plains, forest, lakeland, highland
-  worldOptions: { resettle: true, startT: 0.3, dayCycle: 4, family: true },   // as the game creates its world; `land` is added per world
+  worldOptions: { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3 },   // as the game creates its world; `land` is added per world
   extraWorlds: [{ land: 'lakeland', seed: 1, years: 100 }, { land: 'valley', seed: 1, years: 30, size: 96 }, { land: 'highland', seed: 2, years: 20, size: 128 }],   // longer runs with their own length, after the grid above (?extra=0 drops them)
   determinism: true,                           // run every world a second time and compare the end state
   mustSurviveOn: ['valley', 'forest'],         // lands where people must not be gone for good
@@ -968,3 +968,35 @@ window.EdenTestsRun = start;
 function boot() { var btn = $('run'); if (btn) btn.addEventListener('click', start); start(); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
+UNITS.push(['two clocks: with yearK 3 a tick is the same stretch of a life, the warm months last longer and the winter keeps its length', function () {
+  var A = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley' }), B = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley', yearK: 3 }), i;
+  var a0 = A.S.t, b0 = B.S.t; for (i = 0; i < 24; i++) { A.tick(); B.tick(); }
+  if (Math.abs((A.S.t - a0) - (B.S.t - b0)) > 1e-9) return 'a life-year is not the same number of ticks';
+  /* one whole turn of the seasons, counted in ticks, and how many of them were frosty or warm */
+  function turn(W) { var y = Math.floor(W.S.cal) + 1, n = 0, cold = 0, warm = 0; while (Math.floor(W.S.cal) < y) W.tick(); while (Math.floor(W.S.cal) < y + 1) { W.tick(); n++; if (W.S.air < 0) cold++; if (W.S.air > 12) warm++; } return { n: n, cold: cold, warm: warm }; }
+  var ta = turn(A), tb = turn(B);
+  if (ta.n !== 24) return 'a plain year took ' + ta.n + ' ticks, not 24';
+  if (tb.n < 40 || tb.n > 56) return 'a year with yearK 3 took ' + tb.n + ' ticks (expected about 48)';
+  if (tb.warm < 2.2 * ta.warm) return 'the warm months did not stretch: ' + tb.warm + ' warm ticks against ' + ta.warm;
+  if (tb.cold > 1.5 * ta.cold + 1) return 'the winter stretched: ' + tb.cold + ' frosty ticks against ' + ta.cold;
+  return '';
+}]);
+UNITS.push(['a building rises only under a builder standing at its plot, stage by stage over several steps', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'plains', size: 96, yearK: 3 }), S = W.S, T = S.tribe, i, prev = new Map(), rose = 0, bad = '', steps = new Map();
+  for (i = 0; i < 24 * 25 && !bad; i++) {
+    W.tick();
+    var at = new Map(); S.agents.forEach(function (b) { if (b.alive && b.act && b.act.k === 'build' && b.act.site) { if (!at.has(b.act.site)) at.set(b.act.site, []); at.get(b.act.site).push(b); } });
+    T.sites.forEach(function (s) { var p = prev.get(s.id), now = s.stage + (s.part || 0);
+      if (p !== undefined && s.kind === p.kind && now > p.v + 1e-9) { rose++; var who = at.get(s.id) || [];
+        if (!who.length) bad = s.kind + ' ' + s.id + ' rose at tick ' + i + ' with nobody building it';
+        else if (!who.some(function (b) { return Math.max(Math.abs(b.x - s.x), Math.abs(b.y - s.y)) <= 1; })) bad = 'the builder of ' + s.kind + ' ' + s.id + ' is not at its plot';
+        if (s.stage > p.stage) steps.set(s.id, (steps.get(s.id) || 0) + 1); }
+      prev.set(s.id, { v: now, kind: s.kind, stage: s.stage }); });
+  }
+  if (bad) return bad;
+  if (rose < 10) return 'only ' + rose + ' steps of building seen in 25 years';
+  /* a stage is put up over more than one step: there were more steps of rising than stages completed */
+  var stages = 0; steps.forEach(function (v) { stages += v; });
+  if (rose <= stages * 1.5) return rose + ' steps of building for ' + stages + ' stages: stages go up in one go';
+  return '';
+}]);

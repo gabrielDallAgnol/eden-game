@@ -51,6 +51,14 @@ function create(seed, opt) {
   opt = opt || {};
   const SP = opt.species || SPECIES, HUMAN = Object.values(SP).find(d => d.people) || SPECIES.human;
   const N = opt.size || 40, TPY = 24;
+  /* Two clocks (owner's choice, 2026-11-25): a tick is the same stretch of a life as ever (TPY ticks make a year of growing up,
+     eating, working), but the sun goes round more slowly: one turn of the seasons takes YK times as many ticks. CAL is the
+     ticks in one turn of the seasons at its slowest. S.t counts life-years; S.cal counts turns of the seasons (the year shown).
+     The warm months are drawn out most: at midsummer the sun moves YK times slower than before, in deep winter WK times
+     (opt.winterK, default 1: a winter as long as it always was). In between it goes by the height of the sun. */
+  const YK = Math.max(1, opt.yearK || 1), WK = Math.max(1, Math.min(YK, opt.winterK || 1)), CAL = TPY * YK;
+  const stretchAt = ph => WK + (YK - WK) * (0.5 - 0.5 * Math.cos(2 * Math.PI * (ph - 0.08)));
+  const QUARTER = c => Math.floor(((c % 1) + 1) % 1 * 4);
   let rs = (seed || 1) | 0;
   const rnd = () => { rs = (Math.imul(rs, 1103515245) + 12345) & 0x7fffffff; return rs / 0x7fffffff; };
   const R = (a, b) => a + rnd() * (b - a), clamp = (v, a, b) => v < a ? a : v > b ? b : v, I = (x, y) => y * N + x;
@@ -411,7 +419,7 @@ function create(seed, opt) {
     for (const k in TECHS) T.skills[k] = false;
     return T;
   }
-  const S = { t: opt.startT || 0, agents: [], pop: {}, tribe: newSettlement(0, 0), log: [], deaths: {}, nextId: 1,
+  const S = { t: opt.startT || 0, cal: opt.startT || 0, agents: [], pop: {}, tribe: newSettlement(0, 0), log: [], deaths: {}, nextId: 1,
     rainY: 1,
     warmOff: LAND.warm,
     river: 1,
@@ -434,8 +442,8 @@ function create(seed, opt) {
 
   // ---------------------------------------------------------------- physics
   // The only thing given from outside: the height of the sun through the year.
-  const sunHeight = () => 0.5 - 0.5 * Math.cos(2 * Math.PI * ((S.t % 1) - 0.08));
-  const daysLengthen = () => Math.sin(2 * Math.PI * ((S.t % 1) - 0.08)) > 0;
+  const sunHeight = () => 0.5 - 0.5 * Math.cos(2 * Math.PI * ((S.cal % 1) - 0.08));
+  const daysLengthen = () => Math.sin(2 * Math.PI * ((S.cal % 1) - 0.08)) > 0;
   const airNow = () => -6 + 26 * sunHeight() + S.warmOff;
   // Temperature of one piece of ground: the air, plus any warmth lying on it, softened under trees, cooled by snow.
   function tempAt(i) {
@@ -738,7 +746,7 @@ function create(seed, opt) {
   function society(dt) {
     const T = S.tribe, P = folk(); if (!P.length) return;
     togetherness(P, dt);
-    if (S.tickNo % (TPY / 4) === 0) prices();
+    if (YK === 1 ? S.tickNo % (TPY / 4) === 0 : S.newQuarter) prices();
     if (!DAY || S.tickNo % DAY === DAY - 2) barter(P);
     const evening = !DAY || S.tickNo % DAY === DAY - 2;
     T.kidsHungry = P.some(b => b.age < GROWN && b.e < 0.7);
@@ -1440,6 +1448,8 @@ function create(seed, opt) {
     if (able && a.e > 0.5 && CRAFT_AT[a.job] && !a.trip) { const q = standing(CRAFT_AT[a.job]); if (q && startHaul(a, 'craft', I(q.x, q.y), doorOf(a))) { practise(a, 'build'); return; } }
     /* a farmer who knows irrigation and has the well to draw on digs the ditch on a tile further toward the household's dry fields */
     if (able && a.e > 0.6 && (a.job === 'farmer' || !a.job) && T.skills.irrigation && !a.trip && rnd() < 0.4) { const j = ditchNext(a); if (j >= 0 && startHaul(a, 'dig', j, doorOf(a))) return; }
+    /* a builder who has begun putting up a stage goes back to it the next step, until it stands */
+    if (a.buildOn) { const q = T.sites.find(q => q.id === a.buildOn); if (able && a.e > 0.6 && !a.trip && q && !raised(q) && construct(a)) { practise(a, 'build'); return; } if (!q || raised(q)) a.buildOn = 0; }
     if (able && a.e > 0.6 && rnd() < 1 - Math.pow(1 - pBuild, away) && construct(a)) { practise(a, 'build'); return; }   /* building, felling and hauling take the day */
     // a guard keeps to the camp and its edges, fed from the store, and goes for whatever comes hunting
     if (a.job === 'guard' && a.e > 0.4) {
@@ -1813,6 +1823,13 @@ function create(seed, opt) {
     if (kind === 'wood') T.wood += got; else T.stone += got;
     a.act = { k: 'fetch', x: lp.p.x, y: lp.p.y, item: kind === 'wood' ? 'log' : 'stone' }; walk(x, y, lp.p.x, lp.p.y, 0.05); a.tripD = lp.d; return true;
   }
+  const STAGE_WORK = 1;   /* steps of one middling builder's work to put up a stage that needs nothing carried (planned on purpose) */
+  /* a builder at work stands on the ground beside the plot, on the side nearest where they came from */
+  function atPlot(a, s) {
+    let bx = s.x, by = s.y, bd = 1e9;
+    for (const [dx, dy] of [[1, 1], [1, 0], [0, 1], [-1, 1], [1, -1], [-1, 0], [0, -1], [-1, -1]]) { const x = s.x + dx, y = s.y + dy; if (x < 0 || y < 0 || x >= N || y >= N || water[I(x, y)]) continue; const d = Math.abs(x - a.x) + Math.abs(y - a.y); if (d < bd) { bd = d; bx = x; by = y; } }
+    if (bx !== a.x || by !== a.y) { walk(a.x, a.y, bx, by, 0.05); a.x = bx; a.y = by; }
+  }
   function construct(a) {
     const T = S.tribe, s = plotFor(a); if (!s) return false;
     if (s === T.bridge) {                                             // timber carried to the ford and laid across it, a few planks at a time
@@ -1877,7 +1894,14 @@ function create(seed, opt) {
       s.qtrips = (s.qtrips || 0) + 1;
       if (startHaul(a, 'stone', bj, { x: s.x, y: s.y })) return true; s.haulFail = today; return false;
     }
-    s.stage++; a.act = { k: 'build', site: s.id, stage: s.stage }; sound(s.x, s.y, 3, 'work');
+    /* the materials are on the plot: now hands have to put them up. A stage takes work on the spot (STAGE_WORK steps for a
+       middling builder, more for a stage with more in it); the builder stands at the plot while doing it, and nothing rises
+       while nobody is there. The first stage is the footing: the ground levelled and the sill or stones laid */
+    { const need = STAGE_WORK * (1 + 0.25 * ((K.stages[s.stage] || {}).wood || 0) + 0.35 * ((K.stages[s.stage] || {}).stone || 0)), hand = (0.6 + 0.8 * a.skill.build) * (hasTool(a) ? 1.3 : 1);
+      atPlot(a, s); s.work = (s.work || 0) + hand;
+      if (s.work < need) { s.part = Math.min(0.99, s.work / need); a.act = { k: 'build', site: s.id, stage: s.stage, part: s.part }; a.buildOn = s.id; sound(s.x, s.y, 3, 'work'); return true; }
+      s.work = 0; s.part = 0; a.buildOn = 0; }
+    s.stage++; a.act = { k: 'build', site: s.id, stage: s.stage, part: 0 }; sound(s.x, s.y, 3, 'work');
     /* H3: building someone else's house is paid work: the household it is for gives the builder's household half a ration a stage,
        in coin if there is coin, out of what it has to spare */
     { const mine = homeSite(a), forWho = s.forId && S.byId.get(s.forId), fh = forWho && forWho.alive && homeSite(forWho);
@@ -2189,8 +2213,9 @@ function create(seed, opt) {
   function farm(dt) {
     const T = S.tribe, pop = S.popPeople; if (!T.skills.farm || !pop) return;
     const ct = tempAt(I(T.x, T.y));
-    if (!T.sown && ct > 4 && ct > T.lastCampT && daysLengthen() && T.sownYear !== Math.floor(S.t)) {   /* sown once a year, in spring as the days lengthen: one crop a year, not a second cut down by frost */
-      T.sownYear = Math.floor(S.t);
+    if (!T.sown && ct > 4 && ((ct > T.lastCampT && daysLengthen() && T.sownYear !== Math.floor(S.cal)) || (YK > 1 && T.againYear === Math.floor(S.cal)))) {   /* in spring; again in a long summer once a crop is in */
+      T.againYear = -1;   /* sown once a year, in spring as the days lengthen: one crop a year, not a second cut down by frost */
+      T.sownYear = Math.floor(S.cal);
       const P = folk(), homes = T.sites.filter(q => live(q) && q.members > 0), ids = new Set(homes.map(q => q.id)), leaving = []; let total = 0;
       for (let i = 0; i < N * N; i++) if (field[i] && !ids.has(owner[i])) { field[i] = 0; owner[i] = 0; }      // nobody's any more: it goes back to grass
       for (const h of homes) {
@@ -2265,12 +2290,14 @@ function create(seed, opt) {
         /* each household's harvest is seen coming in from its fields, and the year's is told */
         for (const [id, hv] of harvested) S.fx.push({ kind: 'harvest', id, x: hv.x / hv.n, y: hv.y / hv.n, grain: hv.grain, veg: hv.veg });
         if (nf) tell('Harvest: ' + Math.round(gotK.grain) + ' grain and ' + Math.round(gotK.veg) + ' greens from ' + nf + ' sown tiles' + (frost && !ripe ? ', cut short by frost' : '') + '.');
-        T.harvestLog = (T.harvestLog || []).concat([[Math.floor(S.t), Math.round(gotK.grain), Math.round(gotK.veg), nf]]).slice(-50);
+        T.harvestLog = (T.harvestLog || []).concat([[Math.floor(S.cal), Math.round(gotK.grain), Math.round(gotK.veg), nf]]).slice(-50);
         if (nf && dry / nf > 0.3) T.need.water += 1.5;
-        T.lastHarvest = got; T.got.farm += got; T.eff.farm += Math.max(4, P.filter(b => b.job === 'farmer').length * TPY * 0.5); T.sown = false; T.resting = true;
+        T.lastHarvest = got; T.got.farm += got; T.eff.farm += Math.max(4, P.filter(b => b.job === 'farmer').length * TPY * 0.5); T.sown = false; T.resting = true; T.lastHarvestRipe = ripe;
       }
     }
-    if (T.resting) { T.sown = true; T.cropWarm = -1e9; if (ct < 2) { T.resting = false; T.sown = false; } }   // nothing is sown again until the cold has passed
+    if (T.resting) { T.sown = true; T.cropWarm = -1e9; if (ct < 2) { T.resting = false; T.sown = false; }
+      /* a long summer (yearK above 1): reaped while the sun still stands high and the ground is warm, the fields are sown again */
+      else if (YK > 1 && T.lastHarvestRipe && sunHeight() > 0.62 && ct > 8) { T.resting = false; T.sown = false; T.againYear = Math.floor(S.cal); } }   // nothing is sown again until the cold has passed
     T.lastCampT = ct;
   }
 
@@ -2285,7 +2312,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- one step of time
   function tick() {
     heardNow = din; din = []; S.din = heardNow;
-    const dt = 1 / TPY; trails.clear(); S.t += dt; S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
+    const dt = 1 / TPY; trails.clear(); S.t += dt; { const q0 = QUARTER(S.cal), y0 = Math.floor(S.cal); S.cal += 1 / (TPY * stretchAt(S.cal % 1)); S.newQuarter = QUARTER(S.cal) !== q0; S.newYear = Math.floor(S.cal) !== y0; } S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
     for (let k = S.piles.length - 1; k >= 0; k--) { const p = S.piles[k], i = I(p.x, p.y); if (p.kind === 'meat') p.amt *= 1 - Math.min(1, 2.5 * dt); if (p.kind === 'wood' && burn[i] > 0) p.amt = 0; if (p.amt <= 0.05 || water[i]) S.piles.splice(k, 1); }   /* meat rots in a few months; logs burn */
     for (const q of S.homes.values()) q.n = 0;
     for (const L of cells) L.length = 0; S.pop = {}; for (const sp in SP) S.pop[sp] = 0; S.popPeople = 0;
@@ -2294,7 +2321,7 @@ function create(seed, opt) {
     for (const q of S.homes.values()) { if (q.n) q.emptyT = 0; else if ((q.emptyT += dt) > 2 || flood[I(q.x, q.y)]) S.homes.delete(q.id); }
     const T = S.tribe, born = [], campI = I(T.x, T.y), lengthening = daysLengthen(), sunH = sunHeight();
     /* the common store at this time last year: people see whether the granary is fuller or emptier than a year ago */
-    const slotY = S.tickNo % TPY; if (!T.storeRing) T.storeRing = []; const storeYearAgo = T.storeRing[slotY]; T.storeRing[slotY] = T.store; T.storeFalling = T.store < storeYearAgo;
+    const slotY = YK === 1 ? S.tickNo % TPY : Math.floor((S.cal % 1) * TPY); if (!T.storeRing) T.storeRing = []; const storeYearAgo = T.storeRing[slotY]; T.storeRing[slotY] = T.store; T.storeFalling = T.store < storeYearAgo;
     /* less than about a year's food for everyone in the store, and less than a year ago: it has to be rationed */
     T.storeShort = !!T.skills.farm && T.storeFalling && T.store < 2.2 * S.popPeople;   /* only a granary that must last until the next harvest is rationed, not a camp's day of gathering */
     /* a full store is plenty to raise a child on only while it is not running down: a store eaten into year on year is not counted on */
@@ -2602,7 +2629,7 @@ function create(seed, opt) {
     for (const k in FIELDS) if (o.fields[k]) FIELDS[k].set(o.fields[k]); findMasses();   /* ponds dug since the world began are part of the water now */
     rs = o.rs; din = o.din; heardNow = o.heardNow;
     for (const k of Object.keys(S)) delete S[k];
-    Object.assign(S, o.S); S.din = heardNow;
+    Object.assign(S, o.S); S.din = heardNow; if (S.cal === undefined) S.cal = S.t;
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
       if (!S.piles) S.piles = []; if (!S.stumps) S.stumps = [];
@@ -2616,6 +2643,8 @@ function create(seed, opt) {
   return { S,
     N,
     TPY,
+    CAL,
+    YK,
     tick,
     G,
     newSettlement,
