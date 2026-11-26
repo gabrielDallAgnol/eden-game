@@ -285,8 +285,9 @@ WorldRun.prototype.yearly = function () {
 
   this.guard('bank', function (c) {
     if (!W.mass || !W.fords || !L || !T) return c.skip('W.mass is missing');
-    var home = W.mass[T.y * N + T.x], ok = {}; ok[home] = 1; W.fords().forEach(function (f) { if (T.bridged[f.key]) { if (f.ma === home) ok[f.mb] = 1; if (f.mb === home) ok[f.ma] = 1; } });
-    var bad = 0, ex = ''; L.list.forEach(function (a) { if (a.d && a.d.people && !ok[W.mass[a.y * N + a.x]]) { bad++; if (!ex) ex = who(a) + ' at ' + a.x + ',' + a.y; } });
+    var home = W.mass[T.y * N + T.x], ok = {}, deck = {}; ok[home] = 1; W.fords().forEach(function (f) { if (T.bridged[f.key]) { if (f.ma === home) ok[f.mb] = 1; if (f.mb === home) ok[f.ma] = 1; if (ok[f.ma] || ok[f.mb]) f.tiles.forEach(function (t) { deck[t] = 1; }); } });
+    /* standing on a bridge that joins the camp's ground is not being cut off */
+    var bad = 0, ex = ''; L.list.forEach(function (a) { if (a.d && a.d.people && !ok[W.mass[a.y * N + a.x]] && !deck[a.y * N + a.x]) { bad++; if (!ex) ex = who(a) + ' at ' + a.x + ',' + a.y; } });
     if (bad) c.fail(at + bad + ' people across water with no bridge, e.g. ' + ex); else c.ok();
   });
   this.guard('fieldBank', function (c) {

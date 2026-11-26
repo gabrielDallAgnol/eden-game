@@ -1479,3 +1479,27 @@ What changed (owner's report: a house built across the river, everyone walking r
 | highland | 1 | 30 | 136 | 74 | 206 | 8 | 7 | 332 | 0 | 19 | 1/10/0 | 4 | 28.2 | 20.6 | 18.2 | 13 | 1.5 | 438 | 101 | 26.9 | 3.6 | 0 (4) | 74/0/0/0/24 | 73 | 13.4 | 17 | 0 | 0 | 30371 |
 | highland | 2 | 26 | 117 | 148 | 198 | 20 | 4 | 364 | 0 | 18 | 0/27/5 | 3.5 | 19.7 | 12.5 | 12.4 | 14 | 1.2 | 205 | 101 | 16.5 | 3.7 | 0 (2) | 77/1/0/1/17 | 39 | 13 | 13 | 1 | 0 | 26329 |
 | mean |  | 23.2 | 101.5 | 642.1 | 735.7 | 148.9 | 6.6 | 342.8 | 0 | 17.3 |  | 3.3 | 21.3 | 23.9 | 9.9 | 43.8 | 1.3 | 16912.8 | 264.6 | 38.6 | 5.3 |  |  | 78.2 | 10.4 | 47.5 | 3.5 | 0 | 82559.8 |
+
+
+## Rabbits that do not boom and starve; snares; kept herds that live (2026-11-26)
+
+What changed (owner's report: rabbits eat everything and then disappear; should people not hunt them?):
+- **Cause.** A rabbit doe bred whenever her own belly was full, so in a good summer they multiplied far past what the grass could carry and then starved by the thousand in winter (plains 1: 40 -> 1128 in the first life-year; 15,000 rabbits starved in 40 years against 142 taken by people). The long summer made it worse: litters ran on the life clock, so one summer was three breeding seasons.
+- **Fix.** A wild beast's time between litters runs on the season clock. A grazing mother bears young only where the grass on her ground (3 tiles for a rabbit, 8 for a deer, 10 for cattle) is at least the grazing need of the mouths already there plus her litter.
+- **Snares.** Each morning a household with someone from eight years up takes small game within 12 tiles of its door, one beast in twenty a day. Plains 1: 594 rabbits snared over 40 years. Snared game is not counted as hunters' pay (counting it drew people into hunting).
+- **Kept herds.** While checking cattle: a calf brought home grazed out its patch 8 tiles from the pen and starved beside 150 hay, because only a herder fed it, and only within 6 tiles of the pen. Now a thin beast walks back to the pen and is given hay there, herder or none, and a herded beast moves over the pasture. Each year the herd is cut, oldest first, to what the pasture and hay can carry; the slaughtered go to the store as meat. Plains 2 and valley 1: herds of 30 to 70, milk every year (before: 0 milked by year 80).
+- **Checked.** Rabbits in plains 1 and valley 1 now swing under 2.5 times over in a typical year (3.8 before); rabbit starvation over 40 years 15,000 -> 1,500, old age now the main death. Over 12 worlds at year 60, snaring on vs off: 187 vs 182 people, larger in 8 of 12. New unit for rabbits (fails on the old code). H2, H4 and the cattle check try more worlds; the bank check counts a person standing on a bridge as reachable.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 36 | 171 | 646 | 737 | 88 | 10 | 487 | 0 | 19 | 9/32/4 | 5.4 | 21.8 | 22.5 | 11.3 | 135 | 1.8 | 3310 | 246 | 28.8 | 3 |  | 74/0/0/0/22 | 95 | 13.7 | 29 | 6 | 0 | 71198 |
+| valley | 2 | 30 | 118 | 1294 | 1298 | 308 | 13 | 217 | 0 | 19 | 5/4/0 | 3 | 27.7 | 29.8 | 7.1 | 84 | 1.2 | 26058 | 739 | 38.3 | 3.9 | 3.6666666666666665 (12) | 80/0/0/2/15 | 99 | 11.2 | 69 | 2 | 0 | 105474 |
+| plains | 1 | 22 | 35 | 46 | 99 | 5 | 8 | 209 | 0 | 12 | 0/194/5 | 2.9 | 10.6 | 11.8 | 10.4 | 2 | 1.5 | 0 | 14 | 13.5 | 6.7 |  | 74/0/0/0/23 | 54 | 10.4 | 9 | 0 | 0 | 19695 |
+| plains | 2 | 18 | 68 | 848 | 849 | 68 | 15 | 0 | 0 | 18 | 10/225/0 | 5.9 | 23.3 | 19.2 | 11 | 17 | 1 | 4458 | 73 | 24.2 | 4.3 |  | 68/0/0/0/30 | 87 | 14 | 21 | 2 | 0 | 53012 |
+| forest | 1 | 24 | 56 | 818 | 819 | 198 | 10 | 20 | 0 | 17 | 29/31/0 | 2.9 | 11.2 | 28.3 | 5.7 | 11 | 1.3 | 8053 | 311 | 44.8 | 6.4 |  | 80/0/0/3/15 | 74 | 7.2 | 49 | 1 | 0 | 56421 |
+| forest | 2 | 29 | 146 | 810 | 1447 | 354 | 6 | 937 | 0 | 18 | 1/5/4 | 3.1 | 14.1 | 30.4 | 6.4 | 134 | 1.3 | 22112 | 489 | 77.8 | 6.4 |  | 77/0/0/0/18 | 100 | 5.9 | 73 | 3 | 0 | 194791 |
+| lakeland | 1 | 22 | 106 | 963 | 1217 | 246 | 7 | 540 | 0 | 17 | 6/2/0 | 3 | 27.4 | 29.9 | 8.3 | 116 | 1.6 | 26390 | 423 | 56.4 | 7 | 0 (4) | 78/0/0/0/18 | 99 | 13.6 | 85 | 13 | 0 | 119271 |
+| lakeland | 2 | 35 | 184 | 1355 | 1619 | 327 | 22 | 963 | 0 | 18 | 5/0/0 | 3 | 28.4 | 31.6 | 8.4 | 110 | 1.3 | 232902 | 484 | 66.1 | 8.6 | 1 (1) | 83/0/0/0/14 | 100 | 13.8 | 96 | 5 | 0 | 341321 |
+| highland | 1 | 28 | 71 | 103 | 127 | 7 | 4 | 245 | 0 | 17 | 0/31/7 | 4.2 | 21.6 | 14.4 | 19.3 | 3 | 1.5 | 53 | 57 | 16.9 | 4.3 | 0 (2) | 72/0/0/2/21 | 72 | 13.7 | 9 | 1 | 0 | 18456 |
+| highland | 2 | 34 | 172 | 238 | 238 | 23 | 2 | 405 | 0 | 18 | 0/76/6 | 3.7 | 20.6 | 14 | 12.8 | 21 |  | 263 | 113 | 15.8 | 3.6 | 0 (4) | 80/1/0/0/16 | 41 | 14.1 | 17 | 1 | 0 | 29298 |
+| mean |  | 27.8 | 112.7 | 712.1 | 845 | 162.4 | 9.7 | 402.3 | 0 | 17.3 |  | 3.7 | 20.7 | 23.2 | 10.1 | 63.3 | 1.4 | 32359.9 | 294.9 | 38.3 | 5.4 |  |  | 82.1 | 11.8 | 45.7 | 3.4 | 0 | 100893.7 |
