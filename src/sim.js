@@ -42,7 +42,7 @@ const SKILLS = {
 
 // Things people may work out for themselves. Why and when is not written here: see IDEAS inside create(), where each is tied
 // to a want that has actually been felt and to the means lying at hand.
-const TECHS = { bridge: 1, pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, tools: 1, medicine: 1, masonry: 1, writing: 1, concrete: 1 };
+const TECHS = { midden: 1, bridge: 1, pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, tools: 1, medicine: 1, masonry: 1, writing: 1, concrete: 1 };
 const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt', smith: 'build', potter: 'build', wright: 'build', healer: 'gather', scribe: 'gather', elder: 'gather', dairymaid: 'gather' };
 /* F6: every trade is work in a place: on the land, at the water, on the building plots, or in a building (named by its kind) */
 const TRADE_JOBS = new Set(['smith', 'potter', 'wright', 'scribe', 'healer', 'builder', 'mason', 'herder']);
@@ -2381,12 +2381,13 @@ function create(seed, opt) {
     cheese:     { need: 'spoil',  at: 1.5, can: T => (T.milked || 0) > 20, say: 'Cheese. So much milk gone sour in the store. Pressed and salted, the curd keeps through the winter.' },
     rites:      { need: 'loss',   at: 1.2, can: T => T.skills.fire, say: 'So many buried. The people have begun to keep the dead: stones set up, a fire kept, the names said over.' },
     bridge:     { need: 'cross',  at: 1.2, can: T => T.skills.hut, say: 'Bridge. Too many days lost wading the ford, and the river too high to cross half the year. Logs can be laid across it.' },
+    midden:     { need: 'sick',   at: 2.0, can: T => T.huts > 0, say: 'Too many children buried after a fever. The people have begun to carry their waste away from the houses, to a pit downwind.' },
     concrete:   { need: 'flood',  at: 3.0, can: T => T.skills.masonry && T.skills.fire, say: 'Concrete. The river took the houses again. Burnt lime, sand and stone set like rock, and stay.' }
   };
   /* F7: what each idea works through. Knowing it changes nothing by itself: it is the building, the made thing or the work on
      the ground named here that does. The tests hold every idea to a row of BUILDINGS or to one of the works (WORKS) */
-  const WORKS = { hearth: 'a fire laid and fed at a hearth', fields: 'sown field tiles', ditches: 'ditch tiles dug from the well', bridge: 'a bridge laid across a ford' };
-  const IDEA_VIA = { fire: 'hearth', hut: 'hut', house: 'house', masonry: 'masonsyard', farm: 'fields', plough: 'workshop', pottery: 'kiln', granary: 'granary', well: 'well',
+  const WORKS = { midden: 'waste carried from every house to a pit away from the roofs', hearth: 'a fire laid and fed at a hearth', fields: 'sown field tiles', ditches: 'ditch tiles dug from the well', bridge: 'a bridge laid across a ford' };
+  const IDEA_VIA = { midden: 'midden', fire: 'hearth', hut: 'hut', house: 'house', masonry: 'masonsyard', farm: 'fields', plough: 'workshop', pottery: 'kiln', granary: 'granary', well: 'well',
     irrigation: 'ditches', palisade: 'fence', wheel: 'workshop', tools: 'smithy', medicine: 'healerhouse', writing: 'tallyhouse', bridge: 'bridge', concrete: 'limekiln', council: 'hall', rites: 'shrine', cheese: 'dairy' };
   // the ground settling, year by year, whether or not anyone lives there
   function settlePits() {
@@ -2761,7 +2762,8 @@ function create(seed, opt) {
     if (S.popPeople && !opt.noSick && (!DAY || S.tickNo % DAY === 0)) {
       const roofs = T.sites.filter(q => !q.gone && isHome(q)), wash = S.precip > 0 ? 0.55 : 0.75, at = new Map();
       { let n0 = 0; for (const a of folk()) if (!a.house) n0++; T.foul = (T.foul || 0) * wash + n0 * (1 - wash); }
-      for (const q of roofs) q.foul = (q.foul || 0) * wash + (q.members || 0) * (1 - wash);
+      const carried = T.skills.midden ? 0.6 : 1;   /* waste carried off to a pit: less of it lies about the house */
+      for (const q of roofs) q.foul = (q.foul || 0) * wash + (q.members || 0) * (1 - wash) * carried;
       const well = standing('well') ? 0.7 : 1, heal = healing() ? 0.85 : 1;   /* a healer's care alone helps a little; what the healer knows of herbs helps much more (cureFor) */
       /* SICK_WILD: what the wild gives everyone anywhere (bad water, parasites, a chill): the share of sickness that no spreading out escapes */
       const expo = (x, y) => { let e = SICK_WILD / well + (T.foul || 0) / (1 + ((x - T.x) * (x - T.x) + (y - T.y) * (y - T.y)) / 9); for (const u of roofs) { if (!(u.foul > 0.05)) continue; const dx = u.x - x, dy = u.y - y; if (dx > 9 || dx < -9 || dy > 9 || dy < -9) continue; e += u.foul / (1 + (dx * dx + dy * dy) / 9); } return e * well; };
