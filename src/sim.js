@@ -2970,6 +2970,8 @@ function create(seed, opt) {
       known: !!S.tribe.skills[k],
       can: !S.tribe.skills[k] && !BEYOND[k] && !!IDEAS[k].can(S.tribe) })).filter(q => !BEYOND[q.k]),
     ledger,
+    /* what a person wants most just now, read from their state (for the sign over their head): nothing is decided here */
+    wantOf: a => !a || !a.alive ? '' : a.mood === 'afraid' ? 'afraid' : a.e < 0.35 ? 'hungry' : a.mood === 'cold' ? 'cold' : a.mood === 'hot' ? 'hot' : a.grief > 0.3 ? 'grief' : '',
     describe,
     craftOf,
     households,

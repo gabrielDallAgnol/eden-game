@@ -1590,6 +1590,7 @@ function frame(t) {
       alpha: al < 1 ? al : undefined,
       sq,
       bub: now - r.bubT < 4200 && now >= r.bubT ? r.bub : '',
+      want: r.a.d.people && !r.a.held ? W.wantOf(r.a) : '',
       bx: wx,
       dead: pose === 'dead' }));
     if (babies.has(id)) {
@@ -1736,6 +1737,8 @@ function frame(t) {
   }
   // ---- thoughts, above everything; hidden when far away so the valley stays calm
   if (z / dpr > 0.42) { let shown = 0; for (const d of draws) if (d.bub && A.bubble[d.bub] && shown++ < 24) cx.drawImage(A.bubble[d.bub], Math.round(d.bx - 13), d.top - 30, 26, 28); }
+  /* what each person wants most, as a small sign over their head: it stays for as long as the want does */
+  if (z / dpr > 0.7) { let shown = 0; for (const d of draws) if (!d.bub && d.want && A.bubble[d.want] && shown++ < 80) cx.drawImage(A.bubble[d.want], Math.round(d.bx - 8), d.top - 19, 16, 17); }
   /* harvest: what each household brought in, rising from its fields and fading */
   for (let k = pops.length - 1; k >= 0; k--) { const p = pops[k], age = (now - p.t) / 3000; if (age > 1) { pops.splice(k, 1); continue; } if (age < 0) continue;
     const wx = isoX(p.x, p.y), wy = isoY(p.x, p.y) - 10 - age * 26; cx.globalAlpha = age < 0.75 ? 1 : (1 - age) * 4;
