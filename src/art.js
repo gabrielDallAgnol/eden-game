@@ -338,6 +338,7 @@ const sapling = ['..aa..', '.abaa.', 'aaaabc', '.aaac.', '..kl..', '..kl..'];
 const ICON = {
   cold: [['..w.w..', '.w.w.w.', 'w.www.w', '.wwwww.', 'w.www.w', '.w.w.w.', '..w.w..'], { w: '#4f9fd8' }],
   hot: [['...r...', '.r.r.r.', '..rrr..', 'rrryrrr', '..rrr..', '.r.r.r.', '...r...'], { r: '#e0602c', y: '#ffd95a' }],
+  ill: [['..ggg..', '.ggggg.', 'gkgggkg', 'ggggggg', 'gg...gg', '.ggggg.', '..ggg..'], { g: '#8fae4a', k: '#2f3a1c' }],
   hungry: [['.......', 'b.....b', 'b.....b', 'bb...bb', '.bbbbb.', '..bbb..', '.......'], { b: '#8a6a44' }],
   fed: [['.......', '.gg.gg.', 'ggggggg', 'ggggggg', '.ggggg.', '..ggg..', '...g...'], { g: '#5fae4c' }],
   afraid: [['..rrr..', '..rrr..', '..rrr..', '..rrr..', '...r...', '.......', '..rrr..'], { r: '#d8402f' }],

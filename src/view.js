@@ -334,6 +334,8 @@ function syncFlow() {
     const l = Math.hypot(vx, vy); if (l > 0.01) { flowX[i] = vx / l; flowY[i] = vy / l; } }
 }
 function drawFlow(cx, vis) {
+  if (slowMs > 40) return;   /* a device that cannot keep up does without the moving ground */
+  const far = cam.z / dpr < 0.9, GUST = ['rgba(240,250,180,.35)', 'rgba(240,250,180,.5)', 'rgba(240,250,180,.65)', 'rgba(240,250,180,.8)'];
   if (flowSeen !== waterSeen) { syncFlow(); flowSeen = waterSeen; }
   const z = cam.z, tq = Math.floor(now / 110) * 110, wet = S.precip > 0, road = T0.road;
   let x0 = N, x1 = 0, y0 = N, y1 = 0;
@@ -345,7 +347,7 @@ function drawFlow(cx, vis) {
     const i = y * N + x; if (!vis(isoX(x + 0.5, y + 0.5), isoY(x + 0.5, y + 0.5))) continue;
     if (W.water[i]) {
       if (crossing[i] || cellT[i] < -3) continue; const fx = flowX[i], fy = flowY[i], moving = fx !== 0 || fy !== 0;
-      for (let k = 0; k < 5; k++) { const h = hash(i, k + 11); if (h > (moving ? 0.8 : 0.45)) continue;
+      for (let k = 0; k < (far ? 2 : 5); k++) { const h = hash(i, k + 11); if (h > (moving ? 0.8 : 0.45)) continue;
         const p = (tq * (moving ? 0.00042 : 0.00013) + h * 7.3) % 1, a = Math.sin(p * Math.PI); if (a < 0.3) continue;
         const span = moving ? 1.7 : 0.5, tx = x + 0.5 + (hash(i, k + 3) - 0.5) * 0.8 + (moving ? fx : 0.7) * (p - 0.5) * span, ty = y + 0.5 + (hash(k + 5, i) - 0.5) * 0.8 + (moving ? fy : -0.7) * (p - 0.5) * span;
         if (tx < 0 || ty < 0 || tx >= N || ty >= N || !waterF[(ty | 0) * N + (tx | 0)]) continue;
@@ -353,8 +355,8 @@ function drawFlow(cx, vis) {
     } else if (W.grass[i] > 0.45 && !W.field[i] && !lotMask[i] && !road[i] && W.snow[i] < 0.02 && cellT[i] >= 0 && W.tree[i] < 0.5) {
       /* a gust is a band that travels; where it passes, blades catch the light and lean */
       const g = Math.sin(x * 0.42 + y * 0.23 - gt + Math.sin(y * 0.11 + gt * 0.31) * 1.6); if (g < 0.5) continue; const s = (g - 0.5) * 2;
-      cx.fillStyle = 'rgba(240,250,180,' + (0.3 + 0.5 * s).toFixed(2) + ')';
-      for (let k = 0; k < 6; k++) { const tx = x + hash(i, k + 21), ty = y + hash(k + 27, i), px = Math.round(isoX(tx, ty)), py = Math.round(isoY(tx, ty)); cx.fillRect(px, py - 1, 1, 2); cx.fillRect(px + 1, py - 3, 1, 2); if (s > 0.6) cx.fillRect(px + 2, py - 3, 1, 1); }
+      cx.fillStyle = GUST[Math.min(3, (s * 4) | 0)];
+      for (let k = 0; k < (far ? 2 : 6); k++) { const tx = x + hash(i, k + 21), ty = y + hash(k + 27, i), px = Math.round(isoX(tx, ty)), py = Math.round(isoY(tx, ty)); cx.fillRect(px, py - 1, 1, 2); cx.fillRect(px + 1, py - 3, 1, 2); if (s > 0.6) cx.fillRect(px + 2, py - 3, 1, 1); }
     }
   }
 }
@@ -1158,7 +1160,14 @@ function stepAt(r, u, dts) {
 }
 
 // ================================================================== camera and touch
-function resize() { dpr = Math.min(3, window.devicePixelRatio || 1); cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); clampCam(); }
+/* how finely the picture is drawn: never more than twice the screen's own points, and less when frames come slowly (pixel art
+   loses little by it). The view stays where it is: the zoom is carried over */
+let dprCap = 2, slowMs = 16, slowN = 0, fastN = 0, lastDprT = 0;
+function resize() { const old = dpr; dpr = Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1)); if (old !== dpr && cv.width) { const k = dpr / old; cam.z *= k; cam.x /= 1; }
+  cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); clampCam(); }
+function paceCheck(dtMs) { slowMs = slowMs * 0.95 + dtMs * 0.05;
+  if (slowMs > 30) { fastN = 0; if (++slowN > 90 && dprCap > 1 && (window.devicePixelRatio || 1) > 1) { const cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2; dprCap = Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1) - 0.5); slowN = 0; lastDprT = now; resize(); cam.x = cxw - cv.width / cam.z / 2; cam.y = cyw - cv.height / cam.z / 2; clampCam(); } }
+  else { slowN = 0; if (slowMs < 13 && dprCap < 2 && now - lastDprT > 30000 && ++fastN > 900) { const cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2; dprCap = Math.min(2, dprCap + 0.5); fastN = 0; lastDprT = now; resize(); cam.x = cxw - cv.width / cam.z / 2; cam.y = cyw - cv.height / cam.z / 2; clampCam(); } } }
 const minZ = () => Math.min(cv.width / WW, cv.height / WH) * 0.96, maxZ = () => 5 * dpr;
 let kBox = null, kBoxT = -1;
 function knownBox() {
@@ -1353,6 +1362,7 @@ function lightAt(tod) { // 0 = full day, 1 = full night; tod runs over one day o
 }
 function frame(t) {
   requestAnimationFrame(frame); const dtMs = Math.min(250, t - now); now = t;
+  paceCheck(dtMs);
   const dts = paused ? 0 : dtMs * speed / 1000;
   if (!paused) {
     usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
