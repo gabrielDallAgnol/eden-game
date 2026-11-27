@@ -1658,3 +1658,24 @@ What changed (owner's request: a bigger land with mountains and low ground, with
 | highland | 1 | 21 | 51 | 163 | 163 | 26 | 4 | 0 | 0 | 14 | 7/28/5 | 3 | 28.3 | 18.3 | 17.7 | 8 | 1.2 | 411 | 141 | 18.4 | 2.9 | 1.625 (8) | 78/0/0/0/18 | 65 | 9.5 | 17 | 2 | 0 | 18254 |
 | highland | 2 | 14 | 38 | 200 | 200 | 36 | 8 | 18 | 0 | 17 | 0/71/5 | 3.7 | 25.4 | 13.9 | 16.1 | 15 | 1.1 | 940 | 141 | 15.7 | 4 | 0 (5) | 69/0/0/2/22 | 59 | 12.8 | 25 | 6 | 0 | 17587 |
 | mean |  | 13.8 | 33.1 | 156.6 | 157 | 36.7 | 4.6 | 1.8 | 0.2 | 13 |  | 2.9 | 20.1 | 18.1 | 9.6 | 8.6 | 1 | 1236 | 70 | 22.2 | 3.9 |  |  | 48.4 | 6 | 20.5 | 3 | 0 | 17115.5 |
+
+## Herbs by place; medicine found, held, taught and lost by people (2026-11-28)
+
+What changed (owner's request: medicine, from plants that differ by where you live): four herbs, each on its own ground (meadowsweet by water, yarrow in dry grass, gentian on the heights, wild garlic under woods). Their uses are known by people, not by the place: found by trying what grows near when someone at home is ill, used where the herb can be had, shown to grown housemates and the healer, gone when the last knower dies. Numbers under "Planned on purpose". Herbs show as small flowers of their own colour; the ledger counts who knows each.
+- **Checked.** tests.html: 538 passed, 1 failed, then fixed: the check of field placement found no fields by year 40 in valley 1 on the game's demography and now runs on `demog: 'old'` (passes alone). A new check: herbs are found only where they grow; of the sick, fewer die where herbs are known; knowledge is in people. Against the table above: mean at year 50 33.1 -> 41.2, at year 100 156.6 -> 335.3. Medicine roughly doubles a place by year 100.
+- **To watch.** Plains 2 reaches 657 and valley 2 540 by year 100: knowledge spreads through a whole village within a generation, which may be too easy. Highland 2 dies out once (34 at year 100). Forest 2, which died out in the last table, reaches 584.
+- **Not done.** Four herbs only. No poisons, no wrong guesses, nothing learned from another band.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 16 | 40 | 343 | 344 | 80 | 1 | 0 | 0 | 14 | 9/111/2 | 2.5 | 25.8 | 22 | 8.8 | 12 | 1.8 | 2192 | 247 | 28.3 | 4 |  | 79/0/0/2/16 | 51 | 8.1 | 29 | 9 | 0 | 20126 |
+| valley | 2 | 21 | 53 | 540 | 541 | 136 | 5 | 3 | 0 | 17 | 0/43/8 | 2.5 | 24.4 | 25.3 | 8.3 | 16 | 1.1 | 5030 | 324 | 24.6 | 3.8 | 0 (3) | 73/0/0/4/19 | 64 | 3.5 | 33 | 2 | 0 | 28362 |
+| plains | 1 | 14 | 52 | 357 | 358 | 39 | 11 | 0 | 0 | 14 | 5/216/0 | 4.4 | 28.5 | 17.6 | 17.2 | 5 | 1.7 | 3932 | 31 | 25.3 | 4.6 |  | 65/0/0/0/27 | 77 | 7.3 | 29 | 3 | 0 | 26836 |
+| plains | 2 | 18 | 67 | 657 | 658 | 120 | 14 | 0 | 0 | 16 | 10/152/3 | 3.1 | 27.6 | 23.1 | 12.9 | 54 | 1.5 | 11664 | 102 | 31 | 2.9 |  | 72/0/0/3/22 | 83 | 10.7 | 45 | 3 | 0 | 37481 |
+| forest | 1 | 9 | 25 | 230 | 230 | 59 | 6 | 0 | 0 | 15 | 42/76/7 | 3 | 22.9 | 23.7 | 7 | 12 | 0.7 | 828 | 73 | 21.1 | 3.2 |  | 58/0/0/8/28 | 42 | 3.1 | 25 | 2 | 0 | 16235 |
+| forest | 2 | 19 | 68 | 584 | 586 | 155 | 4 | 6 | 0 | 15 | 46/62/0 | 2.7 | 16.2 | 22.5 | 7.5 | 38 | 0.9 | 3760 | 66 | 43.9 | 2.9 | 19 (1) | 81/0/0/2/15 | 55 | 3.8 | 45 | 3 | 0 | 32811 |
+| lakeland | 1 | 9 | 27 | 272 | 272 | 69 | 4 | 0 | 0 | 16 | 20/102/8 | 2.4 | 23.5 | 22.8 | 10.8 | 18 | 1.2 | 2337 | 104 | 24.3 | 4.8 |  | 78/0/0/1/17 | 39 | 3.8 | 33 | 10 | 0 | 16698 |
+| lakeland | 2 | 22 | 25 | 131 | 133 | 31 | 2 | 0 | 0 | 12 | 14/119/6 | 2.7 | 25 | 17.2 | 5.5 | 9 | 1.3 | 1065 | 18 | 24 | 4.2 | 1.5 (2) | 66/0/0/0/24 | 36 | 3.2 | 21 | 0 | 0 | 13302 |
+| highland | 1 | 16 | 51 | 205 | 209 | 27 | 7 | 0 | 0 | 13 | 5/10/6 | 3.4 | 27.7 | 19.9 | 19.6 | 9 | 1.1 | 817 | 143 | 23.6 | 3 | 0.36363636363636365 (11) | 72/0/0/2/24 | 64 | 8.2 | 21 | 1 | 0 | 19872 |
+| highland | 2 | 3 | 4 | 34 | 34 | 9 | 10 | 0 | 1 | 11 | 7/17/7 | 2.5 | 9.1 | 6.3 | 6.9 | 2 | 0.9 | 28 | 73 | 9.4 | 2.2 | 0 (3) | 70/0/0/4/17 | 32 | 3 | 9 | 0 | 0 | 7983 |
+| mean |  | 14.7 | 41.2 | 335.3 | 336.5 | 72.5 | 6.4 | 0.9 | 0.1 | 14.3 |  | 2.9 | 23.1 | 20 | 10.5 | 17.5 | 1.2 | 3165.3 | 118.1 | 25.6 | 3.6 |  |  | 54.3 | 5.5 | 29 | 3.3 | 0 | 21970.6 |

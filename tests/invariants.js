@@ -1123,7 +1123,7 @@ UNITS.push(['a tree holds what it holds: a full stand is 4 timber however it is 
 UNITS.push(['fields are laid on dry ground all across: no crop on water or on a ditch, and no field round a pool', function () {
   var out = [];
   [[1, 'valley'], [1, 'lakeland']].forEach(function (w) {
-    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, N = W.N, D, i, x, y, f, k, n = 0;
+    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', yearK: 3, land: w[1], size: 96 }), S = W.S, N = W.N, D, i, x, y, f, k, n = 0;
     for (i = 0; i < 24 * 40; i++) W.tick(); D = S.tribe.ditch;
     for (i = 0; i < N * N; i++) { if (W.field[i]) n++;
       if (W.field[i] && W.water[i]) out.push(w[1] + ': crop on water at ' + i);
