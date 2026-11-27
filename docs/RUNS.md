@@ -1750,3 +1750,26 @@ What changed (owner's request: people you can recognise): each person has a face
 | highland | 1 | 15 | 30 | 34 | 84 | 10 | 1 | 50 | 0 | 13 | 7/52/7 | 2.9 | 25 | 15.1 | 16.9 | 14 | 1.3 | 219 | 76 | 21.4 | 2.4 | 1.5625 (16) | 68/0/0/0/20 | 52 | 3.4 | 13 | 3 | 0 | 11217 |
 | highland | 2 | 3 | 1 | 5 | 9 | 3 | 12 | 0 | 3 | 10 | 10/50/5 | 2.5 | 7.6 | 6.3 | 3.4 | 2 | 1 | 184 | 47 | 10.4 | 2.5 | 0.75 (4) | 67/15/0/0/19 | 14 | 3 | 8 | 0 | 0 | 6993 |
 | mean |  | 14.2 | 33.4 | 203.5 | 209.3 | 51.3 | 3.7 | 5 | 0.3 | 13.1 |  | 2.7 | 20.6 | 18.4 | 9.4 | 13.6 | 1.2 | 1902.6 | 74 | 23.5 | 3.7 |  |  | 45.9 | 4 | 22.5 | 4.2 | 0 | 17922 |
+
+## Ideas worked out by somebody; houses that carry between peoples (2026-11-28)
+
+What changed:
+- **Ideas.** The want and the means only make an idea possible; a mind has to find it. Each year each grown mind has its chance, the curious a better one, and the finder is named in the news and in their description. Measured over eight worlds: fire now comes between years 2 and 10 (it was year 2 in every world), pottery 2 to 12 (was 2), the hut 2 to 10 (was 5), farming 5 to 36.
+- **Carrying between peoples.** When two bands exchange food, the house in each that holds tightest to its own does the carrying and keeps a tenth: dealing between peoples is how a house grows rich. Seen in one wide world: two such houses by year 39, 12 shares taken by year 80.
+- **Checked.** tests.html: 544 passed, 1 failed, then fixed: the check of a household moving away after a quarrel hangs on the course of one village and now runs on `demog: 'old'`, where an idea comes as soon as it is possible (passes alone). A new check: huts are not worked out in the same year in every world, and a finder is named. Against the table above: mean at year 50 33.4 -> 25.6, at year 100 203.5 -> 141.6; ideas known at year 100 down from about 13 to 10.8, since each now waits for someone to find it.
+- **Not right.** Plains 1 dies out once and ends at 23; highland 2 dies out twice and ends at 2. Small early bands are fragile, and waiting for fire and huts makes the first winters harder.
+- **Not done.** An idea, once found, is still the whole band's at once: not held, taught or lost person by person as herbs are.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 15 | 39 | 201 | 201 | 51 | 1 | 0 | 0 | 10 | 22/91/5 | 2.4 | 24.5 | 18.9 | 7.2 | 30 | 0.4 | 920 | 148 | 21.8 | 3.3 | 0 (3) | 71/0/0/2/22 | 47 | 3.4 | 21 | 4 | 0 | 17469 |
+| valley | 2 | 20 | 28 | 164 | 164 | 40 | 4 | 0 | 0 | 11 | 21/118/2 | 2.5 | 17.3 | 18.7 | 5.5 | 8 | 1.5 | 457 | 127 | 20.1 | 4 | 0 (1) | 72/0/0/0/22 | 38 | 3 | 17 | 3 | 0 | 16302 |
+| plains | 1 | 5 | 1 | 23 | 23 | 8 | 8 | 0 | 1 | 6 | 9/268/5 | 2.1 | 13.5 | 8.5 | 6.5 | 2 | 1.5 | 0 | 15 | 19.3 | 9.2 |  | 69/5/0/13/12 | 28 | 3 | 9 | 1 | 0 | 11234 |
+| plains | 2 | 19 | 37 | 257 | 257 | 60 | 1 | 0 | 0 | 13 | 1/135/5 | 2.2 | 23.5 | 20.8 | 10.8 | 4 | 1.3 | 2357 | 57 | 26.4 | 5.1 |  | 64/0/0/4/27 | 51 | 3.7 | 25 | 3 | 0 | 22538 |
+| forest | 1 | 12 | 33 | 165 | 166 | 44 | 2 | 0 | 0 | 11 | 52/94/6 | 2.6 | 13.4 | 16.9 | 6.7 | 6 | 1.5 | 589 | 60 | 18.7 | 4.4 | 1.75 (4) | 70/0/0/2/22 | 44 | 3 | 21 | 2 | 0 | 15985 |
+| forest | 2 | 6 | 12 | 61 | 61 | 19 | 5 | 0 | 0 | 11 | 47/103/5 | 2.2 | 16.8 | 13.5 | 6.4 | 4 | 0.8 | 921 | 13 | 30.5 | 4.6 | 20 (1) | 72/0/0/0/21 | 21 | 3.1 | 13 | 0 | 0 | 12057 |
+| lakeland | 1 | 14 | 25 | 131 | 131 | 37 | 4 | 0 | 0 | 13 | 9/180/10 | 2.4 | 16.2 | 15.8 | 9.9 | 12 | 1.3 | 650 | 81 | 21.4 | 3.9 | 0 (1) | 68/0/0/2/20 | 38 | 3.4 | 21 | 10 | 0 | 14245 |
+| lakeland | 2 | 18 | 47 | 289 | 291 | 77 | 2 | 0 | 0 | 14 | 46/115/5 | 2.5 | 23.6 | 22.1 | 8.2 | 3 | 1.2 | 3513 | 55 | 32 | 3 |  | 68/0/0/4/24 | 55 | 3.2 | 37 | 5 | 0 | 24767 |
+| highland | 1 | 13 | 31 | 123 | 124 | 17 | 6 | 0 | 0 | 15 | 5/48/5 | 3.6 | 29.8 | 17.6 | 16.3 | 3 | 1.1 | 504 | 111 | 19.4 | 3.7 | 1.5 (8) | 72/0/0/2/22 | 56 | 6.5 | 17 | 2 | 0 | 14487 |
+| highland | 2 | 2 | 3 | 2 | 10 | 2 | 15 | 0 | 2 | 4 | 9/42/5 | 2.2 | 9 | 5.6 | 4.2 | 2 | 0.9 | 1 | 33 | 8.1 | 3.8 |  | 74/0/0/9/17 | 12 | 3.6 | 8 | 0 | 0 | 6149 |
+| mean |  | 12.4 | 25.6 | 141.6 | 142.8 | 35.5 | 4.8 | 0 | 0.3 | 10.8 |  | 2.5 | 18.8 | 15.8 | 8.2 | 7.4 | 1.2 | 991.2 | 70 | 21.8 | 4.5 |  |  | 39 | 3.6 | 18.9 | 3 | 0 | 15523.3 |
