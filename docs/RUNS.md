@@ -1550,3 +1550,27 @@ What changed (owner's design):
 | highland | 1 | 29 | 33 | 28 | 65 | 3 | 1 | 169 | 0 | 11 | 5/13/7 | 2.8 | 21.5 | 8.7 | 5 | 2 | 1.2 | 248 | 23 | 17.9 | 2.3 | 0 (2) | 71/15/0/0/14 | 53 | 10.2 | 9 | 0 | 0 | 10253 |
 | highland | 2 | 37 | 50 | 139 | 221 | 24 | 4 | 333 | 0 | 15 | 5/57/8 | 3.4 | 21.5 | 12.3 | 12.6 | 10 |  | 190 | 98 | 17.5 | 3.7 | 0 (1) | 78/3/0/0/15 | 36 | 11 | 13 | 1 | 0 | 17210 |
 | mean |  | 30.5 | 99.3 | 601.5 | 714.4 | 135.7 | 7.1 | 346.6 | 0 | 14.1 |  | 3.3 | 19.7 | 21.1 | 8.2 | 51.9 | 1.3 | 159035.8 | 237.1 | 35.9 | 4.5 |  |  | 74.6 | 10.5 | 38.9 | 2.9 | 0 | 79845.3 |
+
+## Timber reaches the sites; sickness and birth hold numbers down; signs over heads; slow devices (2026-11-27)
+
+What changed (owner's report: by year 49 the map was full of houses and a phone could not keep up; a village that big so early is not how people spread):
+- **Measured first.** Valley 1 over 60 years: 234 born, 13 died; the place doubled every ten years. Nobody died young.
+- **Timber.** Villages that stayed tiny had no timber reaching their sites (plains 1: 135 timber trips in 70 years). Looking for timber now has its own reach; timber by the fire is not split for kindling while a building waits; timber round a river bend is a want for a bridge; woodcutters follow roofless households, not a head count.
+- **Sickness and birth** (`docs/HEALTH.md`): fever from fouled, crowded ground, the youngest first; one birth in 12.5 loses the child; children borne from 10 to 30, three years apart.
+- **View.** A small sign over each person for what they want most. The picture is drawn at most twice as fine as the screen, and less when frames come slowly; the moving ground is drawn lighter when zoomed out.
+- **Checked.** tests.html: 534 passed, 0 failed (1 warning, 39 skipped). Seven checks that need a large place or children who all live now run on `demog: 'old'`; the grain-price check gives every holder grain before taking it. Against the table above: mean at year 50 falls from 99.3 to 31.3, at year 100 from 601.5 to 160.2; hunger deaths 7.1 to 3.2; left 346.6 to 4.5.
+- **Not done / to watch.** The first decades are thin: 4 to 28 people at year 25, and plains 1 died out once and was resettled. Valley 2 and plains 1 are at 43 and 30 at year 100. Nothing yet answers sickness but building apart. On a phone the speed is not measured, only on a slowed desktop browser (about 30 frames a second at 326 people after the picture is coarsened; 19 before).
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 73 | 322 | 324 | 96 | 1 | 4 | 0 | 14 | 10/86/5 | 2.6 | 24.2 | 24 | 10.1 | 29 | 1.4 | 3328 | 261 | 21.7 | 3.8 |  | 69/0/0/6/20 | 74 | 4.5 | 29 | 14 | 0 | 25279 |
+| valley | 2 | 10 | 9 | 43 | 44 | 14 | 1 | 0 | 0 | 11 | 4/91/7 | 2.3 | 12.5 | 10 | 4.8 | 19 | 1.5 | 39 | 59 | 15.4 | 2.6 | 2 (2) | 72/0/0/0/21 | 25 | 3 | 9 | 1 | 0 | 9725 |
+| plains | 1 | 6 | 9 | 30 | 30 | 8 | 14 | 0 | 1 | 13 | 11/183/7 | 2.1 | 17.6 | 18.7 | 11.5 | 0 | 1.3 | 7 | 12 | 13.4 | 13.3 |  | 73/0/0/3/24 | 47 | 8.9 | 9 | 0 | 0 | 13545 |
+| plains | 2 | 18 | 33 | 174 | 175 | 44 | 2 | 0 | 0 | 13 | 8/217/5 | 2.7 | 21.9 | 14.5 | 9.1 | 2 | 1 | 654 | 55 | 18.5 | 4.3 |  | 66/0/0/3/24 | 39 | 3.2 | 17 | 2 | 0 | 14490 |
+| forest | 1 | 17 | 39 | 214 | 214 | 58 | 1 | 0 | 0 | 12 | 48/43/1 | 2.8 | 0 | 19.9 | 6.4 | 8 | 1.7 | 946 | 69 | 19.3 | 3.6 | 0 (1) | 70/0/0/1/23 | 42 | 3 | 25 | 1 | 0 | 15772 |
+| forest | 2 | 12 | 27 | 201 | 201 | 53 | 2 | 0 | 0 | 13 | 20/92/9 | 2.4 | 14.8 | 17.8 | 6.2 | 12 | 0.7 | 1061 | 45 | 27.1 | 4.8 |  | 64/0/0/4/24 | 29 | 3 | 25 | 2 | 0 | 16371 |
+| lakeland | 1 | 12 | 44 | 288 | 289 | 71 | 2 | 0 | 0 | 16 | 27/99/6 | 2.9 | 21.6 | 20.1 | 11.3 | 29 | 1.5 | 2383 | 79 | 18.6 | 3.3 | 1.6666666666666667 (3) | 70/0/0/3/24 | 62 | 11.7 | 37 | 9 | 0 | 21848 |
+| lakeland | 2 | 6 | 21 | 182 | 182 | 46 | 3 | 0 | 0 | 14 | 16/71/6 | 2.5 | 27.8 | 20.8 | 7 | 0 | 1.5 | 798 | 27 | 29.3 | 2.8 |  | 58/0/0/6/30 | 39 | 3.3 | 29 | 2 | 0 | 16216 |
+| highland | 1 | 16 | 43 | 76 | 91 | 9 | 1 | 41 | 0 | 12 | 1/45/5 | 3 | 27.9 | 13.5 | 16.6 | 3 |  | 285 | 73 | 17.5 | 2.8 | 0.6923076923076923 (13) | 74/0/0/2/21 | 58 | 6 | 13 | 2 | 0 | 13501 |
+| highland | 2 | 4 | 15 | 72 | 73 | 19 | 5 | 0 | 0 | 12 | 7/44/6 | 2.8 | 18 | 10.7 | 11.8 | 2 |  | 154 | 88 | 11.2 | 4.2 | 0 (1) | 65/0/0/4/24 | 37 | 3.6 | 13 | 5 | 0 | 9101 |
+| mean |  | 12.9 | 31.3 | 160.2 | 162.3 | 41.8 | 3.2 | 4.5 | 0.1 | 13 |  | 2.6 | 18.6 | 17 | 9.5 | 10.4 | 1.3 | 965.5 | 76.8 | 19.2 | 4.6 |  |  | 45.2 | 5 | 20.6 | 3.8 | 0 | 15584.8 |
