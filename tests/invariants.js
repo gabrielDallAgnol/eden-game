@@ -1196,4 +1196,25 @@ UNITS.push(['sickness comes from fouled, crowded ground: fever and births kill, 
   if (!(W2.S.popPeople > S.popPeople)) out.push('the place is no smaller with sickness (' + S.popPeople + ') than without (' + W2.S.popPeople + ')');
   return out.join('; ');
 }]);
+UNITS.push(['what people make of the hand: nobody believes in a world it never touches; a want answered makes belief and trust, harm makes belief and fear; it is told at home', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'plains', size: 96, age: 'wood', demog: 'old' }), S = W.S, T = S.tribe, G = W.G, i, out = [];
+  for (i = 0; i < 24 * 30; i++) W.tick();
+  var P = function () { return S.agents.filter(function (a) { return a.alive && a.d.people; }); };
+  if (P().some(function (a) { return a.faith > 0 || a.saw > 0; })) out.push('someone believes before the hand has done anything');
+  var L0 = W.ledger().faith; if (L0.believe || L0.haveSeenTheHand) out.push('the ledger counts believers before the hand has done anything');
+  /* meat set down by the fire for someone hungry */
+  var hungry = P().filter(function (a) { return a.age > 10; })[0]; hungry.e = 0.3; hungry.x = T.x; hungry.y = T.y;
+  for (i = 0; i < 4; i++) G.drop({ k: 'pile', kind: 'meat', amt: 3 }, T.x, T.y);
+  if (!(hungry.faith > 0.5 && hungry.trust > 0.5)) out.push('the hungry one fed four times: belief ' + (hungry.faith || 0).toFixed(2) + ', trust ' + (hungry.trust || 0).toFixed(2));
+  /* a roof taken up and set down elsewhere */
+  var q = T.sites.filter(function (u) { return !u.upon && W.BUILDINGS[u.kind].room && u.stage > 0 && P().some(function (a) { return a.house === u.id && a !== hungry && a.house !== hungry.house; }); })[0];
+  if (q) { var m = P().filter(function (a) { return a.house === q.id; })[0]; m.x = q.x; m.y = q.y; var t0 = m.trust || 0; for (i = 0; i < 3; i++) { var h = G.pick(q.x, q.y); m.x = q.x; m.y = q.y; G.drop(h, q.x + 9, q.y + 5); m.x = q.x; m.y = q.y; }
+    if (!(m.trust < t0 - 0.5 && m.faith > 0.4)) out.push('a household whose roof was moved three times: belief ' + (m.faith || 0).toFixed(2) + ', trust ' + t0.toFixed(2) + ' -> ' + (m.trust || 0).toFixed(2));
+    /* told at home over the years */
+    var mate = P().filter(function (a) { return a.house === q.id && a !== m; })[0]; if (mate) { mate.faith = 0; mate.trust = 0; for (i = 0; i < 24 * 4; i++) W.tick(); if (mate.alive && m.alive && mate.house === m.house && !(mate.faith > 0.05)) out.push('four years under one roof with a believer and nothing was told'); } }
+  else out.push('no second household to try');
+  var L = W.ledger().faith; if (!(L.believe >= 1)) out.push('the ledger counts no believer');
+  if (!/watches|someone there|nobody touched/.test(W.describe(hungry) || 'watches')) out.push('nothing of it in how the person is described');
+  return out.join('; ');
+}]);
 })();

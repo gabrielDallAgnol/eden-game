@@ -1273,13 +1273,15 @@ cv.addEventListener('pointermove', e => {
 function dropHeld() {
   const r = held; held = null; if (!r) return; r.held = false; r.a.held = false;
   if (isWater(r.x, r.y)) { const q = near(r.x, r.y, 2); r.x = q.x; r.y = q.y; ripples.push({ x: isoX(r.x, r.y), y: isoY(r.x, r.y), t: now }); }
-  W.moveTo(r.a, clamp(r.x | 0, 0, N - 1), clamp(r.y | 0, 0, N - 1)); burst(r.x, r.y, 'dust', 6);
+  W.G.setDown(r.a, clamp(r.x | 0, 0, N - 1), clamp(r.y | 0, 0, N - 1)); burst(r.x, r.y, 'dust', 6); showSeen();
   // a moment to get its bearings, then it carries on from where it was put
   const P = new Plan(r), u = tickFrac; P.wait(u, 'idle'); P.wait(0.04, 'hop'); P.wait(0.06, 'look'); r.plan = null;
   if (r.a.d.people) { P.go(camp.x + R(-1, 1), camp.y + R(-1, 1), SPEED.person.walk); } else { const e = endOf(r.a); P.go(e.x, e.y, SPEED[kind(r.a)].walk); }
   P.done('idle'); r.si = -1; for (const s of r.plan) if (s.u1 <= u) { s.u0 = s.u1 = u; }
 }
 const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (act && act.id === e.pointerId) { if (held) dropHeld(); if (heldThing) dropThing(e); act = null; } };
+/* those who saw the hand just now show what they made of it: a heart for a want answered, fear for harm, the hand for a wonder */
+function showSeen() { for (const r of actors.values()) { const a = r.a; if (!a.d.people || r.dead || a.sawT !== S.tickNo || !a.sawHow) continue; r.bub = a.sawHow === 'gift' ? 'love' : a.sawHow === 'harm' ? 'afraid' : 'hand'; r.bubT = now + Math.random() * 500; a.sawHow = ''; } }
 function dropThing(e) {
   const ht = heldThing; heldThing = null; const c = toCell(e.clientX, e.clientY), x = clamp(c.x | 0, 0, N - 1), y = clamp(c.y | 0, 0, N - 1), res = W.G.drop(ht.h, x, y);
   const SAY = { store: 'Set down by the fire: it is the village\'s now.', spark: 'Stone on stone: a spark, and the dry grass has caught.', fire: 'Fire, set down.', out: 'The fire is out in the water.', doused: 'The water has put the fire out.',
@@ -1289,7 +1291,7 @@ function dropThing(e) {
   else if (res === 'wet' || res === 'doused') burst(c.x, c.y, 'splash', 8, { vy: -0.03, max: 350 }); else if (res === 'out' || res === 'water') ripples.push({ x: isoX(c.x, c.y), y: isoY(c.x, c.y), t: now });
   else burst(c.x, c.y, 'dust', 6);
   if (res === 'site' || res === 'back') { syncLots(); syncHuts(); startPaint(); }
-  takeEvents(true); reconcile(); repaintCells(x - 3, y - 3, x + 3, y + 3);
+  takeEvents(true); reconcile(); repaintCells(x - 3, y - 3, x + 3, y + 3); showSeen();
 }
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 0.87); }, { passive: false });
@@ -2000,7 +2002,7 @@ bS2.onclick = () => {
       + (() => { const f = T0.foodLast || {}, src = [['grain', 'the fields, grain'], ['veg', 'the fields, greens'], ['fruit', 'gathered'], ['fish', 'fished'], ['meat', 'hunted']], tot = src.reduce((p, [k]) => p + (f[k] || 0), 0); if (!tot) return '';
           return '<p><b>Food last year</b> (' + (tot / Math.max(1, S.popPeople)).toFixed(1) + ' a head)<br>' + src.filter(([k]) => f[k] > 0.5).map(([k, w]) => Math.round(100 * f[k] / tot) + '% ' + w).join('<br>') + '</p>'; })()
       /* the ledger: everything the place has, counted */
-      + (() => { const L = W.ledger(), cap = k => k.charAt(0).toUpperCase() + k.slice(1), NAME = { all: 'all', inStore: 'of it in the common store', veg: 'greens', fruit: 'fruit and roots', mournedAtShrine: 'times mourned at the shrine',
+      + (() => { const L = W.ledger(), cap = k => k.charAt(0).toUpperCase() + k.slice(1), NAME = { all: 'all', inStore: 'of it in the common store', veg: 'greens', fruit: 'fruit and roots', mournedAtShrine: 'times mourned at the shrine', haveSeenTheHand: 'have seen the hand', believe: 'believe someone is there', trusting: 'of them, trusting', fearful: 'of them, fearful',
             grieving: 'grieving now', ways: 'tiles of worn way', fields: 'field tiles', fenced: 'fenced', healerhouse: "healer's house", tallyhouse: 'tally house', born: 'born here', died: 'died', left: 'left the valley', cow: 'cattle', deer: 'deer', rabbit: 'rabbits', wolf: 'wolves' };
           const row = (t, o) => { const ks = Object.keys(o).filter(k => o[k] > 0); return ks.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>' + t + '</b></td><td>' + ks.map(k => (NAME[k] || k) + ' <b>' + o[k] + '</b>').join(', ') + '</td></tr>' : ''; };
           return '<p><b>Ledger</b></p><table style="border-collapse:collapse;font-size:inherit">' + row('People', L.people) + row('Homes', L.homes) + row('Buildings', L.buildings) + row('Being built', L.building) + row('Food', L.food) + row('Goods', L.goods)

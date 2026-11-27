@@ -793,8 +793,9 @@ function create(seed, opt) {
           ? 'enough put by' : 'an empty larder') + (hh.fields ? ' and ' + hh.fields + ' field' + (hh.fields > 1 ? 's' : '') : '') + '.' : '';
     const fr = friendsOf(a).map(b => b.name), friends = fr.length ? ' Friends: ' + fr.join(', ') + '.' : '';
     const bored = hh && hh.larder > 0.5 && variety(hh) < 0.25 ? ' Tired of eating the same thing every day.' : '';
+    const creed = !(a.faith > 0.25) ? '' : a.faith > 0.5 ? (a.trust > 0.2 ? ' Believes someone watches over the place, and is glad of it.' : a.trust < -0.2 ? ' Believes something watches the place, and fears it.' : ' Believes there is someone there.') : ' Has seen things move that nobody touched.';
     return a.name + ', ' + age + ', ' + what + '. ' + (p && p.alive ? (a.fem ? 'Her' : 'His') + ' partner is ' + p.name + '. ' : a.age >= WED ? 'On ' + (a.fem ? 'her' : 'his') + ' own. ' : '')
-      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps;
+      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps + creed;
   }
   // Once in each step the camp's ties are looked over: who has grown close, who needs a roof, who has no one to choose
   function society(dt) {
@@ -857,7 +858,7 @@ function create(seed, opt) {
       if (!wl && T.waterAt) walk(T.x, T.y, T.waterAt % N, (T.waterAt / N) | 0, 0.01 * P.length);
       if (S.tickNo % 4 === 0) for (let i = 0; i < N * N; i++) if (tread[i] > 0) tread[i] *= 0.965; }
     for (const a of P) {
-      if (a.grief > 0) a.grief = Math.max(0, a.grief - dt * 1.2 * (1 + (a.joy || 0)) * (holy() ? 1.6 : 1));
+      if (a.grief > 0) a.grief = Math.max(0, a.grief - dt * 1.2 * (1 + (a.joy || 0)) * (holy() ? 1.6 : 1) * (1 + 0.6 * Math.max(0, (a.faith || 0) * (a.trust || 0))));   /* one who trusts that someone watches over them is the sooner comforted */
       /* the same food day after day wears on anyone */
       { const hm = homeSite(a); if (hm && hm.larder > 0.5 && variety(hm) < 0.25) a.joy = Math.max(0, (a.joy || 0) - dt * 0.4); }   /* the glad get over loss sooner; so do those with a shrine to mourn at */
       /* gladness: fed, warm and with their own it holds; hunger, cold and grief wear it down */
@@ -2265,7 +2266,7 @@ function create(seed, opt) {
     for (const a of S.agents) { if (!a.alive || a.d.people) continue; const to = a.tame ? out.beasts : out.wild; to[a.sp] = (to[a.sp] || 0) + 1; }
     let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
     out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
-    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length;
+    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
     out.known = Object.keys(T.skills).filter(k => T.skills[k]);
     return out;
   }
@@ -2339,7 +2340,10 @@ function create(seed, opt) {
     /* the year's food, by where it came from, kept for the Town panel and the tests; a new count begins */
     { const T0 = S.tribe; T0.foodLast = S.foodIn || {}; S.foodIn = {}; }
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
-    T.kidDied *= 0.85; T.kidBorn *= 0.85;   /* what was seen of children living and dying fades over the years */
+/* what was seen of the hand is told at home: each person's belief and trust move a little toward their household's; untended, belief fades slowly */
+    { const P = folk(), by = new Map(); for (const a of P) if (a.house) { let g = by.get(a.house); if (!g) by.set(a.house, g = { f: 0, t: 0, n: 0 }); g.f += a.faith || 0; g.t += a.trust || 0; g.n++; }
+      for (const a of P) { const g = a.house && by.get(a.house); if (g && g.n > 1 && g.f > 0) { a.faith = (a.faith || 0) + 0.2 * (g.f / g.n - (a.faith || 0)); a.trust = (a.trust || 0) + 0.2 * (g.t / g.n - (a.trust || 0)); } if (a.faith) a.faith *= 0.98; } }
+        T.kidDied *= 0.85; T.kidBorn *= 0.85;   /* what was seen of children living and dying fades over the years */
     // wants that are only seen over a year
     N_.crowd += Math.max(0, households() - T.sites.filter(isHome).length);
     if (T.waterDist == null) {
@@ -2776,6 +2780,16 @@ function create(seed, opt) {
   };
   /* those near enough to see the hand at work remember it */
   function sawHand(x, y) { S.stat.hand = (S.stat.hand || 0) + 1; for (const a of folk()) if (Math.max(Math.abs(a.x - x), Math.abs(a.y - y)) <= 8) a.saw = (a.saw || 0) + 1; }
+  /* WHAT THEY MAKE OF IT. Someone who sees the hand do a thing comes to believe there is someone there (a.faith, 0 to 1), a
+     little for a wonder, more when it touched their own life. Whether they trust that someone (a.trust, -1 to 1) follows what
+     it did to them: a want of theirs answered, or harm done to them and theirs. how(a) says which, for each person near:
+     'gift', 'harm', or nothing (a wonder only). Nobody believes anything in a world the hand never touches */
+  function handSeen(x, y, how, also) { for (const a of folk()) { if (Math.max(Math.abs(a.x - x), Math.abs(a.y - y)) > 8 && !(also && also(a))) continue; const h = how ? how(a) : ''; a.faith = a.faith || 0; a.trust = a.trust || 0;
+      if (h === 'gift') { a.faith += 0.25 * (1 - a.faith); a.trust = Math.min(1, a.trust + 0.25); S.stat.gifts = (S.stat.gifts || 0) + 1; }
+      else if (h === 'harm') { a.faith += 0.25 * (1 - a.faith); a.trust = Math.max(-1, a.trust - 0.35); S.stat.harms = (S.stat.harms || 0) + 1; }
+      else a.faith += 0.06 * (1 - a.faith);
+      a.sawT = S.tickNo; a.sawHow = h || 'wonder'; } }
+
   const G = {
     /* put a creature down at a place (tests and scenarios): returns it */
     place(sp, x, y, age, e) { return add(sp, x, y, age === undefined ? SP[sp].mature : age, e === undefined ? 0.8 : e); },
@@ -2849,21 +2863,36 @@ function create(seed, opt) {
       if (water[i]) { sawHand(x, y); return { k: 'water' }; }
       return null;
     },
-    drop(h, x, y) {
+/* a creature set down: a cold person put by a fire or at their own door is helped; anyone else lifted is frightened; a beast of
+       prey set down among people is harm to them; a small beast set down by a child is a gift to the child */
+    setDown(b, x, y) { const p = free(clamp(x | 0, 0, N - 1), clamp(y | 0, 0, N - 1)), T = S.tribe, was = { cold: b.mood === 'cold' || tempAt(I(b.x, b.y)) < HUMAN.comfort - 3 }; b.x = p[0]; b.y = p[1]; sawHand(b.x, b.y);
+      const fireNear = S.popPeople && T.skills.fire && T.lit >= 0 && S.tickNo - T.lit <= Math.max(2, (DAY || 1) * 2) && cheb(b, T) <= 2, hm = b.d.people ? homeSite(b) : null, atDoor = hm && cheb(b, hm) <= 1;
+      handSeen(b.x, b.y, a => { if (b.d.people) return a === b ? (was.cold && (fireNear || atDoor) ? 'gift' : 'harm') : (a.partner === b.id || kin(a, b)) && !(was.cold && (fireNear || atDoor)) ? 'harm' : '';
+        if (b.d.eats.meat && b.d.mass > 3) return cheb(a, b) <= 5 ? 'harm' : '';
+        if (b.d.mass < 1 && a.age < GROWN && cheb(a, b) <= 2) { a.joy = Math.min(1, (a.joy || 0) + 0.5); return 'gift'; }
+        if (!b.d.eats.meat && a.e < 0.45 && cheb(a, b) <= 3) return 'gift';
+        return ''; }); },
+        drop(h, x, y) {
       if (!h) return ''; x = clamp(x | 0, 0, N - 1); y = clamp(y | 0, 0, N - 1); const i = I(x, y), T = S.tribe, atCamp = S.popPeople && Math.max(Math.abs(x - T.x), Math.abs(y - T.y)) <= 2;
       sawHand(x, y);
-      if (h.k === 'fire') { if (water[i]) return 'out'; burn[i] = 1; heat[i] += 4; if (atCamp && T.fuel > 0) T.lit = S.tickNo; return 'fire'; }
-      if (h.k === 'water') { if (water[i]) return 'water'; const was = burn[i] > 0; G.rain(x, y, 1, 0.25); return was ? 'doused' : 'wet'; }
+      const cold = a => a.mood === 'cold', near = (a, r) => Math.max(Math.abs(a.x - x), Math.abs(a.y - y)) <= r, onSite = T.sites.find(q => !q.upon && Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1);
+      if (h.k === 'fire') { if (water[i]) { handSeen(x, y); return 'out'; } burn[i] = 1; heat[i] += 4; if (atCamp && T.fuel > 0) T.lit = S.tickNo;
+        /* fire on someone's roof is harm to that household; fire brought to the cold, with no roof under it, is a gift to them */
+        handSeen(x, y, a => onSite && BUILDINGS[onSite.kind] && (a.house === onSite.id || !isHome(onSite)) ? 'harm' : !onSite && cold(a) && near(a, 4) ? 'gift' : ''); return 'fire'; }
+      if (h.k === 'water') { if (water[i]) return 'water'; const was = burn[i] > 0; G.rain(x, y, 1, 0.25); handSeen(x, y, a => was && near(a, 5) ? 'gift' : ''); return was ? 'doused' : 'wet'; }
       if (h.k === 'pile') {
         /* stone on stone: a spark, and whatever is dry beside it catches */
         let spark = false;
         if (h.kind === 'stone' && !water[i] && (rock[i] >= 0.15 || S.piles.some(q => q.kind === 'stone' && Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1))) {
           let best = -1, bd = 0.3; area(x, y, 1, j => { if (!water[j] && snow[j] < 0.05 && soil[j] < 0.9 && grass[j] > bd) { bd = grass[j]; best = j; } });
           if (best >= 0) { burn[best] = 1; spark = true; } }
-        if (atCamp && !spark) { if (h.kind === 'meat') addFood(T, 'store', 'meat', h.amt); else if (h.kind === 'wood') T.wood += h.amt; else T.stone += h.amt; return 'store'; }
-        const f = free(x, y); dropPile(f[0], f[1], h.kind, h.amt); return spark ? 'spark' : 'ground';
+        /* meat brought to the hungry, or wood to the cold, is a gift to them; anything else set down is a wonder */
+        const gift = a => (h.kind === 'meat' && a.e < 0.45 && (atCamp || near(a, 3))) || (h.kind === 'wood' && cold(a) && (atCamp || near(a, 3))) ? 'gift' : '';
+        if (atCamp && !spark) { if (h.kind === 'meat') addFood(T, 'store', 'meat', h.amt); else if (h.kind === 'wood') T.wood += h.amt; else T.stone += h.amt; handSeen(x, y, gift); return 'store'; }
+        const f = free(x, y); dropPile(f[0], f[1], h.kind, h.amt); handSeen(x, y, spark ? null : gift); return spark ? 'spark' : 'ground';
       }
       if (h.k === 'tree') {
+        handSeen(x, y);
         if (water[i]) { const f = free(x, y); dropPile(f[0], f[1], 'wood', h.amt * WOOD_PER_STAND); return 'logs'; }   /* a tree set down in the water is driftwood */
         let j = -1; const ok = t => !water[t] && tree[t] <= 0.1 && !T.sites.some(q => Math.abs(q.x - (t % N)) <= 1 && Math.abs(q.y - ((t / N) | 0)) <= 1);
         for (let r = 0; r < 6 && j < 0; r++) area(x, y, r, t => { if (j < 0 && ok(t)) j = t; });
@@ -2872,6 +2901,7 @@ function create(seed, opt) {
       }
       if (h.k === 'site') {
         const q = T.sites.find(u => u.id === h.id); if (!q) return ''; q.lifted = false;
+        handSeen(x, y, a => a.house === q.id ? 'harm' : '', a => a.house === q.id);   /* their own roof taken up and set down elsewhere */
         /* set on the nearest free lot of the lattice: the hand chooses where, the lattice how it sits */
         const k0 = Math.round((x - T.x - 2) / PITCH), m0 = Math.round((y - T.y - 2) / PITCH); let bx = -1, by = -1, bd = 1e9;
         for (let m = m0 - 3; m <= m0 + 3; m++) for (let k = k0 - 3; k <= k0 + 3; k++) { const lx = T.x + k * PITCH + 2, ly = T.y + m * PITCH + 2; if (lx < 2 || ly < 2 || lx >= N - 2 || ly >= N - 2 || water[I(lx, ly)]) continue;
