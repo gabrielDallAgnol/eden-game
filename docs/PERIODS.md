@@ -74,7 +74,7 @@ A band of four cannot stand for all of humankind in 100 years, and it should not
 | K2. Means on the ground: clay, flint, ore as map layers like stone | Fixes point 4 | Medium |
 | K3. Start with fire and the forager's kit; move coin, writing, masonry, concrete, church behind town-scale causes | Believable pace | Small after K1 |
 | K4. Announcements built from the event (who, where, what they saw) | Fixes point 5; gives the chronicle of firsts for free | Small |
-| K5. `S.settlements[]` in place of the single `S.tribe` (J1) | Towns, trade, raids, founding a hamlet | Large and mechanical: `T` is used about 2,000 times |
+| K5. `S.settlements[]` in place of the single `S.tribe` (J1) | Towns, trade, raids, founding a hamlet | Large and mechanical: `T.` appears about 730 times |
 | K6. Split `src/sim.js` (258 KB, one closure) into files by subject | Each later step gets cheaper and safer | Medium; needs the single-file builder and test loaders adapted |
 | Bugs first: plains seed 1 stuck at 6 homes; building sites stalled beside the fire | They make the early village look broken | Small |
 
