@@ -419,6 +419,12 @@ function leafState(i, T, falling) {
 const props = new Map();
 function wantProps() {
   const built = new Set(); for (const q of T0.sites) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) built.add((q.y + dy) * N + q.x + dx);   /* the ground a building stands on */
+  const FN = campOn ? T0.fence : null;
+  /* ground free for something to be set on: dry, no building's lot (other than the one named), no fence, road, field or standing tree */
+  const clearAt = (fx, fy, own, onWay) => { const tx = Math.floor(fx), ty = Math.floor(fy), t = ty * N + tx; if (tx < 0 || ty < 0 || tx >= N || ty >= N || W.water[t] || (T0.road[t] && !onWay) || W.field[t] || (FN && FN[t]) || W.tree[t] > 0.3) return false;
+    for (const q of T0.sites) if (q !== own && !q.upon && Math.abs(q.x - tx) <= 1 && Math.abs(q.y - ty) <= 1) return false; return true; };
+  /* a thing wanted at a place is put there if the ground is free, else on the nearest free ground within a tile and a half, else not at all */
+  const setNear = (key, o) => { for (const [dx, dy] of [[0, 0], [0.9, 0], [0, 0.9], [-0.9, 0], [0, -0.9], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9], [1.5, 0], [0, 1.5], [-1.5, 0], [0, -1.5]]) if (clearAt(o.x + dx, o.y + dy, null, true)) { o.x += dx; o.y += dy; want.set(key, o); return true; } return false; };
   const want = new Map(), falling = !W.daysLengthen(), cR = campR(), ripe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const i = y * N + x; if (W.water[i]) continue;
@@ -436,7 +442,10 @@ function wantProps() {
       want.set('c' + i, { kind: 'crop', i, x: x + 0.5 + jx * 0.3, y: y + 0.5 + jy * 0.3, base: 'c' + k + (img === A.cropDry) + (isGrain ? 'g' : 'v'), img, dy: 3 });
     }
     if (inCamp || W.field[i] || T0.road[i] || built.has(i)) continue;   /* no bush or rock drawn on a field, a made road or under a building */
-    if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) {
+    /* nor on a fence, in a yard, or (a bush being wide) hard against a fence, a field, a road or a building */
+    if ((FN && FN[i]) || lotMask[i]) continue;
+    const crowded = [i - 1, i + 1, i - N, i + N].some(j => j >= 0 && j < N * N && ((FN && FN[j]) || W.field[j] || T0.road[j] || built.has(j)));
+    if (!crowded && ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3))) {
       const B = A.bush[(hash(i, 4) * A.bush.length) | 0], ls = snowy ? 'snow' : leafState(i, T, falling), berry = !snowy && ls !== 'frost' && (W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4));
       /* berries sit on whatever colour the leaves have turned */
       const st = berry ? (ls === 'gold' || ls === 'red' ? ls + 'Berry' : 'berry') : ls;
@@ -448,7 +457,7 @@ function wantProps() {
     }
     else if (nearWater[i] && h0 > 0.4 && h0 < 0.62 && T > -3) want.set('d' + i, { kind: 'reeds', i, x: x + 0.5 + jx * 0.6, y: y + 0.5, base: 'd', img: A.reeds, dy: 2 });
     /* tall grass where the grass has grown long and nothing has grazed it down */
-    else if (A.tuft && W.grass[i] > 0.6 && hash(i, 8) < (W.grass[i] - 0.6) * 0.8) {
+    else if (A.tuft && !crowded && W.grass[i] > 0.6 && hash(i, 8) < (W.grass[i] - 0.6) * 0.8) {
       const G = A.tuft[(hash(i, 10) * A.tuft.length) | 0], st = snowy ? 'snow' : leafState(i, T, falling);
       want.set('g' + i, { kind: 'grass', i, x: px, y: py, base: 'g' + st, img: G[st] || G.plain, dy: 4 });
     }
@@ -480,9 +489,9 @@ function wantProps() {
      then the firewood, a carved bench, the planter, then the rest; a spot on water, a street, a field or another building is passed over. */
   if (campOn) {
     const P = A.prop || {}, folkBy = new Map(), autumn = !W.daysLengthen() && S.air > -2, taken = new Set();
-    for (const q of T0.sites) taken.add(q.y * N + q.x);
+    for (const q of T0.sites) taken.add(q.y * N + q.x); const used = new Set();
     for (const b of S.agents) if (b.alive && b.d.people && b.house) { let f = folkBy.get(b.house); if (!f) folkBy.set(b.house, f = { n: 0, small: 0, baby: 0, elder: 0, jobs: new Set(), likes: new Set(), herbs: 0 }); f.n++; if (b.age < 2) f.baby++; else if (b.age < b.d.mature) f.small++; if (b.age > 46) f.elder++; if (b.job) f.jobs.add(b.job); for (const k of b.likes || []) f.likes.add(k); if (b.skill && b.skill.gather > 1.3) f.herbs++; }
-    const SPOTS = [[1.25, 1.25], [1.45, 0.5], [0.5, 1.45], [1.5, -0.4], [-0.4, 1.5]];
+    const SPOTS = [[1.25, 1.25], [1.45, 0.5], [0.5, 1.45], [1.4, -0.45], [-0.45, 1.4]];   /* all on the household's own lot: the tile beyond is the way between lots */
     for (const q of T0.sites) {
       if (q.upon || !(W.BUILDINGS[q.kind] || {}).room || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
       const f = folkBy.get(q.id), L = q.larder || 0, n = Math.max(1, f ? f.n : 1), items = [];
@@ -514,7 +523,7 @@ function wantProps() {
       let si = 0;
       for (const it of items) {
         while (si < SPOTS.length) { const [ox, oy] = SPOTS[si], tx = Math.floor(q.x + 0.5 + ox), ty = Math.floor(q.y + 0.5 + oy), t = ty * N + tx;
-          if (tx >= 0 && ty >= 0 && tx < N && ty < N && !T0.road[t] && !W.field[t] && !W.water[t] && !(taken.has(t) && (tx !== q.x || ty !== q.y))) break; si++; }
+          if (clearAt(q.x + 0.5 + ox, q.y + 0.5 + oy, q) && !used.has(t)) { used.add(t); break; } si++; }
         if (si >= SPOTS.length) break;
         const [ox, oy] = SPOTS[si++]; want.set(it.key + q.id, { kind: it.kind, x: q.x + 0.5 + ox, y: q.y + 0.5 + oy, base: it.base, img: it.img, dy: it.dy });
       }
@@ -524,20 +533,20 @@ function wantProps() {
     const P = A.prop;
     /* by the fire and the store: market stalls once there is a market (H4), a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
     /* H4: once there is coin, the four lots round the fire are the market, a stall on each */
-    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N || W.water[y * N + x]) return; want.set('mk' + n, { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }); });
-    if ((T0.hunts || 0) > 0 && P.cooking_spit) want.set('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
-    if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) want.set('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
-    { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) want.set('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
-    if (S.agents.some(b => b.alive && b.tame) && P.trough) want.set('trough', { kind: 'prop', x: camp.x - 1.4, y: camp.y + 1.8, base: 'trough', img: P.trough, dy: 3 });
+    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) return; /* a stall stands on its market lot while the lot is open; once something is built there the stall is gone (the shop is the house itself) */ const o = { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }; if (clearAt(o.x, o.y)) want.set('mk' + n, o); });
+    if ((T0.hunts || 0) > 0 && P.cooking_spit) setNear('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
+    if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) setNear('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
+    { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) setNear('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
+    if (S.agents.some(b => b.alive && b.tame) && P.trough) setNear('trough', { kind: 'prop', x: camp.x - 1.4, y: camp.y + 1.8, base: 'trough', img: P.trough, dy: 3 });
     /* lanterns on paved crossings of the lattice */
     if (T0.pave >= 2 && P.lantern) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH, y = T0.y + m * W.PITCH; if (x < 0 || y < 0 || x >= N || y >= N || !T0.road[y * N + x] || (k + m) % 2) continue; want.set('ln' + x + ',' + y, { kind: 'prop', x: x + 0.85, y: y + 0.85, base: 'ln', img: P.lantern, dy: 3 }); }
     /* scarecrows in the middle of field lots */
     if (P.scarecrow) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH + 2, y = T0.y + m * W.PITCH + 2; if (x < 0 || y < 0 || x >= N || y >= N || !W.field[y * N + x] || (k * 7 + m * 3) % 3) continue; want.set('sc' + x + ',' + y, { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'sc', img: P.scarecrow, dy: 3 }); }
     /* stumps left by felling, with mushrooms, where nothing else has been put since */
-    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || (W.owner && W.owner[j]) || W.water[j]) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
+    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || (W.owner && W.owner[j]) || W.water[j] || !clearAt(j % N, (j / N) | 0)) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
   }
   /* once there has been music by the fire, there are logs to sit on round it */
-  if (campOn && S.musicT) for (let k = 0; k < 3; k++) { const ang = k * 2.1 + 0.5; want.set('ls' + k, { kind: 'seat', x: fire.x + Math.cos(ang) * 1.1, y: fire.y + Math.sin(ang) * 0.9, base: 'ls', img: A.logSeat, dy: 2 }); }
+  if (campOn && S.musicT) for (let k = 0; k < 3; k++) { const ang = k * 2.1 + 0.5; setNear('ls' + k, { kind: 'seat', x: fire.x + Math.cos(ang) * 1.1, y: fire.y + Math.sin(ang) * 0.9, base: 'ls', img: A.logSeat, dy: 2 }); }
   /* bridges: every one finished, and the one being laid as far as its timber goes */
   if (campOn) {
     const byKey = new Map(W.fords().map(f => [f.key, f]));
@@ -550,8 +559,11 @@ function wantProps() {
   for (const p of S.piles || []) { const im = A.item[p.kind === 'wood' ? 'log' : p.kind], n = Math.min(6, Math.ceil(p.amt / 1.5)); for (let k = 0; k < n; k++) want.set('p' + p.kind + p.x + ',' + p.y + ':' + k, { kind: 'pile', x: p.x + 0.3 + (k % 3) * 0.16, y: p.y + 0.4 + ((k / 3) | 0) * 0.12, base: 'p' + p.kind, img: im, dy: 3 }); }
   const logs = campOn ? Math.min(6, Math.ceil(T0.wood / 2)) : 0;
   for (let k = 0; k < logs; k++) want.set('w' + k, { kind: 'logs', x: store.x - 0.3 + (k % 3) * 0.14, y: store.y + 0.45 + ((k / 3) | 0) * 0.12, base: 'w', img: A.item.log, dy: 2 });
-  if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) want.set('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
+  if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) setNear('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
   if (campOn && T0.skills.fire) want.set('ring', { kind: 'ring', x: fire.x, y: fire.y, base: 'ring', img: A.ring, dy: 4 });
+  /* nothing wild is drawn where something made has been set down */
+  { const WILD = { bush: 1, rock: 1, reeds: 1, grass: 1 }, busy = new Set(); for (const o of want.values()) if (!WILD[o.kind] && o.kind !== 'tree' && o.kind !== 'crop') busy.add(Math.floor(o.y) * N + Math.floor(o.x));
+    for (const [k, o] of want) if (WILD[o.kind] && busy.has(o.i)) want.delete(k); }
   return want;
 }
 function reconcile() {
