@@ -1704,3 +1704,29 @@ What changed (owner's question: if four couples start in four places, do they be
 | highland | 1 | 16 | 47 | 134 | 138 | 15 | 3 | 36 | 0 | 13 | 5/24/5 | 3.2 | 26.9 | 17.8 | 19.4 | 4 | 1.1 | 224 | 93 | 18.2 | 3 | 2 (7) | 80/0/0/1/16 | 62 | 8.1 | 17 | 2 | 0 | 16311 |
 | highland | 2 | 3 | 1 | 5 | 9 | 2 | 14 | 0 | 5 | 8 | 0/61/5 | 2.6 | 7.2 | 13.3 | 3.7 | 0 | 0.9 | 7 | 46 | 16.7 | 2.3 | 1 (1) | 65/0/0/0/17 | 13 | 3.3 | 8 | 0 | 0 | 6801 |
 | mean |  | 14.5 | 37.1 | 220 | 222.9 | 54.6 | 5 | 4 | 0.6 | 12.4 |  | 3 | 21 | 18.7 | 9.8 | 16.1 | 1.2 | 1766.9 | 74.8 | 25.1 | 3.6 |  |  | 47 | 5.5 | 24.4 | 4.1 | 0 | 18960.9 |
+
+## Holding tight and curiosity; a step a band at a time; the panel follows the band in view (2026-11-28)
+
+What changed (owner's question: are people moved by wanting more?):
+- **Holding tight.** Each person holds what is theirs more or less tightly: mostly a little, a few a great deal; it comes from a parent, and a child who goes hungry holds tighter for life. A grasping house puts less in the common store, later, and gives to kin later. The ledger shows the fullest and emptiest larder a head, how many hold tight, and how few roofs hold half the food.
+- **Curiosity.** The curious are the ones who find what a herb is good for.
+- **Speed.** With several bands a step is taken one band a frame, within about 10 ms, so the picture never waits on all of them.
+- **Watching.** The Town panel and the news are those of the band whose fire is nearest the middle of the view; the hand acts in the band nearest where it acts.
+- **Checked.** tests.html: 543 passed, 0 failed (2 warnings, 36 skipped), with a new check: of two houses with six a head, the grasping one keeps over half a head more after two days; children hold as a parent does; a hungry child holds tighter. In a game with three bands, moving the view to the third made the panel that band's (a hamlet of 19). Against the table above: mean at year 100 220.0 -> 203.5.
+- **Seen.** Valley 1 at year 80: 84 people in 25 households, the fullest larder 5.2 a head, the emptiest 0.6, and 8 roofs holding half the food.
+- **Not right.** Highland 2 dies out three times (5 at year 100); highland 1 loses 50 to leaving and ends at 34.
+- **Not done.** Wanting more does not yet reach into trade, wages or rent; nobody grows rich by dealing between bands.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 23 | 52 | 353 | 354 | 104 | 1 | 0 | 0 | 16 | 14/68/2 | 2.9 | 26.4 | 23.1 | 9.3 | 44 | 1.8 | 2722 | 186 | 23.9 | 1.9 | 1.3333333333333333 (6) | 73/0/0/2/19 | 77 | 4.1 | 29 | 15 | 0 | 25717 |
+| valley | 2 | 18 | 21 | 64 | 65 | 16 | 1 | 0 | 0 | 10 | 13/149/8 | 2.5 | 14.1 | 20 | 5.6 | 2 | 1.5 | 37 | 54 | 22.2 | 3.1 |  | 65/0/0/5/23 | 25 | 3 | 9 | 2 | 0 | 13956 |
+| plains | 1 | 7 | 35 | 240 | 240 | 44 | 5 | 0 | 0 | 14 | 3/151/5 | 3.4 | 27.2 | 19.1 | 16.1 | 8 | 1.7 | 2071 | 29 | 25.5 | 6.6 |  | 65/0/0/0/28 | 65 | 9.2 | 21 | 8 | 0 | 21512 |
+| plains | 2 | 21 | 62 | 435 | 436 | 90 | 5 | 0 | 0 | 12 | 4/152/5 | 2.4 | 25.7 | 24.9 | 11.6 | 13 | 1.3 | 5378 | 104 | 35.4 | 5.1 | 0 (4) | 70/0/0/3/23 | 62 | 4.9 | 33 | 3 | 0 | 24737 |
+| forest | 1 | 13 | 31 | 264 | 264 | 70 | 4 | 0 | 0 | 13 | 58/73/5 | 2.9 | 20.5 | 18.6 | 6.7 | 11 | 1.3 | 1598 | 85 | 17 | 3 | 3 (1) | 65/0/0/5/24 | 43 | 3.2 | 29 | 1 | 0 | 16990 |
+| forest | 2 | 17 | 47 | 327 | 327 | 89 | 4 | 0 | 0 | 15 | 40/85/5 | 2.4 | 17.1 | 21.5 | 6.7 | 15 | 0.9 | 2871 | 53 | 31.6 | 5.1 |  | 74/0/0/0/20 | 39 | 3 | 33 | 2 | 0 | 21242 |
+| lakeland | 1 | 12 | 29 | 180 | 180 | 47 | 3 | 0 | 0 | 16 | 3/160/9 | 2.9 | 20.9 | 14.7 | 11.4 | 22 | 1.2 | 3230 | 64 | 19.9 | 2.8 |  | 75/0/0/1/19 | 39 | 3.2 | 25 | 8 | 0 | 14907 |
+| lakeland | 2 | 13 | 26 | 133 | 134 | 40 | 1 | 0 | 0 | 12 | 23/57/5 | 2.3 | 21.6 | 20.9 | 6.2 | 5 | 0.4 | 716 | 42 | 27.2 | 4.5 | 3 (1) | 63/0/0/5/26 | 43 | 3 | 25 | 0 | 0 | 13938 |
+| highland | 1 | 15 | 30 | 34 | 84 | 10 | 1 | 50 | 0 | 13 | 7/52/7 | 2.9 | 25 | 15.1 | 16.9 | 14 | 1.3 | 219 | 76 | 21.4 | 2.4 | 1.5625 (16) | 68/0/0/0/20 | 52 | 3.4 | 13 | 3 | 0 | 11026 |
+| highland | 2 | 3 | 1 | 5 | 9 | 3 | 12 | 0 | 3 | 10 | 10/50/5 | 2.5 | 7.6 | 6.3 | 3.4 | 2 | 1 | 184 | 47 | 10.4 | 2.5 | 0.75 (4) | 67/15/0/0/19 | 14 | 3 | 8 | 0 | 0 | 6459 |
+| mean |  | 14.2 | 33.4 | 203.5 | 209.3 | 51.3 | 3.7 | 5 | 0.3 | 13.1 |  | 2.7 | 20.6 | 18.4 | 9.4 | 13.6 | 1.2 | 1902.6 | 74 | 23.5 | 3.7 |  |  | 45.9 | 4 | 22.5 | 4.2 | 0 | 17048.4 |
