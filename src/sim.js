@@ -703,6 +703,8 @@ function create(seed, opt) {
     /* and how they are made: height, build, and for a man how he wears his beard. These come from the person's number, not from chance drawn
        in the run, and a child has each from one parent or the other (below) */
     { const hh = k => ((Math.imul(a.id + 17, 2654435761) >>> (8 + k * 5)) & 31) / 32; a.looks.tall = hh(0) < 0.25 ? 0 : hh(0) < 0.75 ? 1 : 2; a.looks.build = hh(1) < 0.25 ? 0 : hh(1) < 0.75 ? 1 : 2; a.looks.beard = hh(2) < 0.4 ? 0 : hh(2) < 0.75 ? 1 : 2;
+      /* the face: its shape, the eyes, the nose, the mouth and the brow, each one of a few kinds (the view draws them) */
+      { const fh = k => (Math.imul(a.id * 7 + k * 131 + 3, 2246822519) >>> 11) & 255; a.looks.head = fh(1) % 3; a.looks.eyes = fh(2) % 5; a.looks.nose = fh(3) % 3; a.looks.mouth = fh(4) % 3; a.looks.brow = fh(5) % 2; a.looks.gap = fh(6) % 2; a.looks.style = fh(7) % 3; }
       /* how tightly they hold what is theirs (0: open-handed, 1: grasping): most people a little, a few a great deal. It comes down from a parent, and a hungry childhood adds to it */
       a.greed = Math.round(hh(3) * hh(3) * 70) / 100;
       /* and how curious they are (0 to 1): the curious try things, so they are the ones who find what a herb is good for */
@@ -2872,7 +2874,7 @@ function create(seed, opt) {
           c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin;
           c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair;
           { const src = f && (c.id & 8) ? f : m; if (src.greed !== undefined && (Math.imul(c.id + 5, 40503) & 7) !== 0) c.greed = src.greed; }
-          ['tall', 'build', 'beard'].forEach((k, n) => { const src = f && ((c.id >> n) & 1) ? f : m; if (src.looks[k] !== undefined && (Math.imul(c.id + n, 40503) & 7) !== 0) c.looks[k] = src.looks[k]; });   /* one time in eight a child goes its own way */
+          ['tall', 'build', 'beard', 'head', 'eyes', 'nose', 'mouth', 'brow', 'gap'].forEach((k, n) => { const src = f && ((c.id >> n) & 1) ? f : m; if (src.looks[k] !== undefined && (Math.imul(c.id + n, 40503) & 7) !== 0) c.looks[k] = src.looks[k]; });   /* one time in eight a child goes its own way */
         }
         /* a child takes after a parent in what it loves, more often than not */
       { const par = [m, f].filter(Boolean), src = par.length && rnd() < 0.65 ? par[(rnd() * par.length) | 0] : null; if (src && src.likes && src.likes.length) c.likes = [src.likes[(rnd() * src.likes.length) | 0]]; }
