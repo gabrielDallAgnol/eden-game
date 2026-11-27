@@ -743,7 +743,7 @@ function create(seed, opt) {
   const FIRST_NORM = 6;
   const normOf = a => a.norm === undefined ? FIRST_NORM : a.norm;
   const childrenOf = a => folk().filter(b => b.mom === a.id || b.dad === a.id);
-  const tell = text => S.log.push({ t: S.t, text, band: S.tribe.band || 0 }), tellAll = text => S.log.push({ t: S.t, text, band: -1 });   /* news of one band, and news of what passes between bands */
+  const tell = text => S.log.push({ t: S.t, text, band: S.tribe.band || 0 }), tellAll = text => S.log.push({ t: S.t, text, band: -1 }), tellFirst = text => S.log.push({ t: S.t, text, band: S.tribe.band || 0, first: true });   /* a first: kept for the chronicle */   /* news of one band, and news of what passes between bands */
   // a few words about one person, for whoever stops to look
   /* G1. Ties beyond kin: two people grow close by doing things together (one hunt, one building site, one fire to eat, sing,
      hear a story or mourn at) and drift apart slowly when they do not. A friend is someone a tie of 0.5 or more binds them to */
@@ -1841,7 +1841,7 @@ function create(seed, opt) {
     return best ? { who: best, lv, name } : null; }
   function tryHerbs(h, uses) { const T = S.tribe; for (const use of uses) { const k = HERB_USE[use], name = HERBS[k].k; if (!herbNear(h.x, h.y, k, 10)) continue;
       for (const b of folk()) { if (b.age < GROWN || (h !== T ? b.house !== h.id : b.house) || (b.know && b.know[name]) || rnd() >= HERB_TRY * (0.4 + 1.8 * (b.curious === undefined ? 0.33 : b.curious))) continue; (b.know = b.know || {})[name] = 0.3; S.stat.herbsFound = (S.stat.herbsFound || 0) + 1;
-        T.herbTold = T.herbTold || {}; if (!T.herbTold[name]) { T.herbTold[name] = true; tell(b.name + ' has found a use for something that grows near: ' + HERBS[k].says + '.'); } break; } } }
+        T.herbTold = T.herbTold || {}; if (!T.herbTold[name]) { T.herbTold[name] = true; tellFirst(b.name + ' has found a use for something that grows near: ' + HERBS[k].says + '.'); } break; } } }
   const used = c => { if (c) c.who.know[c.name] = Math.min(1, c.who.know[c.name] + 0.05); };
   const scribed = () => !!standing('tallyhouse') && folk().some(b => b.job === 'scribe');
   const presiding = () => !!standing('hall') && folk().some(b => b.job === 'elder');
@@ -2461,7 +2461,7 @@ function create(seed, opt) {
         T.foundBy = T.foundBy || {}; T.foundBy[k] = best.name; best.found = (best.found || []).concat([k]); }
       T.skills[k] = true; if (k === 'writing') T.writingDebts = openDebts;   /* how much was owed when marks were first made, for the record */
       if (d.need !== 'danger') N_[d.need] *= 0.5;
-      tell(d.say);
+      tellFirst(d.say + (T.foundBy && T.foundBy[k] ? ' It was ' + T.foundBy[k] + ' who worked it out.' : ''));
       break;
     }   // one thing at a time; an answer eases the want
     /* the autumn slaughter: a kept herd is only as big as its pasture round the pen and the hay put by can carry through
@@ -2569,7 +2569,7 @@ function create(seed, opt) {
           const lead = set.filter(b => b.age >= WED).sort((p, q) => q.age - p.age)[0]; B.name = uniqueName(lead.name + "'s people"); S.stat.founded = (S.stat.founded || 0) + 1;
           for (const b of set) { b.band = B.band; b.house = 0; b.job = ''; b.trip = null; const f = free(site[0], site[1]); b.x = f[0]; b.y = f[1]; }
           { const R = relOf(T.band, B.band); R.v = 0.5; R.kin = n; }   /* they parted as kin */
-          folkList = null; tell(n + ' people, led by ' + lead.name + ', have left to make a fire of their own ' + Math.round(Math.hypot(site[0] - T.x, site[1] - T.y)) + ' tiles away: there was no ground to sow near the village.'); }
+          folkList = null; tellFirst(n + ' people, led by ' + lead.name + ', have left to make a fire of their own ' + Math.round(Math.hypot(site[0] - T.x, site[1] - T.y)) + ' tiles away: there was no ground to sow near the village.'); }
         else { for (const b of set) leave(b);
         tell(n + ' people have left the valley to find land of their own: there was no ground to sow near the village and the store was running low.'); } }
       T.fields = total; T.sown = true; T.cropWarm = 0; fieldList = null;
@@ -2986,7 +2986,7 @@ function create(seed, opt) {
         nothing: T.godName + ' does not know what to do about the fever.', high: T.godName + ' has said to keep to the high ground.', stay: T.godName + ' has said to stay by the water.' }[opt]); return opt; }
     S.ask = null; const name = String(text || '').replace(/[<>&"]/g, '').trim().slice(0, 24), given = !!name; T.godName = name || 'the Hand'; T.godBy = a ? a.name : ''; T.godT = S.t;
     if (given) { if (a && a.alive) { a.faith = 1; a.trust = Math.min(1, (a.trust || 0) + 0.2); } for (const b of folk()) b.faith = (b.faith || 0) + 0.1 * (1 - (b.faith || 0));
-      tell((a ? a.name : 'Someone') + ' was answered. The one who watches is called ' + T.godName + ', and the name will be said at every fire.'); }
+      tellFirst((a ? a.name : 'Someone') + ' was answered. The one who watches is called ' + T.godName + ', and the name will be said at every fire.'); }
     else tell((a ? a.name : 'Someone') + ' waited by the fire and no answer came. ' + (a ? (a.fem ? 'She' : 'He') : 'They') + ' calls the one who moves things ' + T.godName + '.');
     return T.godName; }
 
