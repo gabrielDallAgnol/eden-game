@@ -1315,4 +1315,16 @@ UNITS.push(['holding tight: an open-handed house puts its plenty in the common s
   var child = P().filter(function (a) { return a.age < 7; })[0]; if (child) { var g0 = child.greed; child.shortT = 0.5; for (i = 0; i < 24 * 2 && child.alive && !(child.greed > g0); i++) { child.shortT = Math.max(child.shortT, 0.5); W.tick(); } if (child.alive && child.age < 8 && !(child.greed > g0)) out.push('a child hungry for two years holds no tighter'); }
   return out.join('; ');
 }]);
+UNITS.push(['an idea is worked out by somebody: the want and the means make it possible, a mind finds it; no two places find things in the same years, and the finder is known', function () {
+  var years = [], out = [], who = 0;
+  [[1, 'valley'], [2, 'valley'], [1, 'forest'], [2, 'plains'], [1, 'lakeland']].forEach(function (w) { var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96, age: 'wood', human: 6 }), S = W.S, T = S.tribe, y = -1, i;
+    for (i = 0; i < 24 * 25; i++) { W.tick(); if (y < 0 && T.skills.hut) y = Math.floor(S.t); } years.push(y);
+    Object.keys(T.foundBy || {}).forEach(function (k) { if (!T.skills[k]) out.push(w[1] + ': ' + k + ' has a finder and is not known'); });
+    if (T.foundBy && Object.keys(T.foundBy).length) who++;
+    var f = S.agents.filter(function (a) { return a.alive && a.found && a.found.length; })[0]; if (f && !/Worked out /.test(W.describe(f))) out.push('a finder\'s description does not say what they worked out'); });
+  var got = years.filter(function (y) { return y >= 0; }); if (got.length < 3) out.push('huts worked out in only ' + got.length + ' of 5 worlds in 25 years');
+  if (got.length >= 3 && got.every(function (y) { return y === got[0]; })) out.push('huts came in year ' + got[0] + ' in every world');
+  if (who < 3) out.push('a finder is named in only ' + who + ' of 5 worlds');
+  return out.join('; ');
+}]);
 })();

@@ -265,11 +265,12 @@ function create(seed, opt) {
   const REACH_W = 30;
   const BAND_REACH = opt.bandReach !== undefined ? opt.bandReach : 90;   /* fires further apart than this do not meet */
   const HEALER_REACH = 10;
+  const IDEA_P = opt.ideaP !== undefined ? opt.ideaP : 0.1;   /* one mind's yearly chance of working out a thing whose want and means are there */
   const HERB_TRY = opt.herbTry !== undefined ? opt.herbTry : 0.02;   /* the chance that a grown person at home tries a herb growing near when there is sickness under the roof */
   const LOD = opt.lod !== undefined ? opt.lod : N > 128 ? 4 : 1, FAR = 40;
   const ASK_WAIT = 12;   /* steps the asker waits for an answer: three days */
   /* test lever: demog 'old' is the demography before sickness (no fever, no deaths at birth, children borne to 42 every 2.4 years), kept so that checks of what only a large place does can still reach one in a few decades */
-  const OLD_DEMOG = opt.demog === 'old', FERTILE_TO = OLD_DEMOG ? 42 : 30, BIRTH_GAP = OLD_DEMOG ? 2.4 / 3.0 : 1; if (OLD_DEMOG) opt.noSick = true;
+  const OLD_DEMOG = opt.demog === 'old', FERTILE_TO = OLD_DEMOG ? 42 : 30, BIRTH_GAP = OLD_DEMOG ? 2.4 / 3.0 : 1; if (OLD_DEMOG) { opt.noSick = true; if (opt.sureIdeas === undefined) opt.sureIdeas = true; }
   const SICK_WILD = opt.sickWild !== undefined ? opt.sickWild : 8;
   const SICK_K = opt.sickK !== undefined ? opt.sickK : 0.0032, BIRTH_LOSS = opt.birthLoss !== undefined ? opt.birthLoss : 0.08, BIRTH_DEATH = 0.012;
   const cut = new Uint8Array(N * N), CHOP = 0.3, WOOD_PER_STAND = 4, FUEL_PER_WOOD = 4;   /* a full stand of trees on a tile is 4 timber, enough for two thirds of a house; a timber split for the hearth is 4 days' fires (planned on purpose) */
@@ -830,12 +831,13 @@ function create(seed, opt) {
     const fr = friendsOf(a).map(b => b.name), friends = fr.length ? ' Friends: ' + fr.join(', ') + '.' : '';
     const bored = hh && hh.larder > 0.5 && variety(hh) < 0.25 ? ' Tired of eating the same thing every day.' : '';
     const lore = a.know && Object.keys(a.know).length ? ' Knows ' + Object.keys(a.know).map(k => HERBS[HERB_USE[HERBS.find(q => q && q.k === k).use]].says).join(', ') + '.' : '';
+    const wit = a.found && a.found.length ? ' Worked out ' + a.found.join(', ') + '.' : '';
     const deals = a.trader ? ' Carries goods between peoples.' : '';
     const cur = a.curious > 0.85 ? ' Curious about everything.' : '';
     const hold = (a.greed || 0) > 0.6 ? ' Holds tight to what is theirs.' : (a.greed || 0) < 0.05 && a.age >= GROWN ? ' Open-handed.' : '';
     const creed = !(a.faith > 0.25) ? '' : a.faith > 0.5 ? (a.trust > 0.2 ? ' Believes ' + (S.tribe.godName || 'someone') + ' watches over the place, and is glad of it.' : a.trust < -0.2 ? ' Believes ' + (S.tribe.godName || 'something') + ' watches the place, and fears it.' : ' Believes ' + (S.tribe.godName ? S.tribe.godName + ' is there.' : 'there is someone there.')) : ' Has seen things move that nobody touched.';
     return a.name + ', ' + age + ', ' + what + '. ' + (p && p.alive ? (a.fem ? 'Her' : 'His') + ' partner is ' + p.name + '. ' : a.age >= WED ? 'On ' + (a.fem ? 'her' : 'his') + ' own. ' : '')
-      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps + cur + hold + deals + lore + creed;
+      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps + cur + wit + hold + deals + lore + creed;
   }
   // Once in each step the camp's ties are looked over: who has grown close, who needs a roof, who has no one to choose
   function society(dt) {
@@ -2451,6 +2453,11 @@ function create(seed, opt) {
     if (!opt.noIdeas) for (const k in IDEAS) {
       const d = IDEAS[k];
       if (T.skills[k] || BEYOND[k] || N_[d.need] < d.at || !d.can(T)) continue;
+      /* the want and the means only make it possible: somebody has to work it out. Each year each grown mind has its chance, the curious a better one, so a
+         large place finds things sooner than a small one and no two places find them in the same year */
+      { const minds = folk().filter(b => b.age >= GROWN && b.age <= 60); if (!minds.length) continue; const best = minds.reduce((p, q) => (q.curious || 0) > (p.curious || 0) ? q : p);
+        if (!opt.sureIdeas && rnd() >= Math.min(0.7, IDEA_P * Math.sqrt(minds.length) * (0.5 + (best.curious === undefined ? 0.5 : best.curious)))) continue;
+        T.foundBy = T.foundBy || {}; T.foundBy[k] = best.name; best.found = (best.found || []).concat([k]); }
       T.skills[k] = true; if (k === 'writing') T.writingDebts = openDebts;   /* how much was owed when marks were first made, for the record */
       if (d.need !== 'danger') N_[d.need] *= 0.5;
       tell(d.say);
