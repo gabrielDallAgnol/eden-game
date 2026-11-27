@@ -1217,4 +1217,24 @@ UNITS.push(['what people make of the hand: nobody believes in a world it never t
   if (!/watches|someone there|nobody touched/.test(W.describe(hungry) || 'watches')) out.push('nothing of it in how the person is described');
   return out.join('; ');
 }]);
+UNITS.push(['the first question: one who is nearly sure goes to the fire and asks who is there; answered, the name is kept and told; unanswered, they find a word of their own; believers leave food out', function () {
+  var mk = function () { var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'plains', size: 96, age: 'wood', demog: 'old' }), i; for (i = 0; i < 24 * 30; i++) W.tick(); return W; };
+  var feed = function (W) { var S = W.S, T = S.tribe, a = S.agents.filter(function (b) { return b.alive && b.d.people && b.age > 12 && b.age < 30; })[0], i; for (i = 0; i < 12 && !S.ask; i++) { a.e = 0.3; a.x = T.x; a.y = T.y; W.G.drop({ k: 'pile', kind: 'meat', amt: 2 }, T.x, T.y); } return a; };
+  var W = mk(), S = W.S, T = S.tribe, out = [], i;
+  if (S.ask || T.godName) out.push('a question or a name before the hand has done anything');
+  var a = feed(W); if (!S.ask) return 'fed twelve times and nobody asked (belief ' + (a.faith || 0).toFixed(2) + ')';
+  var asker = S.agents.filter(function (b) { return b.id === S.ask.id; })[0]; if (!(asker.faith >= 0.8)) out.push('the asker is not sure: ' + asker.faith);
+  asker.e = 0.9; for (i = 0; i < 3; i++) W.tick(); if (S.ask && Math.max(Math.abs(asker.x - T.x), Math.abs(asker.y - T.y)) > 3) out.push('the asker did not wait by the fire');
+  if (!S.ask) out.push('the question was dropped within three steps');
+  var name = W.G.answer('  Gabriel <b> '); if (T.godName !== 'Gabriel b' || S.ask) out.push('the name kept is ' + JSON.stringify(T.godName) + ' (returned ' + JSON.stringify(name) + ')');
+  if (!/Gabriel b/.test(W.describe(asker))) out.push('the asker\'s description does not use the name');
+  if (W.ledger().godName !== 'Gabriel b') out.push('the ledger does not carry the name');
+  T.sites.forEach(function (q) { if (q.members > 0) { q.larder = (q.larder || 0) + q.members * 4; } }); S.agents.forEach(function (b) { if (b.alive && b.d.people) { b.faith = 0.9; b.trust = 0.5; } });
+  for (i = 0; i < 24 * 2; i++) W.tick(); if (!(S.stat.offerings > 0)) out.push('believing households with full larders left nothing out in two years');
+  /* nobody answers */
+  var W2 = mk(), S2 = W2.S; feed(W2); if (!S2.ask) return out.concat('second world: nobody asked').join('; '); var id2 = S2.ask.id;
+  S2.agents.forEach(function (b) { if (b.id === id2) b.e = 0.9; }); for (i = 0; i < 20 && S2.ask; i++) { S2.agents.forEach(function (b) { if (b.id === id2) b.e = Math.max(b.e, 0.6); }); W2.tick(); }
+  if (S2.ask) out.push('still waiting after twenty steps'); else if (S2.tribe.godName !== 'the Hand') out.push('unanswered, the name is ' + JSON.stringify(S2.tribe.godName));
+  return out.join('; ');
+}]);
 })();

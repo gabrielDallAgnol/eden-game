@@ -244,6 +244,7 @@ function create(seed, opt) {
   // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
   // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
   const REACH_W = 30;
+  const ASK_WAIT = 12;   /* steps the asker waits for an answer: three days */
   /* test lever: demog 'old' is the demography before sickness (no fever, no deaths at birth, children borne to 42 every 2.4 years), kept so that checks of what only a large place does can still reach one in a few decades */
   const OLD_DEMOG = opt.demog === 'old', FERTILE_TO = OLD_DEMOG ? 42 : 30, BIRTH_GAP = OLD_DEMOG ? 2.4 / 3.0 : 1; if (OLD_DEMOG) opt.noSick = true;
   const SICK_WILD = opt.sickWild !== undefined ? opt.sickWild : 8;
@@ -793,7 +794,7 @@ function create(seed, opt) {
           ? 'enough put by' : 'an empty larder') + (hh.fields ? ' and ' + hh.fields + ' field' + (hh.fields > 1 ? 's' : '') : '') + '.' : '';
     const fr = friendsOf(a).map(b => b.name), friends = fr.length ? ' Friends: ' + fr.join(', ') + '.' : '';
     const bored = hh && hh.larder > 0.5 && variety(hh) < 0.25 ? ' Tired of eating the same thing every day.' : '';
-    const creed = !(a.faith > 0.25) ? '' : a.faith > 0.5 ? (a.trust > 0.2 ? ' Believes someone watches over the place, and is glad of it.' : a.trust < -0.2 ? ' Believes something watches the place, and fears it.' : ' Believes there is someone there.') : ' Has seen things move that nobody touched.';
+    const creed = !(a.faith > 0.25) ? '' : a.faith > 0.5 ? (a.trust > 0.2 ? ' Believes ' + (S.tribe.godName || 'someone') + ' watches over the place, and is glad of it.' : a.trust < -0.2 ? ' Believes ' + (S.tribe.godName || 'something') + ' watches the place, and fears it.' : ' Believes ' + (S.tribe.godName ? S.tribe.godName + ' is there.' : 'there is someone there.')) : ' Has seen things move that nobody touched.';
     return a.name + ', ' + age + ', ' + what + '. ' + (p && p.alive ? (a.fem ? 'Her' : 'His') + ' partner is ' + p.name + '. ' : a.age >= WED ? 'On ' + (a.fem ? 'her' : 'his') + ' own. ' : '')
       + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps + creed;
   }
@@ -955,6 +956,7 @@ function create(seed, opt) {
   /* one who leaves the valley for good: not a death, nobody grieves; the view lets them go */
   const leave = a => { if (!a.alive) return; a.alive = false; a.left = true; folkList = null; S.stat.left = (S.stat.left || 0) + 1; S.fx.push({ kind: 'leave', sp: a.sp, id: a.id, x: a.x, y: a.y }); };
   const die = (a, why, by) => {
+    if (S.ask && S.ask.id === a.id) S.ask = null;
     if (!a.alive) return;
     a.alive = false;
     folkList = null;
@@ -1478,6 +1480,8 @@ function create(seed, opt) {
   }
   function person(a, d, dt) {
     a.wood = -1; a.tripD = 0; const T = S.tribe, dist = Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)), pop = S.pop[a.sp];
+    /* the one who asked waits by the fire for an answer, for a few days, while not too hungry to wait */
+    if (S.ask && S.ask.id === a.id) { if (S.tickNo - S.ask.since > ASK_WAIT) settleAsk(''); else if (a.e > 0.3) { if (dist > 1) stepTo(a, T.x, T.y, 3); a.act = { k: 'ask' }; return; } }
     // eating: from their own larder, at home. What is held in common by the fire is eaten only at the fire: someone whose
     // own larder is empty walks over to it, and that is their day. When there is little, the grown go short so the children eat.
     const hm = homeSite(a), mouths = hm ? hm.members || 1 : pop, short = a.age >= GROWN && T.kidsHungry && (hm ? (hm.larder || 0) < mouths * 0.5 : T.store < pop * 0.5);
@@ -2266,7 +2270,7 @@ function create(seed, opt) {
     for (const a of S.agents) { if (!a.alive || a.d.people) continue; const to = a.tame ? out.beasts : out.wild; to[a.sp] = (to[a.sp] || 0) + 1; }
     let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
     out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
-    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
+    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.offerings = Math.round((T.offer || 0) * 10) / 10; out.godName = T.godName || ''; out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
     out.known = Object.keys(T.skills).filter(k => T.skills[k]);
     return out;
   }
@@ -2342,6 +2346,9 @@ function create(seed, opt) {
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
 /* what was seen of the hand is told at home: each person's belief and trust move a little toward their household's; untended, belief fades slowly */
     { const P = folk(), by = new Map(); for (const a of P) if (a.house) { let g = by.get(a.house); if (!g) by.set(a.house, g = { f: 0, t: 0, n: 0 }); g.f += a.faith || 0; g.t += a.trust || 0; g.n++; }
+      /* a household that believes leaves a little of its food out, by the shrine if there is one, else by the fire: thanks from those who trust, to turn harm aside from those who fear. It is food lost to them */
+      T.offer = (T.offer || 0) * 0.4; for (const [id, g] of by) { if (g.f / g.n <= 0.5) continue; const q = T.sites.find(u => u.id === id); if (!q || !((q.larder || 0) > g.n * 1.5)) continue; const amt = 0.15 * g.n; mixOf(q, 'larder'); q.larder -= amt; mixOf(q, 'larder'); T.offer += amt; S.stat.offerings = (S.stat.offerings || 0) + 1;
+        if (!T.offerTold) { T.offerTold = true; const b = P.find(c => c.house === id); tell((b ? b.name + '\'s household has' : 'A household has') + ' left food out ' + (standing('shrine') ? 'at the shrine' : 'by the fire') + ' for ' + (T.godName || 'whoever it is that watches') + '.'); } }
       for (const a of P) { const g = a.house && by.get(a.house); if (g && g.n > 1 && g.f > 0) { a.faith = (a.faith || 0) + 0.2 * (g.f / g.n - (a.faith || 0)); a.trust = (a.trust || 0) + 0.2 * (g.t / g.n - (a.trust || 0)); } if (a.faith) a.faith *= 0.98; } }
         T.kidDied *= 0.85; T.kidBorn *= 0.85;   /* what was seen of children living and dying fades over the years */
     // wants that are only seen over a year
@@ -2788,7 +2795,17 @@ function create(seed, opt) {
       if (h === 'gift') { a.faith += 0.25 * (1 - a.faith); a.trust = Math.min(1, a.trust + 0.25); S.stat.gifts = (S.stat.gifts || 0) + 1; }
       else if (h === 'harm') { a.faith += 0.25 * (1 - a.faith); a.trust = Math.max(-1, a.trust - 0.35); S.stat.harms = (S.stat.harms || 0) + 1; }
       else a.faith += 0.06 * (1 - a.faith);
-      a.sawT = S.tickNo; a.sawHow = h || 'wonder'; } }
+      a.sawT = S.tickNo; a.sawHow = h || 'wonder'; }
+    /* THE FIRST QUESTION. The first grown person to be nearly sure someone is there goes to the fire, looks up and asks who. They wait a few days
+       for an answer (G.answer); given none, they find a word of their own */
+    const T = S.tribe; if (!T.godName && !S.ask) { let who = null; for (const a of folk()) if (a.age >= GROWN && a.faith >= 0.8 && a.sawT === S.tickNo && (!who || a.faith > who.faith)) who = a;
+      if (who) { S.ask = { id: who.id, kind: 'name', since: S.tickNo, fear: who.trust < -0.2 }; tell(who.name + ' has gone to the fire and stands looking up. ' + (who.fem ? 'She' : 'He') + ' is asking who is there.'); } } }
+  function settleAsk(text) { const T = S.tribe, q = S.ask; if (!q) return ''; const a = S.byId.get(q.id); S.ask = null; const name = String(text || '').replace(/[<>&"]/g, '').trim().slice(0, 24), given = !!name; T.godName = name || 'the Hand'; T.godBy = a ? a.name : ''; T.godT = S.t;
+    if (given) { if (a && a.alive) { a.faith = 1; a.trust = Math.min(1, (a.trust || 0) + 0.2); } for (const b of folk()) b.faith = (b.faith || 0) + 0.1 * (1 - (b.faith || 0));
+      tell((a ? a.name : 'Someone') + ' was answered. The one who watches is called ' + T.godName + ', and the name will be said at every fire.'); }
+    else tell((a ? a.name : 'Someone') + ' waited by the fire and no answer came. ' + (a ? (a.fem ? 'She' : 'He') : 'They') + ' calls the one who moves things ' + T.godName + '.');
+    return T.godName; }
+
 
   const G = {
     /* put a creature down at a place (tests and scenarios): returns it */
@@ -2872,6 +2889,7 @@ function create(seed, opt) {
         if (b.d.mass < 1 && a.age < GROWN && cheb(a, b) <= 2) { a.joy = Math.min(1, (a.joy || 0) + 0.5); return 'gift'; }
         if (!b.d.eats.meat && a.e < 0.45 && cheb(a, b) <= 3) return 'gift';
         return ''; }); },
+    answer(text) { return settleAsk(text); },
         drop(h, x, y) {
       if (!h) return ''; x = clamp(x | 0, 0, N - 1); y = clamp(y | 0, 0, N - 1); const i = I(x, y), T = S.tribe, atCamp = S.popPeople && Math.max(Math.abs(x - T.x), Math.abs(y - T.y)) <= 2;
       sawHand(x, y);

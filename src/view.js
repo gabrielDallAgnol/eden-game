@@ -539,6 +539,8 @@ function wantProps() {
     if ((T0.hunts || 0) > 0 && P.cooking_spit) setNear('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
     if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) setNear('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
     { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) setNear('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
+    /* food left out for the one who watches: by the shrine if there is one, else by the fire */
+    if ((T0.offer || 0) > 0.1) { const sh = T0.sites.find(q => q.kind === 'shrine' && q.stage > 0); setNear('offer', { kind: 'prop', x: sh ? sh.x + 0.5 + 1.2 : fire.x - 1.0, y: sh ? sh.y + 0.5 + 1.2 : fire.y - 0.9, base: 'offer', img: P.potted_plants || A.basket, dy: 4 }); if (T0.offer > 1) setNear('offer2', { kind: 'basket', x: sh ? sh.x + 0.5 + 1.5 : fire.x - 1.3, y: sh ? sh.y + 0.5 + 0.9 : fire.y - 0.6, base: 'offer2', img: A.basket, dy: 6 }); }
     if (S.agents.some(b => b.alive && b.tame) && P.trough) setNear('trough', { kind: 'prop', x: camp.x - 1.4, y: camp.y + 1.8, base: 'trough', img: P.trough, dy: 3 });
     /* lanterns on paved crossings of the lattice */
     if (T0.pave >= 2 && P.lantern) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH, y = T0.y + m * W.PITCH; if (x < 0 || y < 0 || x >= N || y >= N || !T0.road[y * N + x] || (k + m) % 2) continue; want.set('ln' + x + ',' + y, { kind: 'prop', x: x + 0.85, y: y + 0.85, base: 'ln', img: P.lantern, dy: 3 }); }
@@ -1587,6 +1589,7 @@ function frame(t) {
       case 'crawl': im = sp.sit ? sp.sit[face] : im; lift = moving ? (((r.odo * 6) | 0) % 2) : 0; break;
       default: im = sp[face][0];
     }
+    if (S.ask && id === S.ask.id && sp.up && !moving) im = sp.up[face];   /* the one who asks stands with arms raised */
     // the newborn and the newly arrived ease into view
     let al = r.alpha; if (r.newborn) { const k2 = clamp((now - r.born) / 1400, 0, 1); if (k2 >= 1) r.newborn = 0; extra.grow = 0.45 + 0.55 * ease(k2); }
     /* children grow a little every year, not only when they move up to the next size of sprite */
@@ -1972,6 +1975,24 @@ bS2.onclick = () => {
     el.appendChild(b);
   }
 }
+// THE FIRST QUESTION: when someone asks who is there, their face comes up with their words, and the player may answer with a name
+{ const box = document.createElement('div'); box.id = 'ask';
+  box.style.cssText = 'display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));width:min(92vw,400px);box-sizing:border-box;background:var(--paper);color:var(--ink);border:3px solid var(--line);border-radius:9px;padding:12px;z-index:6;box-shadow:0 5px 0 rgba(59,43,31,.5);font-size:14px';
+  box.innerHTML = '<div style="display:flex;gap:12px;align-items:center"><canvas id="askFace" width="64" height="80" style="width:96px;height:120px;image-rendering:pixelated;flex:none;background:rgba(0,0,0,.08);border-radius:6px"></canvas><div><b id="askWho"></b><p id="askSay" style="margin:6px 0 0;line-height:1.35"></p></div></div>'
+    + '<div style="display:flex;gap:6px;margin-top:10px"><input id="askIn" maxlength="24" placeholder="A name" autocomplete="off" style="flex:1;min-width:0;font:inherit;padding:7px;border:2px solid var(--line);border-radius:6px;background:#fffdf2;color:var(--ink)"><button class="btn" id="askGo">Answer</button><button class="btn" id="askNo">Say nothing</button></div>';
+  document.body.appendChild(box); let shownFor = 0, passed = 0;
+  const inp = box.querySelector('#askIn'), hide = () => { box.style.display = 'none'; shownFor = 0; };
+  const answer = () => { const v = inp.value.trim(); if (!v || !S.ask) return; W.G.answer(v); inp.value = ''; hide(); takeEvents(true); };
+  box.querySelector('#askGo').onclick = answer; inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') answer(); });
+  box.querySelector('#askNo').onclick = () => { passed = S.ask ? S.ask.id : 0; hide(); };   /* they go on waiting, and in the end find a word of their own */
+  setInterval(() => { const q = S.ask; if (!q) { if (shownFor) hide(); return; } if (shownFor === q.id || passed === q.id || paused) return; const a = S.agents.find(b => b.id === q.id); if (!a || !a.alive) return;
+    shownFor = q.id; const L = lookOf(a), sp = L.make ? L.make(a, a.age > 46 ? 'old' : 'grown') : L.grown[a.id % L.grown.length], im = sp.r[0];
+    const c = box.querySelector('#askFace'), g = c.getContext('2d'), k = Math.max(2, Math.round(c.width / im.width * 1.7)); g.imageSmoothingEnabled = false; g.clearRect(0, 0, c.width, c.height); g.drawImage(im, Math.round((c.width - im.width * k) / 2), 6, im.width * k, im.height * k);   /* head and shoulders, large */
+    box.querySelector('#askWho').textContent = a.name + ', ' + Math.floor(a.age);
+    box.querySelector('#askSay').textContent = q.fear ? 'Things move that no hand of ours has touched, and we have been hurt by it. What are you? What are we to call you?' : 'Someone is there. I have seen what you do. Who are you? What shall we call you?';
+    box.style.display = 'block';
+    /* the view goes to the one who asks */
+    const r = recOf(a.id), wx = isoX(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5), wy = isoY(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5); cam.z = clamp(Math.max(cam.z, dpr * 2.2), minZ(), maxZ()); cam.x = wx - cv.width / cam.z / 2; cam.y = wy - 30 - cv.height / cam.z / 2; clampCam(); }, 700); }
 // what the place has become and what its people know: a panel that opens from the corner
 { const el = document.getElementById('know'), btn = document.getElementById('bKnow');
   const fill = () => {
@@ -2002,11 +2023,11 @@ bS2.onclick = () => {
       + (() => { const f = T0.foodLast || {}, src = [['grain', 'the fields, grain'], ['veg', 'the fields, greens'], ['fruit', 'gathered'], ['fish', 'fished'], ['meat', 'hunted']], tot = src.reduce((p, [k]) => p + (f[k] || 0), 0); if (!tot) return '';
           return '<p><b>Food last year</b> (' + (tot / Math.max(1, S.popPeople)).toFixed(1) + ' a head)<br>' + src.filter(([k]) => f[k] > 0.5).map(([k, w]) => Math.round(100 * f[k] / tot) + '% ' + w).join('<br>') + '</p>'; })()
       /* the ledger: everything the place has, counted */
-      + (() => { const L = W.ledger(), cap = k => k.charAt(0).toUpperCase() + k.slice(1), NAME = { all: 'all', inStore: 'of it in the common store', veg: 'greens', fruit: 'fruit and roots', mournedAtShrine: 'times mourned at the shrine', haveSeenTheHand: 'have seen the hand', believe: 'believe someone is there', trusting: 'of them, trusting', fearful: 'of them, fearful',
+      + (() => { const L = W.ledger(), cap = k => k.charAt(0).toUpperCase() + k.slice(1), NAME = { all: 'all', inStore: 'of it in the common store', veg: 'greens', fruit: 'fruit and roots', mournedAtShrine: 'times mourned at the shrine', haveSeenTheHand: 'have seen the hand', offerings: 'food left out', believe: 'believe someone is there', trusting: 'of them, trusting', fearful: 'of them, fearful',
             grieving: 'grieving now', ways: 'tiles of worn way', fields: 'field tiles', fenced: 'fenced', healerhouse: "healer's house", tallyhouse: 'tally house', born: 'born here', died: 'died', left: 'left the valley', cow: 'cattle', deer: 'deer', rabbit: 'rabbits', wolf: 'wolves' };
           const row = (t, o) => { const ks = Object.keys(o).filter(k => o[k] > 0); return ks.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>' + t + '</b></td><td>' + ks.map(k => (NAME[k] || k) + ' <b>' + o[k] + '</b>').join(', ') + '</td></tr>' : ''; };
           return '<p><b>Ledger</b></p><table style="border-collapse:collapse;font-size:inherit">' + row('People', L.people) + row('Homes', L.homes) + row('Buildings', L.buildings) + row('Being built', L.building) + row('Food', L.food) + row('Goods', L.goods)
-            + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row('Faith', L.faith) + '</table>'; })()
+            + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + '</table>'; })()
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
       /* F6: every place of work standing, and who works there */
       + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');
