@@ -741,6 +741,8 @@ function create(seed, opt) {
     /* and how they are made: height, build, and for a man how he wears his beard. These come from the person's number, not from chance drawn
        in the run, and a child has each from one parent or the other (below) */
     { const hh = k => ((Math.imul(a.id + 17, 2654435761) >>> (8 + k * 5)) & 31) / 32; a.looks.tall = hh(0) < 0.25 ? 0 : hh(0) < 0.75 ? 1 : 2; a.looks.build = hh(1) < 0.25 ? 0 : hh(1) < 0.75 ? 1 : 2; a.looks.beard = hh(2) < 0.4 ? 0 : hh(2) < 0.75 ? 1 : 2;
+      /* the face: its shape, the eyes, the nose, the mouth and the brow, each one of a few kinds (the view draws them) */
+      { const fh = k => (Math.imul(a.id * 7 + k * 131 + 3, 2246822519) >>> 11) & 255; a.looks.head = fh(1) % 3; a.looks.eyes = fh(2) % 5; a.looks.nose = fh(3) % 3; a.looks.mouth = fh(4) % 3; a.looks.brow = fh(5) % 2; a.looks.gap = fh(6) % 2; a.looks.style = fh(7) % 3; }
       /* how tightly they hold what is theirs (0: open-handed, 1: grasping): most people a little, a few a great deal. It comes down from a parent, and a hungry childhood adds to it */
       a.greed = Math.round(hh(3) * hh(3) * 70) / 100;
       /* and how curious they are (0 to 1): the curious try things, so they are the ones who find what a herb is good for */
@@ -2910,7 +2912,7 @@ function create(seed, opt) {
           c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin;
           c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair;
           { const src = f && (c.id & 8) ? f : m; if (src.greed !== undefined && (Math.imul(c.id + 5, 40503) & 7) !== 0) c.greed = src.greed; }
-          ['tall', 'build', 'beard'].forEach((k, n) => { const src = f && ((c.id >> n) & 1) ? f : m; if (src.looks[k] !== undefined && (Math.imul(c.id + n, 40503) & 7) !== 0) c.looks[k] = src.looks[k]; });   /* one time in eight a child goes its own way */
+          ['tall', 'build', 'beard', 'head', 'eyes', 'nose', 'mouth', 'brow', 'gap'].forEach((k, n) => { const src = f && ((c.id >> n) & 1) ? f : m; if (src.looks[k] !== undefined && (Math.imul(c.id + n, 40503) & 7) !== 0) c.looks[k] = src.looks[k]; });   /* one time in eight a child goes its own way */
         }
         /* a child takes after a parent in what it loves, more often than not */
       { const par = [m, f].filter(Boolean), src = par.length && rnd() < 0.65 ? par[(rnd() * par.length) | 0] : null; if (src && src.likes && src.likes.length) c.likes = [src.likes[(rnd() * src.likes.length) | 0]]; }
@@ -5573,7 +5575,7 @@ cv.addEventListener('pointerdown', e => {
       r.bub = 'afraid';
       r.bubT = now;
       const who = W.describe(r.a);
-      if (who) say(who);
+      if (who) { if (r.a.d.people) showWho(r.a, who); else say(who); }
     }
     /* no creature under the hand: whatever else is there is lifted. Tall things (a tree, a house) are also caught by the
        ground just in front of where they were touched. Open water and bare rock are taken only by holding still a moment,
@@ -6327,10 +6329,45 @@ bS2.onclick = () => {
       b.onclick = () => { try { localStorage.setItem('eden.bands', String(n)); } catch (e) { /* ignore */ } if (window.EDEN_EMBED) { location.reload(); return; } const q = new URLSearchParams(location.search); q.set('bands', String(n)); q.set('fresh', '1'); location.search = q.toString(); }; row.appendChild(b); }
     el.parentNode.insertBefore(row, el.nextSibling); }
 }
+// A FACE for each person, drawn feature by feature from how they are made (their looks): the shape of the head, skin, hair and its style, eyes,
+// brow, nose, mouth, a beard, the grey and lines of age, and what they feel just now. A child has each feature from one parent or the other.
+const FACE = { skin: [[238, 200, 164], [218, 172, 132], [190, 140, 102], [154, 108, 78], [116, 80, 60]], hair: [[58, 42, 36], [96, 64, 42], [146, 96, 50], [200, 166, 90], [156, 66, 42], [34, 32, 38]],
+  top: [[172, 62, 52], [198, 152, 72], [72, 104, 152], [98, 130, 76], [204, 192, 164], [124, 88, 62], [122, 72, 112], [72, 132, 126], [178, 98, 58], [132, 132, 130]], eye: [[74, 50, 34], [40, 30, 26], [72, 110, 160], [84, 128, 84], [110, 116, 124]] };
+function drawFace(c, a) {
+  const L = a.looks || {}, g = c.getContext('2d'), U = Math.floor(Math.min(c.width / 20, c.height / 25)), ox = Math.floor((c.width - 20 * U) / 2), oy = c.height - 25 * U; g.clearRect(0, 0, c.width, c.height);
+  const col = (r, k) => 'rgb(' + r.map(v => Math.max(0, Math.min(255, Math.round(v * (k || 1))))).join(',') + ')', px = (x, y, w, h, f) => { g.fillStyle = f; g.fillRect(ox + x * U, oy + y * U, w * U, h * U); };
+  const old = a.age > 46, kid = a.age < 8, sk = FACE.skin[(L.skin || 0) % 5], hr = old ? [186, 186, 180] : FACE.hair[(L.hair || 0) % 6], S1 = col(sk), S2 = col(sk, 0.86), S3 = col(sk, 0.72), H1 = col(hr), H2 = col(hr, 0.75), INK = '#2a1e18';
+  const head = kid ? 0 : (L.head || 0), rows = head === 0 ? [8, 10, 12, 12, 12, 12, 12, 12, 12, 12, 10, 10, 8, 6] : head === 1 ? [8, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 8, 8, 6] : [10, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 10, 8], top = 5;
+  /* hair behind: long for most women, cropped for most men, by their style */
+  const long = a.fem ? (L.style || 0) !== 2 : (L.style || 0) === 0; if (long) px(3, top - 1, 14, a.fem ? 17 : 11, H2);
+  /* neck and shoulders in their own colour of cloth */
+  px(8, top + 13, 4, 3, S2); px(3, top + 16, 14, 4, col(FACE.top[(L.top || 0) % 10])); px(5, top + 15, 10, 1, col(FACE.top[(L.top || 0) % 10], 0.85)); px(9, top + 15, 2, 2, S2);
+  /* the head, row by row, lit from the left; ears */
+  rows.forEach((w, k) => { const x = 10 - w / 2; px(x, top + k, w, 1, S1); px(x + w - 2, top + k, 2, 1, S2); }); px(10 - rows[6] / 2 - 1, top + 6, 1, 3, S2); px(10 + rows[6] / 2, top + 6, 1, 3, S3);
+  /* hair on top: full, a fringe, or thin on an old man */
+  const bald = old && !a.fem && (L.style || 0) === 1; if (!bald) { px(10 - rows[0] / 2, top - 2, rows[0], 2, H1); px(10 - rows[1] / 2, top, rows[1], (L.style || 0) === 1 ? 3 : 2, H1); px(10 - rows[2] / 2, top + 1, 2, 4, H1); px(10 + rows[2] / 2 - 2, top + 1, 2, 4, H2); } else { px(10 - rows[2] / 2, top + 1, 1, 4, H1); px(10 + rows[2] / 2 - 1, top + 1, 1, 4, H2); }
+  /* eyes: nearer or wider, bigger on a child; the brow thin or heavy */
+  const gap = (L.gap || 0) ? 3 : 2, ey = top + 6, ex1 = 10 - gap - 2, ex2 = 10 + gap, ew = 2, eh = kid ? 2 : 1, grief = a.grief > 0.3, glad = (a.joy || 0) > 0.7 && !grief;
+  for (const ex of [ex1, ex2]) { px(ex, ey, ew, eh, '#f4f1e8'); px(ex + (ex === ex1 ? 1 : 0), ey, 1, eh, col(FACE.eye[(L.eyes || 0) % 5])); px(ex, ey - 2 + (grief && ex === ex1 ? 0 : 0), ew + ((L.brow || 0) ? 1 : 0) - (ex === ex2 && (L.brow || 0) ? 0 : 0), (L.brow || 0) ? 1 : 1, (L.brow || 0) ? H2 : col(hr, 0.9)); }
+  if (grief) { px(ex1 + 2, ey - 3, 1, 1, H2); px(ex2 - 1, ey - 3, 1, 1, H2); }
+  /* the nose: short, long or broad */
+  const nz = L.nose || 0; px(9, ey + 1, 1, nz === 1 ? 4 : 3, S2); px(9, ey + (nz === 1 ? 4 : 3), nz === 2 ? 3 : 2, 1, S3);
+  /* the mouth: narrow, wide or full; turned by what they feel */
+  const mw = [3, 5, 4][L.mouth || 0], my = top + 11, mx = 10 - Math.floor(mw / 2); px(mx, my, mw, 1, '#8a4a40'); if ((L.mouth || 0) === 2) px(mx + 1, my + 1, mw - 2, 1, col(sk, 0.8)); if (glad) { px(mx - 1, my - 1, 1, 1, '#8a4a40'); px(mx + mw, my - 1, 1, 1, '#8a4a40'); } else if (grief) { px(mx - 1, my + 1, 1, 1, '#8a4a40'); px(mx + mw, my + 1, 1, 1, '#8a4a40'); }
+  /* a beard on a grown man who wears one; the lines of age */
+  if (!a.fem && !kid && a.age >= 12 && L.beard) { px(10 - rows[11] / 2, top + 11 + (L.beard > 1 ? -1 : 1), rows[11], L.beard > 1 ? 4 : 2, H1); px(mx, my, mw, 1, '#7a3f38'); if (L.beard > 1) { px(10 - rows[9] / 2, top + 8, 1, 3, H1); px(10 + rows[9] / 2 - 1, top + 8, 1, 3, H2); } }
+  if (old) { px(ex1 - 1, ey + 2, 1, 1, S3); px(ex2 + 2, ey + 2, 1, 1, S3); px(7, top + 3, 6, 1, S2); }
+  /* a dark line round the chin and jaw so the face stands off the cloth */
+  px(10 - rows[13] / 2, top + 14, rows[13], 1, S3);
+}
+/* who it is, when a person is lifted or touched: their face beside what is known of them, for a few moments */
+const whoBox = document.createElement('div'); whoBox.style.cssText = 'display:none;position:fixed;left:8px;top:calc(48px + env(safe-area-inset-top));width:min(72vw,300px);box-sizing:border-box;background:var(--paper);color:var(--ink);border:2px solid var(--line);border-radius:7px;padding:8px;z-index:4;box-shadow:0 3px 0 rgba(59,43,31,.5);font-size:12px;line-height:1.3;pointer-events:none';
+whoBox.innerHTML = '<div style="display:flex;gap:8px;align-items:flex-start"><canvas width="60" height="75" style="width:60px;height:75px;image-rendering:pixelated;flex:none;background:rgba(0,0,0,.08);border-radius:5px"></canvas><div></div></div>'; document.body.appendChild(whoBox); let whoT = 0;
+function showWho(a, text) { if (!a || !a.d.people) return; drawFace(whoBox.querySelector('canvas'), a); whoBox.querySelector('div > div').textContent = text; whoBox.style.display = 'block'; clearTimeout(whoT); whoT = setTimeout(() => { whoBox.style.display = 'none'; }, 9000); }
 // THE FIRST QUESTION: when someone asks who is there, their face comes up with their words, and the player may answer with a name
 { const box = document.createElement('div'); box.id = 'ask';
   box.style.cssText = 'display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));width:min(92vw,400px);box-sizing:border-box;background:var(--paper);color:var(--ink);border:3px solid var(--line);border-radius:9px;padding:12px;z-index:6;box-shadow:0 5px 0 rgba(59,43,31,.5);font-size:14px';
-  box.innerHTML = '<div style="display:flex;gap:12px;align-items:center"><canvas id="askFace" width="64" height="80" style="width:96px;height:120px;image-rendering:pixelated;flex:none;background:rgba(0,0,0,.08);border-radius:6px"></canvas><div><b id="askWho"></b><p id="askSay" style="margin:6px 0 0;line-height:1.35"></p></div></div>'
+  box.innerHTML = '<div style="display:flex;gap:12px;align-items:center"><canvas id="askFace" width="80" height="100" style="width:96px;height:120px;image-rendering:pixelated;flex:none;background:rgba(0,0,0,.08);border-radius:6px"></canvas><div><b id="askWho"></b><p id="askSay" style="margin:6px 0 0;line-height:1.35"></p></div></div>'
     + '<div style="display:flex;gap:6px;margin-top:10px"><input id="askIn" maxlength="24" placeholder="A name" autocomplete="off" style="flex:1;min-width:0;font:inherit;padding:7px;border:2px solid var(--line);border-radius:6px;background:#fffdf2;color:var(--ink)"><button class="btn" id="askGo">Answer</button><button class="btn" id="askNo">Say nothing</button></div>';
   document.body.appendChild(box); let shownFor = 0, passed = 0;
   const inp = box.querySelector('#askIn'), hide = () => { box.style.display = 'none'; shownFor = 0; };
@@ -6339,7 +6376,7 @@ bS2.onclick = () => {
   box.querySelector('#askNo').onclick = () => { passed = S.ask ? S.ask.id : 0; hide(); };   /* they go on waiting, and in the end find a word of their own */
   setInterval(() => { const q = S.ask; if (!q) { if (shownFor) hide(); return; } if (shownFor === q.id || passed === q.id || paused) return; const a = S.agents.find(b => b.id === q.id); if (!a || !a.alive) return;
     shownFor = q.id; const L = lookOf(a), sp = L.make ? L.make(a, a.age > 46 ? 'old' : 'grown') : L.grown[a.id % L.grown.length], im = sp.r[0];
-    const c = box.querySelector('#askFace'), g = c.getContext('2d'), k = Math.max(2, Math.round(c.width / im.width * 1.7)); g.imageSmoothingEnabled = false; g.clearRect(0, 0, c.width, c.height); g.drawImage(im, Math.round((c.width - im.width * k) / 2), 6, im.width * k, im.height * k);   /* head and shoulders, large */
+    drawFace(box.querySelector('#askFace'), a);
     box.querySelector('#askWho').textContent = a.name + ', ' + Math.floor(a.age);
     /* a later question: their words and the answers they offer come with it; the name box gives way to buttons */
     const row = box.querySelector('#askIn').parentNode; for (const old of row.querySelectorAll('.askOpt')) old.remove();
@@ -6414,7 +6451,7 @@ cam.z = clamp(dpr * 1.1, minZ(), maxZ()); { const wx = isoX(camp.x, camp.y), wy 
 for (const a of S.agents) if (a.alive) { const e = endOf(a); newRec(a, e.x, e.y); }
 huts.length = 0; onTick();
 syncCrossings(); startPaint(); paintSome(1e9, true); for (const p of props.values()) p.born = -1e9;
-window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, lookOf, setTool: t => {
+window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, lookOf, drawFace, setTool: t => {
     tool = t;
   }, start: () => {
     document.getElementById('intro').style.display = 'none';
