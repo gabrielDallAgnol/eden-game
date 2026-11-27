@@ -1574,3 +1574,23 @@ What changed (owner's report: by year 49 the map was full of houses and a phone 
 | highland | 1 | 16 | 43 | 76 | 91 | 9 | 1 | 41 | 0 | 12 | 1/45/5 | 3 | 27.9 | 13.5 | 16.6 | 3 |  | 285 | 73 | 17.5 | 2.8 | 0.6923076923076923 (13) | 74/0/0/2/21 | 58 | 6 | 13 | 2 | 0 | 13501 |
 | highland | 2 | 4 | 15 | 72 | 73 | 19 | 5 | 0 | 0 | 12 | 7/44/6 | 2.8 | 18 | 10.7 | 11.8 | 2 |  | 154 | 88 | 11.2 | 4.2 | 0 (1) | 65/0/0/4/24 | 37 | 3.6 | 13 | 5 | 0 | 9101 |
 | mean |  | 12.9 | 31.3 | 160.2 | 162.3 | 41.8 | 3.2 | 4.5 | 0.1 | 13 |  | 2.6 | 18.6 | 17 | 9.5 | 10.4 | 1.3 | 965.5 | 76.8 | 19.2 | 4.6 |  |  | 45.2 | 5 | 20.6 | 3.8 | 0 | 15584.8 |
+
+## What people make of the hand (2026-11-27)
+
+What changed: people near the hand at work come to believe someone is there; a want answered builds trust, harm builds fear; it is told at home; trusting believers are sooner comforted in grief; the ledger counts believers, trusting and fearful, and each person's description says where they stand. Witnesses show a heart, fear or a hand over their heads. The numbers are in `docs/ARCHITECTURE.md` under "Planned on purpose".
+- **Checked.** tests.html: 535 passed, 0 failed (1 warning, 39 skipped), with a new check: nobody believes in an untouched world; someone fed four times ends with belief and trust over 0.5; a household whose roof is moved three times ends with trust down by more than 0.5; a housemate is told within four years. The table is the same, number for number, as the one above: a world the hand does not touch runs as before.
+- **Not done.** Offerings, looking up, building toward the hand, the first question, faces.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 28 | 73 | 322 | 324 | 96 | 1 | 4 | 0 | 14 | 10/86/5 | 2.6 | 24.2 | 24 | 10.1 | 29 | 1.4 | 3328 | 261 | 21.7 | 3.8 |  | 69/0/0/6/20 | 74 | 4.5 | 29 | 14 | 0 | 23820 |
+| valley | 2 | 10 | 9 | 43 | 44 | 14 | 1 | 0 | 0 | 11 | 4/91/7 | 2.3 | 12.5 | 10 | 4.8 | 19 | 1.5 | 39 | 59 | 15.4 | 2.6 | 2 (2) | 72/0/0/0/21 | 25 | 3 | 9 | 1 | 0 | 9829 |
+| plains | 1 | 6 | 9 | 30 | 30 | 8 | 14 | 0 | 1 | 13 | 11/183/7 | 2.1 | 17.6 | 18.7 | 11.5 | 0 | 1.3 | 7 | 12 | 13.4 | 13.3 |  | 73/0/0/3/24 | 47 | 8.9 | 9 | 0 | 0 | 13553 |
+| plains | 2 | 18 | 33 | 174 | 175 | 44 | 2 | 0 | 0 | 13 | 8/217/5 | 2.7 | 21.9 | 14.5 | 9.1 | 2 | 1 | 654 | 55 | 18.5 | 4.3 |  | 66/0/0/3/24 | 39 | 3.2 | 17 | 2 | 0 | 15188 |
+| forest | 1 | 17 | 39 | 214 | 214 | 58 | 1 | 0 | 0 | 12 | 48/43/1 | 2.8 | 0 | 19.9 | 6.4 | 8 | 1.7 | 946 | 69 | 19.3 | 3.6 | 0 (1) | 70/0/0/1/23 | 42 | 3 | 25 | 1 | 0 | 16038 |
+| forest | 2 | 12 | 27 | 201 | 201 | 53 | 2 | 0 | 0 | 13 | 20/92/9 | 2.4 | 14.8 | 17.8 | 6.2 | 12 | 0.7 | 1061 | 45 | 27.1 | 4.8 |  | 64/0/0/4/24 | 29 | 3 | 25 | 2 | 0 | 15720 |
+| lakeland | 1 | 12 | 44 | 288 | 289 | 71 | 2 | 0 | 0 | 16 | 27/99/6 | 2.9 | 21.6 | 20.1 | 11.3 | 29 | 1.5 | 2383 | 79 | 18.6 | 3.3 | 1.6666666666666667 (3) | 70/0/0/3/24 | 62 | 11.7 | 37 | 9 | 0 | 20799 |
+| lakeland | 2 | 6 | 21 | 182 | 182 | 46 | 3 | 0 | 0 | 14 | 16/71/6 | 2.5 | 27.8 | 20.8 | 7 | 0 | 1.5 | 798 | 27 | 29.3 | 2.8 |  | 58/0/0/6/30 | 39 | 3.3 | 29 | 2 | 0 | 15599 |
+| highland | 1 | 16 | 43 | 76 | 91 | 9 | 1 | 41 | 0 | 12 | 1/45/5 | 3 | 27.9 | 13.5 | 16.6 | 3 |  | 285 | 73 | 17.5 | 2.8 | 0.6923076923076923 (13) | 74/0/0/2/21 | 58 | 6 | 13 | 2 | 0 | 13198 |
+| highland | 2 | 4 | 15 | 72 | 73 | 19 | 5 | 0 | 0 | 12 | 7/44/6 | 2.8 | 18 | 10.7 | 11.8 | 2 |  | 154 | 88 | 11.2 | 4.2 | 0 (1) | 65/0/0/4/24 | 37 | 3.6 | 13 | 5 | 0 | 8456 |
+| mean |  | 12.9 | 31.3 | 160.2 | 162.3 | 41.8 | 3.2 | 4.5 | 0.1 | 13 |  | 2.6 | 18.6 | 17 | 9.5 | 10.4 | 1.3 | 965.5 | 76.8 | 19.2 | 4.6 |  |  | 45.2 | 5 | 20.6 | 3.8 | 0 | 15220 |
