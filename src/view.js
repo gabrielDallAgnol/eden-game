@@ -24,7 +24,7 @@ let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { c
 /* a turn of the seasons takes up to this many times as long as a year of a life (midsummer); winter keeps its old length */
 const yearQ = clamp(+(qs.get('yearK') || 3), 1, 8);
 const sizeQ = clamp(+(qs.get('size') || (landQ === 'wide' ? 192 : 96)), 24, 256);   /* the wide country is four times the ground of the others */   /* the map, in tiles a side */
-const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6, bands: bandsQ }), N = W.N, S = W.S, A = EdenArt.build();
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6, bands: bandsQ, startWith: ['fire'] }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };

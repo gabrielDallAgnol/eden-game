@@ -465,6 +465,7 @@ function create(seed, opt) {
       sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null, pondTold: false, lotAcross: null, lotReach: 8, roadGen: 0 };
     for (const k in SKILLS) T.skills[k] = SKILLS[k].known;
     for (const k in TECHS) T.skills[k] = false;
+    for (const k of opt.startWith || []) T.skills[k] = true;   /* what the founders bring with them (the game's people come knowing fire, as every band of our kind did) */
     return T;
   }
   const S = { t: opt.startT || 0, cal: opt.startT || 0, agents: [], pop: {}, tribe: newSettlement(0, 0), log: [], deaths: {}, nextId: 1,
