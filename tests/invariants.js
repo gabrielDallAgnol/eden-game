@@ -1283,7 +1283,7 @@ UNITS.push(['herbs grow by place and their uses are known by people: found when 
   return out.slice(0, 4).join('; ');
 }]);
 UNITS.push(['several bands on one land: each keeps its own fire, fields, store and discoveries; near ones meet, marry across and exchange; a starving band beside a full store raids it; news says which band', function () {
-  var W = Eden.create(4, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'wide', size: 192, age: 'wood', human: 6, bands: 3 }), S = W.S, N = W.N, i, out = [];
+  var W = Eden.create(4, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'wide', size: 192, age: 'wood', human: 6, bands: 3, bandReach: 220 }), S = W.S, N = W.N, i, out = [];   /* a reach that lets all three meet, so the check does not hang on where they happened to camp */
   if (S.tribes.length !== 3) return 'asked for 3 bands, got ' + S.tribes.length;
   var pop = function (B) { return S.agents.filter(function (a) { return a.alive && a.d.people && (a.band || 0) === B.band; }).length; };
   S.tribes.forEach(function (B, k) { S.tribes.forEach(function (C, j) { if (j > k && Math.max(Math.abs(B.x - C.x), Math.abs(B.y - C.y)) < 24) out.push('two fires ' + Math.max(Math.abs(B.x - C.x), Math.abs(B.y - C.y)) + ' tiles apart'); }); if (!pop(B)) out.push('band ' + k + ' began with nobody'); if (!B.name) out.push('band ' + k + ' has no name'); });
