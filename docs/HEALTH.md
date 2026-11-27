@@ -20,6 +20,12 @@ Measured before: in valley seed 1 over 60 years, 234 children were born and 13 p
 - **Result** (five worlds): 21 to 73 people at year 50 and 76 to 325 at year 100, where it was up to 1,651. About a third of children die before they are grown.
 - **For the tests:** `demog: 'old'` gives the earlier demography, for checks that need a large place within a few decades.
 
+## Built 2026-11-28: herbs and medicine
+
+Medicine is no longer a switch. Four herbs grow each on its own kind of ground, so a band by a marsh has meadowsweet for fever and a band on the heights has gentian for its children, and neither has the other's. A use is found by a grown person trying what grows near when someone at home is ill; it is held by that person, grows with use, is shown to grown housemates and to the healer, and is gone when the last who knew it dies. Numbers are under "Planned on purpose" in `docs/ARCHITECTURE.md`.
+
+Seen in runs of 100 years: a highland band ended knowing gentian and garlic (and meadowsweet, from homes by a stream); a forest band meadowsweet and garlic; a valley band three of the four; yarrow was known only on the wide map, by 21 of 392.
+
 ## Where sickness plugs in
 
 Sickness is the main thing that killed children in the past, and it is what Eden lacks. When it comes, it only has to kill people; the rest follows:

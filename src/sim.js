@@ -180,6 +180,13 @@ function create(seed, opt) {
     }
     bank[i] = clamp(1 - d / 5, 0, 1); soil[i] = 0.45 + 0.55 * bank[i];
   }
+  /* HERBS. Four plants, each growing only on the ground it likes, so what grows within reach of a camp depends on where the camp is:
+       meadowsweet in wet ground by water (eases fever), yarrow in dry open grass (stops bleeding at a birth), gentian on open heights (strengthens a
+       sick child), wild garlic in the shade of woods (keeps the gut clean, so fewer fall ill). Where each stands is fixed when the land is made */
+  const HERBS = [null, { k: 'meadowsweet', use: 'fever', says: 'meadowsweet for a fever' }, { k: 'yarrow', use: 'birth', says: 'yarrow for bleeding at a birth' }, { k: 'gentian', use: 'child', says: 'gentian root for a sick child' }, { k: 'garlic', use: 'gut', says: 'wild garlic against a foul gut' }];
+  const herb = new Uint8Array(N * N);
+  for (let i = 0; i < N * N; i++) { if (water[i] || rock[i] > 0.15) continue; const h = ((Math.imul(i + 131 * sd, 2654435761) >>> 8) & 1023) / 1024;
+    herb[i] = bank[i] > 0.35 && height[i] < 4 && h < 0.10 ? 1 : tree[i] < 0.15 && bank[i] < 0.25 && fert[i] < 0.8 && height[i] < 4.5 && h >= 0.10 && h < 0.17 ? 2 : height[i] >= 5 && tree[i] < 0.3 && h < 0.12 ? 3 : tree[i] > 0.45 && h < 0.10 ? 4 : 0; }
 
   // Water divides the land. Dry ground that can be walked to without wetting a foot is one mass. Where a river is narrow
   // enough to wade, the two banks face each other at a ford; a ford can only be waded while the river runs low, and only a
@@ -256,6 +263,7 @@ function create(seed, opt) {
   // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
   // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
   const REACH_W = 30;
+  const HERB_TRY = opt.herbTry !== undefined ? opt.herbTry : 0.04;   /* the chance that a grown person at home tries a herb growing near when there is sickness under the roof */
   const LOD = opt.lod !== undefined ? opt.lod : N > 128 ? 4 : 1, FAR = 40;
   const ASK_WAIT = 12;   /* steps the asker waits for an answer: three days */
   /* test lever: demog 'old' is the demography before sickness (no fever, no deaths at birth, children borne to 42 every 2.4 years), kept so that checks of what only a large place does can still reach one in a few decades */
@@ -810,9 +818,10 @@ function create(seed, opt) {
           ? 'enough put by' : 'an empty larder') + (hh.fields ? ' and ' + hh.fields + ' field' + (hh.fields > 1 ? 's' : '') : '') + '.' : '';
     const fr = friendsOf(a).map(b => b.name), friends = fr.length ? ' Friends: ' + fr.join(', ') + '.' : '';
     const bored = hh && hh.larder > 0.5 && variety(hh) < 0.25 ? ' Tired of eating the same thing every day.' : '';
+    const lore = a.know && Object.keys(a.know).length ? ' Knows ' + Object.keys(a.know).map(k => HERBS[HERB_USE[HERBS.find(q => q && q.k === k).use]].says).join(', ') + '.' : '';
     const creed = !(a.faith > 0.25) ? '' : a.faith > 0.5 ? (a.trust > 0.2 ? ' Believes ' + (S.tribe.godName || 'someone') + ' watches over the place, and is glad of it.' : a.trust < -0.2 ? ' Believes ' + (S.tribe.godName || 'something') + ' watches the place, and fears it.' : ' Believes ' + (S.tribe.godName ? S.tribe.godName + ' is there.' : 'there is someone there.')) : ' Has seen things move that nobody touched.';
     return a.name + ', ' + age + ', ' + what + '. ' + (p && p.alive ? (a.fem ? 'Her' : 'His') + ' partner is ' + p.name + '. ' : a.age >= WED ? 'On ' + (a.fem ? 'her' : 'his') + ' own. ' : '')
-      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps + creed;
+      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps + lore + creed;
   }
   // Once in each step the camp's ties are looked over: who has grown close, who needs a roof, who has no one to choose
   function society(dt) {
@@ -1796,6 +1805,18 @@ function create(seed, opt) {
   const hasPots = q => { const T = S.tribe; if (!(T.pots >= 1)) return false; if (potT !== S.tickNo) { potT = S.tickNo; potSet = new Set(T.sites.filter(h => isHome(h) && h.members > 0).sort((p, r) => p.id - r.id).slice(0, Math.floor(T.pots)).map(h => h.id)); } return potSet.has(q.id); };
   /* F7 helpers: a healer at work; whether a ditch runs on or beside a tile */
   const healing = () => !!standing('healerhouse') && folk().some(b => b.job === 'healer');
+  /* WHAT IS KNOWN OF HERBS is known by people, not by the place (a.know[herb] from 0 to 1). It is found by trying what grows near when someone at home
+     is ill or a birth goes badly; it grows with use; it is passed on at home and to the healer; and it dies with those who hold it */
+  const HERB_USE = {}; for (let k = 1; k < HERBS.length; k++) HERB_USE[HERBS[k].use] = k;
+  const herbNear = (x, y, k, r) => { for (let dy = -r; dy <= r; dy++) { const yy = y + dy; if (yy < 0 || yy >= N) continue; for (let dx = -r; dx <= r; dx++) { const xx = x + dx; if (xx < 0 || xx >= N) continue; const j = yy * N + xx; if (herb[j] === k && !field[j] && !S.tribe.road[j]) return true; } } return false; };
+  /* who under this roof (or, with a healer at work, the healer) knows the herb for a use best, where it can be had: growing within a walk of the door, or kept in the healer's garden */
+  function cureFor(h, use) { const k = HERB_USE[use], name = HERBS[k].k, T = S.tribe; let best = null, lv = 0; const near = herbNear(h.x, h.y, k, 12), heals = healing();
+    for (const b of folk()) { const kn = b.know && b.know[name]; if (!kn) continue; const mine = h !== T ? b.house === h.id : !b.house; if ((mine && (near || heals)) || (heals && b.job === 'healer')) { if (kn > lv) { lv = kn; best = b; } } }
+    return best ? { who: best, lv, name } : null; }
+  function tryHerbs(h, uses) { const T = S.tribe; for (const use of uses) { const k = HERB_USE[use], name = HERBS[k].k; if (!herbNear(h.x, h.y, k, 10)) continue;
+      for (const b of folk()) { if (b.age < GROWN || (h !== T ? b.house !== h.id : b.house) || (b.know && b.know[name]) || rnd() >= HERB_TRY) continue; (b.know = b.know || {})[name] = 0.3; S.stat.herbsFound = (S.stat.herbsFound || 0) + 1;
+        T.herbTold = T.herbTold || {}; if (!T.herbTold[name]) { T.herbTold[name] = true; tell(b.name + ' has found a use for something that grows near: ' + HERBS[k].says + '.'); } break; } } }
+  const used = c => { if (c) c.who.know[c.name] = Math.min(1, c.who.know[c.name] + 0.05); };
   const scribed = () => !!standing('tallyhouse') && folk().some(b => b.job === 'scribe');
   const presiding = () => !!standing('hall') && folk().some(b => b.job === 'elder');
   const holy = () => !!(standing('church') || standing('shrine'));
@@ -2287,7 +2308,7 @@ function create(seed, opt) {
     let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
     out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
     out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.offerings = Math.round((T.offer || 0) * 10) / 10; out.godName = T.godName || ''; out.counsel = Object.keys(T.counsel || {}); out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
-    out.known = Object.keys(T.skills).filter(k => T.skills[k]);
+    out.known = Object.keys(T.skills).filter(k => T.skills[k]); out.herbs = {}; for (let k = 1; k < HERBS.length; k++) { const n = P.filter(a => a.know && a.know[HERBS[k].k]).length; if (n) out.herbs[HERBS[k].k] = n; }
     return out;
   }
   function workplaces() {
@@ -2366,6 +2387,11 @@ function create(seed, opt) {
       T.offer = (T.offer || 0) * 0.4; for (const [id, g] of by) { if (g.f / g.n <= 0.5) continue; const q = T.sites.find(u => u.id === id); if (!q || !((q.larder || 0) > g.n * 1.5)) continue; const amt = 0.15 * g.n; mixOf(q, 'larder'); q.larder -= amt; mixOf(q, 'larder'); T.offer += amt; S.stat.offerings = (S.stat.offerings || 0) + 1;
         if (!T.offerTold) { T.offerTold = true; const b = P.find(c => c.house === id); tell((b ? b.name + '\'s household has' : 'A household has') + ' left food out ' + (standing('shrine') ? 'at the shrine' : 'by the fire') + ' for ' + (T.godName || 'whoever it is that watches') + '.'); } }
       for (const a of P) { const g = a.house && by.get(a.house); if (g && g.n > 1 && g.f > 0) { a.faith = (a.faith || 0) + 0.2 * (g.f / g.n - (a.faith || 0)); a.trust = (a.trust || 0) + 0.2 * (g.t / g.n - (a.trust || 0)); } if (a.faith) a.faith *= 0.98; } }
+    /* what is known of herbs is shown at home to those old enough to learn it, and to the healer by those who bring their sick */
+    { const P = folk(), top = new Map(), healer = healing() ? P.find(b => b.job === 'healer') : null;
+      for (const b of P) if (b.know && b.house) for (const k in b.know) { const key = b.house + ':' + k; if (!(top.get(key) >= b.know[k])) top.set(key, b.know[k]); }
+      for (const b of P) { if (b.age < GROWN || !b.house) continue; for (let k = 1; k < HERBS.length; k++) { const name = HERBS[k].k, t = top.get(b.house + ':' + name); if (t && !((b.know || {})[name] >= t * 0.6) && rnd() < 0.15) (b.know = b.know || {})[name] = t * 0.6; } }
+      if (healer) for (const b of P) if (b.know && b !== healer) for (const k in b.know) if (!((healer.know || {})[k] >= b.know[k] * 0.8) && rnd() < 0.3) (healer.know = healer.know || {})[k] = b.know[k] * 0.8; }
     nextQuestion();
         T.kidDied *= 0.85; T.kidBorn *= 0.85;   /* what was seen of children living and dying fades over the years */
     // wants that are only seen over a year
@@ -2638,15 +2664,19 @@ function create(seed, opt) {
       const roofs = T.sites.filter(q => !q.gone && isHome(q)), wash = S.precip > 0 ? 0.55 : 0.75, at = new Map();
       { let n0 = 0; for (const a of folk()) if (!a.house) n0++; T.foul = (T.foul || 0) * wash + n0 * (1 - wash); }
       for (const q of roofs) q.foul = (q.foul || 0) * wash + (q.members || 0) * (1 - wash);
-      const well = standing('well') ? 0.7 : 1, heal = healing() ? 0.6 : 1;
+      const well = standing('well') ? 0.7 : 1, heal = healing() ? 0.85 : 1;   /* a healer's care alone helps a little; what the healer knows of herbs helps much more (cureFor) */
       /* SICK_WILD: what the wild gives everyone anywhere (bad water, parasites, a chill): the share of sickness that no spreading out escapes */
       const expo = (x, y) => { let e = SICK_WILD / well + (T.foul || 0) / (1 + ((x - T.x) * (x - T.x) + (y - T.y) * (y - T.y)) / 9); for (const u of roofs) { if (!(u.foul > 0.05)) continue; const dx = u.x - x, dy = u.y - y; if (dx > 9 || dx < -9 || dy > 9 || dy < -9) continue; e += u.foul / (1 + (dx * dx + dy * dy) / 9); } return e * well; };
       for (const a of folk().slice()) {
         if (a.immuneT > S.t) continue; const h = homeSite(a) || T; let e = at.get(h); if (e === undefined) { e = expo(h.x, h.y); at.set(h, e); if (h !== T) h.expo = e; }
         const susc = a.age < 2 ? 3 : a.age < 6 ? 2 : a.age < GROWN ? 1 : a.age > 46 ? 1.2 : 0.6;
-        if (rnd() >= e * SICK_K * susc) continue;
+        const gut = cureFor(h, 'gut'); if (rnd() >= e * SICK_K * susc * (gut ? 1 - 0.25 * gut.lv : 1)) continue;
         a.illT = S.tickNo; a.e = Math.max(0.05, a.e - 0.15); a.immuneT = S.t + 3; S.stat.ill = (S.stat.ill || 0) + 1;
-        const dies = (a.age < 2 ? 0.35 : a.age < 6 ? 0.2 : a.age < GROWN ? 0.08 : a.age > 46 ? 0.25 : 0.05) * (a.e < 0.45 ? 1.6 : 1) * heal;
+        /* someone ill under the roof: those at home try what grows near; what is already known is used, and saves some */
+        tryHerbs(h, ['fever', 'gut', a.age < GROWN ? 'child' : 'fever']);
+        const fev = cureFor(h, 'fever'), kid = a.age < GROWN ? cureFor(h, 'child') : null; used(fev); used(kid); used(gut);
+        const dies = (a.age < 2 ? 0.35 : a.age < 6 ? 0.2 : a.age < GROWN ? 0.08 : a.age > 46 ? 0.25 : 0.05) * (a.e < 0.45 ? 1.6 : 1) * heal * (fev ? 1 - 0.5 * fev.lv : 1) * (kid ? 1 - 0.3 * kid.lv : 1);
+        if (fev || kid) S.stat.treated = (S.stat.treated || 0) + 1;
         if (rnd() < dies) { T.need.sick += 1; die(a, 'fever'); }
       }
     }
@@ -2742,7 +2772,9 @@ function create(seed, opt) {
       if (SP[b[0]].people) { const mm = S.byId.get(b[4]), T2 = S.tribe, loss = T2.kidDied / (T2.kidBorn + 1); c.norm = clamp(normOf(mm || {}) * 0.8 + 0.2 * ((T2.skills.farm ? 3 : 2) + 8 * loss + Math.min(3, (mm && mm.lostKids) || 0)), 1.5, 9);   /* where the ground is farmed, children are hands: one more */ }
       /* birth is dangerous: some children do not live through it, fewer where the mother is strong; now and then it takes the mother */
       if (SP[b[0]].people && !opt.noSick) { const mm0 = S.byId.get(b[4]), weak = mm0 && mm0.e < 0.5 ? 2 : 1;
-        if (mm0 && mm0.alive && rnd() < BIRTH_DEATH * weak) { die(mm0, 'childbirth'); }
+        const hb = mm0 ? homeSite(mm0) || S.tribe : S.tribe, yar = cureFor(hb, 'birth'); used(yar);
+        if (mm0 && mm0.alive && rnd() < BIRTH_DEATH * weak * (yar ? 1 - 0.6 * yar.lv : 1)) { die(mm0, 'childbirth'); tryHerbs(hb, ['birth']); }
+        else if (weak > 1) tryHerbs(hb, ['birth']);
         if (rnd() < BIRTH_LOSS * weak) { S.tribe.born++; die(c, 'at birth'); continue; } }
       {
         const mm = S.byId.get(b[4]);
@@ -3011,7 +3043,7 @@ function create(seed, opt) {
   // ---------------------------------------------------------------- save and load
   // The world is plain data: the land arrays, S, the random stream and the noises still in the air. Typed arrays travel as
   // base64, Maps as their entries, and a creature names its species row instead of holding it.
-  const FIELDS = { cut, height, known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner, crop };
+  const FIELDS = { cut, height, known, pit, water, fert, bank, soil, snow, heat, burn, flood, grass, tree, fruit, fish, warmSum, field, rock, tread, owner, crop, herb };
   const b64 = ta => {
     const u = new Uint8Array(ta.buffer, ta.byteOffset, ta.byteLength);
     let str = '';
@@ -3096,6 +3128,7 @@ function create(seed, opt) {
       known: !!S.tribe.skills[k],
       can: !S.tribe.skills[k] && !BEYOND[k] && !!IDEAS[k].can(S.tribe) })).filter(q => !BEYOND[q.k]),
     ledger,
+    HERBS,
     /* where the player is looking (tile and radius): beasts there are stepped every time, however far from a fire */
     setFocus(x, y, r) { S.focus = { x: x | 0, y: y | 0, r: r | 0 }; },
     /* what a person wants most just now, read from their state (for the sign over their head): nothing is decided here */
@@ -3125,7 +3158,7 @@ function create(seed, opt) {
       const p = free(x, y);
       a.x = p[0];
       a.y = p[1];
-    }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, add, bodyOf, canTake };
+    }, grass, tree, water, fruit, fish, flood, field, soil, snow, heat, burn, bank, herb, add, bodyOf, canTake };
 }
 // a saved world: made afresh from its seed and options, then every piece of its state is put back
 function load(json) { const o = typeof json === 'string' ? JSON.parse(json) : json; const W = create(o.seed, o.opt); W.restore(typeof json === 'string' ? json : JSON.stringify(o)); return W; }

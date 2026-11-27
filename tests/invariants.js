@@ -1266,4 +1266,20 @@ UNITS.push(['a wide country holds lowland and a mountain range at once, is colde
   if (S.problems.length) out.push(S.problems[0]);
   return out.join('; ');
 }]);
+UNITS.push(['herbs grow by place and their uses are known by people: found when someone at home is ill, only where the herb grows; fewer of the sick die where they are known; with the knowers gone it is gone', function () {
+  var run = function (seed, land, tryP) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: land, size: 96, age: 'wood', human: 6, herbTry: tryP }), i; for (i = 0; i < 24 * 60; i++) W.tick(); return W; };
+  var out = [], ill = [0, 0], dead = [0, 0], found = 0, Wk = null;
+  [[1, 'valley'], [1, 'forest']].forEach(function (w) { [0, 0.5].forEach(function (tp, n) { var W = run(w[0], w[1], tp), S = W.S, k; ill[n] += S.stat.ill || 0; for (k in S.deaths) if (/^human.*fever/.test(k)) dead[n] += S.deaths[k];
+    if (n) { found += S.stat.herbsFound || 0; if (!Wk && Object.keys(W.ledger().herbs).length) Wk = W; } else if (S.stat.herbsFound || Object.keys(W.ledger().herbs).length) out.push(w[1] + ': herbs known though nobody ever tried one'); }); });
+  if (!found || !Wk) return 'nobody found a use for any herb in two worlds over 60 years';
+  var r0 = dead[0] / Math.max(1, ill[0]), r1 = dead[1] / Math.max(1, ill[1]); if (!(r1 < r0 * 0.9)) out.push('of the sick, ' + (100 * r1).toFixed(1) + '% died where herbs were known and ' + (100 * r0).toFixed(1) + '% where not');
+  var W = Wk, S = W.S, T = S.tribe, N = W.N, P = S.agents.filter(function (a) { return a.alive && a.d.people; }), knowers = P.filter(function (a) { return a.know && Object.keys(a.know).length; });
+  /* only herbs that grow on this map are known, and each knower lives where one could have been found or learned it at home */
+  var grows = {}; for (var i = 0; i < N * N; i++) if (W.herb[i]) grows[W.HERBS[W.herb[i]].k] = true;
+  knowers.forEach(function (a) { Object.keys(a.know).forEach(function (k) { if (!grows[k]) out.push(a.name + ' knows ' + k + ', which does not grow here'); if (!(a.know[k] > 0 && a.know[k] <= 1)) out.push(a.name + ' knows ' + k + ' at ' + a.know[k]); }); });
+  if (Object.keys(T.skills).some(function (k) { return grows[k]; })) out.push('a herb is known by the place, not by people');
+  if (!/Knows /.test(W.describe(knowers[0]))) out.push('a knower\'s description does not say what they know');
+  knowers.forEach(function (a) { a.know = {}; }); if (Object.keys(W.ledger().herbs).length) out.push('with every knower emptied, the ledger still counts knowers');
+  return out.slice(0, 4).join('; ');
+}]);
 })();
