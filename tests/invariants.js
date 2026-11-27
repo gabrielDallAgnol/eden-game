@@ -1300,4 +1300,19 @@ UNITS.push(['several bands on one land: each keeps its own fire, fields, store a
   if (S.problems.length) out.push(S.problems[0]);
   return out.slice(0, 5).join('; ');
 }]);
+UNITS.push(['holding tight: an open-handed house puts its plenty in the common store and a grasping one keeps it; the trait comes from a parent and from a hungry childhood; the ledger shows who holds what', function () {
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'valley', size: 96, age: 'wood', human: 6, demog: 'old' }), S = W.S, T = S.tribe, i, out = [];
+  for (i = 0; i < 24 * 30; i++) W.tick();
+  var P = function () { return S.agents.filter(function (a) { return a.alive && a.d.people; }); }, homes = T.sites.filter(function (q) { return q.members >= 2 && !q.upon && W.BUILDINGS[q.kind].room; });
+  if (homes.length < 2) return 'fewer than two households of two or more at year 30';
+  if (P().some(function (a) { return !(a.greed >= 0 && a.greed <= 1); })) out.push('someone has no measure of how tightly they hold');
+  var kids = P().filter(function (a) { return a.mom && a.age < 20; }), same = kids.filter(function (c) { var m = S.byId.get(c.mom), f = S.byId.get(c.dad); return (m && m.greed === c.greed) || (f && f.greed === c.greed); }).length;
+  if (kids.length >= 8 && same < kids.length * 0.5) out.push('only ' + same + ' of ' + kids.length + ' children hold as a parent does');
+  var open = homes[0], tight = homes[1], set = function (q, g) { P().forEach(function (a) { if (a.house === q.id) a.greed = g; }); W.mixOf(q, 'larder'); q.larder = q.members * 6; W.mixOf(q, 'larder'); };
+  set(open, 0); set(tight, 1); var s0 = T.store; for (i = 0; i < 8; i++) { W.tick(); }
+  var keptOpen = open.larder / open.members, keptTight = tight.larder / tight.members; if (!(keptTight > keptOpen + 0.5)) out.push('after two days the grasping house holds ' + keptTight.toFixed(1) + ' a head and the open-handed one ' + keptOpen.toFixed(1));
+  var L = W.ledger().wealth; if (!(L.richest >= L.poorest) || !(L.tight >= 1)) out.push('the ledger does not show who holds what: ' + JSON.stringify(L));
+  var child = P().filter(function (a) { return a.age < 7; })[0]; if (child) { var g0 = child.greed; child.shortT = 0.5; for (i = 0; i < 24 * 2 && child.alive && !(child.greed > g0); i++) { child.shortT = Math.max(child.shortT, 0.5); W.tick(); } if (child.alive && child.age < 8 && !(child.greed > g0)) out.push('a child hungry for two years holds no tighter'); }
+  return out.join('; ');
+}]);
 })();

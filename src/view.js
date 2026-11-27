@@ -39,7 +39,7 @@ const isWater = (x, y) => { const xi = x | 0, yi = y | 0; return xi < 0 || yi < 
 const mkC = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 
 // ================================================================== the camp's fixed places
-const T0 = S.tribe, camp = { x: T0.x + 0.5, y: T0.y + 0.5 };
+let T0 = S.tribe; const camp = { x: T0.x + 0.5, y: T0.y + 0.5 };   /* T0: the band being watched (the one whose fire is nearest the middle of the view) */
 const fire = { x: camp.x + 0.55, y: camp.y + 0.15 }, store = { x: camp.x - 0.45, y: camp.y + 0.35 };
 const seat = k => { const a = k * 2.1 + 0.4, r = 0.62 + (k % 3) * 0.16; return { x: fire.x + Math.cos(a) * r, y: fire.y + Math.sin(a) * r * 0.9 }; };
 const campR = () => T0.sites.length > 6 ? 4.6 : 3.3;
@@ -433,6 +433,11 @@ let propBox = null, propSmall = true, propTrees = true;
 function viewTiles(m) { const z = cam.z; let x0 = N, x1 = 0, y0 = N, y1 = 0;
   for (const [px, py] of [[cam.x, cam.y], [cam.x + cv.width / z, cam.y], [cam.x, cam.y + cv.height / z], [cam.x + cv.width / z, cam.y + cv.height / z]]) { const u = (px - OX) / (TW / 2), v = (py - OY) / (TH / 2), fx = (u + v) / 2, fy = (v - u) / 2; x0 = Math.min(x0, fx); x1 = Math.max(x1, fx); y0 = Math.min(y0, fy); y1 = Math.max(y1, fy); }
   return { x0: clamp(Math.floor(x0) - m, 0, N - 1), x1: clamp(Math.ceil(x1) + m, 0, N - 1), y0: clamp(Math.floor(y0) - m, 0, N - 1), y1: clamp(Math.ceil(y1) + m, 0, N - 1) }; }
+/* the band being watched follows the view: the nearest fire with people to the middle of the screen, looked for about twice a second */
+let watchN = 0;
+function watchFollowsView() { if (!S.tribes || S.tribes.length < 2 || (++watchN % 30) || cam.z / dpr < 0.45) return; const b = viewTiles(0), cx0 = (b.x0 + b.x1) / 2, cy0 = (b.y0 + b.y1) / 2; let best = -1, bd = 1e9;
+  S.tribes.forEach((B, k) => { if (!B.pop0) return; const d = Math.hypot(B.x - cx0, B.y - cy0); if (d < bd) { bd = d; best = k; } }); if (best < 0 || S.tribes[best] === T0) return;
+  T0 = W.watch(best); camp.x = T0.x + 0.5; camp.y = T0.y + 0.5; fire.x = camp.x + 0.55; fire.y = camp.y + 0.15; store.x = camp.x - 0.45; store.y = camp.y + 0.35; groundState(); reconcile(); startPaint(); say('Watching ' + (T0.name || 'the first people') + '.'); }
 /* when the view has moved off what was last set out, or the zoom has crossed where small things appear, the scenery is set out again at once (no fading in) */
 function propsFollowView() { if (!propBox) return; const b = viewTiles(1); W.setFocus((b.x0 + b.x1) >> 1, (b.y0 + b.y1) >> 1, Math.max(b.x1 - b.x0, b.y1 - b.y0) / 2 + 4); const small = cam.z / dpr >= 0.55, trees = cam.z / dpr >= 0.3;
   const edge = (lo, hi, v0, v1) => (v0 < lo && lo > 0) || (v1 > hi && hi < N - 1);
@@ -714,6 +719,7 @@ let clouds = []; for (let k = 0; k < 5; k++) clouds.push({ x: Math.random() * WW
 const actors = new Map();
 /* E3/E4 check: just before each step, how far each creature is drawn from where the simulation has it (people and animals apart) */
 const drift = { people: { n: 0, far: 0, max: 0, ex: '' }, animals: { n: 0, far: 0, max: 0, ex: '' } };
+let midTick = false;
 function driftNote() {
   for (const r of actors.values()) { if (r.dead || !r.a.alive || r.pose === 'hidden' || r.pose === 'carried' || r.a.hidden) continue;
     const d = Math.hypot(r.x - (r.a.x + 0.5), r.y - (r.a.y + 0.5)), o = r.a.d.people ? drift.people : drift.animals; o.n++;
@@ -1395,12 +1401,13 @@ function frame(t) {
   requestAnimationFrame(frame); const dtMs = Math.min(250, t - now); now = t;
   paceCheck(dtMs);
   glideStep(dtMs);
-  propsFollowView();
+  propsFollowView(); watchFollowsView();
   const dts = paused ? 0 : dtMs * speed / 1000;
   if (!paused) {
     usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
     /* a slow frame catches up on the steps it missed, a few at a time, so fast speeds stay fast on a slow device */
-    for (let n = 0; tickFrac >= 1 && n < 6; n++) { tickFrac -= 1; driftNote(); W.tick(); onTick(); }
+    /* with several bands a step is taken a band at a time, and no more of it in one frame than a few thousandths of a second allow */
+    { const t0 = performance.now(); for (let n = 0; tickFrac >= 1 && n < 24; n++) { if (!midTick) { driftNote(); midTick = true; } if (!W.tickSlice()) { if (performance.now() - t0 > 10) break; continue; } midTick = false; tickFrac -= 1; onTick(); if (performance.now() - t0 > 14) break; } }
     if (tickFrac >= 1) tickFrac = 0.99;
   }
   if (!paint && groundWanted) startPaint();
@@ -2053,7 +2060,9 @@ bS2.onclick = () => {
       crowd: 'no roof',
       loss: 'deaths',
       reckon: 'too much to keep track of',
-      cross: 'rivers to wade' };
+      cross: 'rivers to wade',
+      sick: 'fever',
+      order: 'quarrels unsettled' };
     const felt = Object.keys(T0.need).filter(k => T0.need[k] > 0.15).sort((p, q) => T0.need[q] - T0.need[p]);
     const bar = v => '<span style="display:inline-block;height:6px;width:' + Math.round(Math.min(1, v / 3) * 70 + 4) + 'px;background:#b8453a;border-radius:2px;vertical-align:middle"></span>';
     const near = ideas.filter(q => q.can).sort((p, q) => (T0.need[q.need] / q.at) - (T0.need[p.need] / p.at)).slice(0, 4);
@@ -2063,11 +2072,11 @@ bS2.onclick = () => {
       + (() => { const f = T0.foodLast || {}, src = [['grain', 'the fields, grain'], ['veg', 'the fields, greens'], ['fruit', 'gathered'], ['fish', 'fished'], ['meat', 'hunted']], tot = src.reduce((p, [k]) => p + (f[k] || 0), 0); if (!tot) return '';
           return '<p><b>Food last year</b> (' + (tot / Math.max(1, S.popPeople)).toFixed(1) + ' a head)<br>' + src.filter(([k]) => f[k] > 0.5).map(([k, w]) => Math.round(100 * f[k] / tot) + '% ' + w).join('<br>') + '</p>'; })()
       /* the ledger: everything the place has, counted */
-      + (() => { const L = W.ledger(), cap = k => k.charAt(0).toUpperCase() + k.slice(1), NAME = { all: 'all', inStore: 'of it in the common store', veg: 'greens', fruit: 'fruit and roots', mournedAtShrine: 'times mourned at the shrine', meadowsweet: 'meadowsweet (fever)', yarrow: 'yarrow (births)', gentian: 'gentian (sick children)', garlic: 'wild garlic (the gut)', haveSeenTheHand: 'have seen the hand', offerings: 'food left out', believe: 'believe someone is there', trusting: 'of them, trusting', fearful: 'of them, fearful',
+      + (() => { const L = W.ledger(), cap = k => k.charAt(0).toUpperCase() + k.slice(1), NAME = { all: 'all', inStore: 'of it in the common store', veg: 'greens', fruit: 'fruit and roots', mournedAtShrine: 'times mourned at the shrine', meadowsweet: 'meadowsweet (fever)', yarrow: 'yarrow (births)', gentian: 'gentian (sick children)', garlic: 'wild garlic (the gut)', haveSeenTheHand: 'have seen the hand', richest: 'the fullest larder', poorest: 'the emptiest', tight: 'who hold tight to theirs', halfHeldBy: 'roofs holding half of it', ofRoofs: 'of', offerings: 'food left out', believe: 'believe someone is there', trusting: 'of them, trusting', fearful: 'of them, fearful',
             grieving: 'grieving now', ways: 'tiles of worn way', fields: 'field tiles', fenced: 'fenced', healerhouse: "healer's house", tallyhouse: 'tally house', born: 'born here', died: 'died', left: 'left the valley', cow: 'cattle', deer: 'deer', rabbit: 'rabbits', wolf: 'wolves' };
           const row = (t, o) => { const ks = Object.keys(o).filter(k => o[k] > 0); return ks.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>' + t + '</b></td><td>' + ks.map(k => (NAME[k] || k) + ' <b>' + o[k] + '</b>').join(', ') + '</td></tr>' : ''; };
           return '<p><b>Ledger</b></p><table style="border-collapse:collapse;font-size:inherit">' + row('People', L.people) + row('Homes', L.homes) + row('Buildings', L.buildings) + row('Being built', L.building) + row('Food', L.food) + row('Goods', L.goods)
-            + row('Know herbs', L.herbs || {}) + (L.bands && L.bands.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Other peoples</b></td><td>' + L.bands.map(b => b.name.replace(/[<>&]/g, '') + ': <b>' + b.people + '</b>, ' + b.dist + ' tiles off, ' + b.feeling + (b.wed ? ', ' + b.wed + ' married across' : '') + (b.raids ? ', ' + b.raids + ' raids' : '')).join('<br>') + '</td></tr>' : '') + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + (L.counsel && L.counsel.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Counsel</b></td><td>' + L.counsel.map(k => ({ spare: 'leave the young trees', cut: 'cut what is needed', apart: 'live further apart', nothing: 'no answer to the fever', high: 'keep to high ground', stay: 'stay by the water' }[k] || k)).join(', ') + '</td></tr>' : '') + '</table>'; })()
+            + row('Food a head, by roof', L.wealth || {}) + row('Know herbs', L.herbs || {}) + (L.bands && L.bands.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Other peoples</b></td><td>' + L.bands.map(b => b.name.replace(/[<>&]/g, '') + ': <b>' + b.people + '</b>, ' + b.dist + ' tiles off, ' + b.feeling + (b.wed ? ', ' + b.wed + ' married across' : '') + (b.raids ? ', ' + b.raids + ' raids' : '')).join('<br>') + '</td></tr>' : '') + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + (L.counsel && L.counsel.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Counsel</b></td><td>' + L.counsel.map(k => ({ spare: 'leave the young trees', cut: 'cut what is needed', apart: 'live further apart', nothing: 'no answer to the fever', high: 'keep to high ground', stay: 'stay by the water' }[k] || k)).join(', ') + '</td></tr>' : '') + '</table>'; })()
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
       /* F6: every place of work standing, and who works there */
       + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');
