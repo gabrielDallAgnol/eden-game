@@ -1254,4 +1254,16 @@ UNITS.push(['later questions: with a name known, a believer brings the trouble t
   if (S.ask) out.push('still waiting after thirty steps'); if (!(T.askSilent >= 1)) out.push('silence was not remembered'); if (T.counsel.high || T.counsel.stay) out.push('counsel was kept though nothing was said');
   return out.join('; ');
 }]);
+UNITS.push(['a wide country holds lowland and a mountain range at once, is colder high up, and its far-off beasts live on in coarse steps while people settle', function () {
+  var W = Eden.create(4, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'wide', size: 192, age: 'wood', human: 6 }), S = W.S, N = W.N, i, out = [], low = 0, high = 0, hiI = -1, loI = -1;
+  for (i = 0; i < N * N; i++) { if (W.height[i] < 2.5) { low++; if (loI < 0 && !W.water[i]) loI = i; } if (W.height[i] > 7) { high++; if (hiI < 0) hiI = i; } }
+  if (low < N * N * 0.15) out.push('only ' + Math.round(100 * low / N / N) + '% lowland'); if (high < N * N * 0.03) out.push('only ' + Math.round(100 * high / N / N) + '% above the tree line');
+  if (hiI >= 0 && loI >= 0 && !(W.tempAt(hiI) < W.tempAt(loI) - 2)) out.push('the heights are not colder: ' + W.tempAt(hiI).toFixed(1) + ' against ' + W.tempAt(loI).toFixed(1));
+  var t0 = Date.now(); for (i = 0; i < 24 * 20; i++) W.tick(); var ms = (Date.now() - t0) / (24 * 20);
+  if (!S.popPeople) out.push('nobody alive at year 20'); var T = S.tribe, far = {}; S.agents.forEach(function (a) { if (a.alive && !a.d.people && Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) > 60) far[a.sp] = (far[a.sp] || 0) + 1; });
+  ['deer', 'cow', 'rabbit'].forEach(function (k) { if (!(far[k] >= 5)) out.push('far from the fire only ' + (far[k] || 0) + ' ' + k + ' are left at year 20'); });
+  if (ms > 120) out.push('a step takes ' + ms.toFixed(0) + ' ms');
+  if (S.problems.length) out.push(S.problems[0]);
+  return out.join('; ');
+}]);
 })();

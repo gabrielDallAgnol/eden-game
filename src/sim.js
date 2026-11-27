@@ -80,9 +80,13 @@ function create(seed, opt) {
     plains:   { shape: 'low',    riverA: 120, lake: 0.3, treeAt: 0.72, rockAt: 0.9,  warm: 1,  fert: 0.08 },
     forest:   { shape: 'rolling', riverA: 80, lake: 0.6, treeAt: 0.42, rockAt: 0.86, warm: 0,  fert: 0.05 },
     lakeland: { shape: 'basins', riverA: 70,  lake: 0.2, treeAt: 0.58, rockAt: 0.86, warm: 0,  fert: 0 },
-    highland: { shape: 'high',   riverA: 90,  lake: 0.9,  treeAt: 0.6,  rockAt: 0.56, warm: -3, fert: -0.12 }
+    highland: { shape: 'high',   riverA: 90,  lake: 0.9,  treeAt: 0.6,  rockAt: 0.56, warm: -3, fert: -0.12 },
+    /* a wide country that holds all of the above at once: low plains, wooded hills, basins and a mountain range. Where it is wooded, stony or
+       poor varies from place to place (vary: true), and it grows colder with height */
+    wide:     { shape: 'wide',   riverA: 110, lake: 0.35, treeAt: 0.58, rockAt: 0.86, warm: 0, fert: 0, vary: true }
   };
   const TREE_LINE = 7;
+  const LAPSE = LANDS[opt.land] && LANDS[opt.land].vary ? 0.9 : 0;
   /* how much country there is, against the 40 x 40 the animal numbers were first set for: what counts as 'nearly gone' and
      how many wander in together scale with it (D5) */
   const AREA = (opt.size || 40) * (opt.size || 40) / 1600;
@@ -105,9 +109,14 @@ function create(seed, opt) {
   // and 6), so a valley looks the same whatever the size of the map, shaped by the kind of country.
   const height = F(), flowTo = new Int32Array(N * N).fill(-1), accum = F(), filled = F();
   { const nz = (x, y, w, k) => noise(x / w, y / w, sd + k);
+    /* every wide country has its lowland and its range: the big shape is stretched to run the whole way from one to the other */
+    let bLo = 1, bHi = 0; if (LAND.shape === 'wide') for (let y = 0; y < N; y += 2) for (let x = 0; x < N; x += 2) { const b = nz(x, y, 120, 71) * 0.7 + nz(x, y, 60, 73) * 0.3; if (b < bLo) bLo = b; if (b > bHi) bHi = b; }
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       let h = 3.0 * nz(x, y, 48, 31) + 1.5 * nz(x, y, 16, 37) + 0.6 * nz(x, y, 6, 41);
       if (LAND.shape === 'trough') { const cx = N / 2 + 9 * Math.sin(y / 15 + sd), p = nz(x, y, 12, 67); h = h * 0.7 + Math.min(Math.abs(x - cx), 18) * 0.2 + (p > 0.62 ? 2 : 0); }   /* a few rocky knolls */
+      else if (LAND.shape === 'wide') { /* the big shape first: lowland, then hills, then a range; the smaller shapes ride on it, rougher the higher */
+        const big = (nz(x, y, 120, 71) * 0.7 + nz(x, y, 60, 73) * 0.3 - bLo) / Math.max(0.05, bHi - bLo), up = Math.max(0, big - 0.42) / 0.58, rough = 0.75 + 1.1 * up;
+        h = 0.6 + 11 * Math.pow(up, 1.5) + rough * (1.6 * nz(x, y, 28, 31) + 1.0 * nz(x, y, 12, 37) + 0.5 * nz(x, y, 6, 41)) + 1.6 * Math.max(0, 0.5 - big) * nz(x, y, 9, 53); }
       else if (LAND.shape === 'low') h = h * 0.5 + 0.5;
       else if (LAND.shape === 'basins') h = h * 0.7 + 2.2 * nz(x, y, 9, 53);
       else if (LAND.shape === 'high') { h = h * 1.5 + 1.5 + 2.4 * Math.abs(nz(x, y, 14, 59) - 0.5); const p = nz(x, y, 20, 61); h += p > 0.56 ? 2.5 : p > 0.52 ? (p - 0.52) * 62 : 0; }   /* plateaus with steep edges */
@@ -151,10 +160,13 @@ function create(seed, opt) {
     const i = I(x, y);
     /* steep and high ground shows bare stone; above the tree line it is too cold for woods */
     let slope = 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < N && ny < N) slope = Math.max(slope, Math.abs(height[I(nx, ny)] - height[i])); }
-    const rn = noise(x / 5, y / 5, sd + 21), rockAt = LAND.rockAt - 0.3 * Math.max(0, slope - 0.5) - 0.05 * Math.max(0, height[i] - 6); rock[i] = !water[i] && rn > rockAt ? clamp((rn - rockAt) * 5, 0.2, 1) : 0;   // bare stone showing through
-    fert[i] = clamp((0.45 + 0.75 * noise(x / 7, y / 7, sd) + LAND.fert) * (1 - 0.45 * rock[i]), 0.25, 1);
+    /* in a wide country the woods, the stone and the goodness of the soil differ from region to region */
+    const wet = LAND.vary ? noise(x / 70, y / 70, sd + 81) : 0.5, hi = LAND.vary ? clamp((height[i] - 3) / 5, 0, 1) : 0;
+    const L_rock = LAND.rockAt - (LAND.vary ? 0.3 * hi : 0), L_tree = LAND.treeAt - (LAND.vary ? 0.5 * (wet - 0.5) : 0), L_fert = LAND.fert + (LAND.vary ? 0.25 * (wet - 0.5) - 0.15 * hi : 0);
+    const rn = noise(x / 5, y / 5, sd + 21), rockAt = L_rock - 0.3 * Math.max(0, slope - 0.5) - 0.05 * Math.max(0, height[i] - 6); rock[i] = !water[i] && rn > rockAt ? clamp((rn - rockAt) * 5, 0.2, 1) : 0;   // bare stone showing through
+    fert[i] = clamp((0.45 + 0.75 * noise(x / 7, y / 7, sd) + L_fert) * (1 - 0.45 * rock[i]), 0.25, 1);
     const tn = noise(x / 6, y / 6, sd + 9);
-    const treeAt = LAND.treeAt + 0.2 * Math.max(0, height[i] - TREE_LINE);
+    const treeAt = L_tree + 0.2 * Math.max(0, height[i] - TREE_LINE);
     tree[i] = water[i] || rock[i] > 0.5 ? 0 : tn > treeAt ? clamp((tn - treeAt + 0.06) * 3, 0, 0.95) : 0;
     grass[i] = water[i] ? 0 : 0.5 * fert[i]; fish[i] = water[i] ? 1 : 0; cells.push([]);
   }
@@ -244,6 +256,7 @@ function create(seed, opt) {
   // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
   // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
   const REACH_W = 30;
+  const LOD = opt.lod !== undefined ? opt.lod : N > 128 ? 4 : 1, FAR = 40;
   const ASK_WAIT = 12;   /* steps the asker waits for an answer: three days */
   /* test lever: demog 'old' is the demography before sickness (no fever, no deaths at birth, children borne to 42 every 2.4 years), kept so that checks of what only a large place does can still reach one in a few decades */
   const OLD_DEMOG = opt.demog === 'old', FERTILE_TO = OLD_DEMOG ? 42 : 30, BIRTH_GAP = OLD_DEMOG ? 2.4 / 3.0 : 1; if (OLD_DEMOG) opt.noSick = true;
@@ -471,7 +484,7 @@ function create(seed, opt) {
   const airNow = () => -6 + 26 * sunHeight() + S.warmOff;
   // Temperature of one piece of ground: the air, plus any warmth lying on it, softened under trees, cooled by snow.
   function tempAt(i) {
-    let t = S.air + heat[i];
+    let t = S.air + heat[i]; if (LAPSE) t -= LAPSE * Math.max(0, height[i] - 3);   /* a wide country is colder the higher it stands */
     if (tree[i] > 0.4) t += t < 5 ? 1.5 : t > 24 ? -2 : 0;
     if (snow[i] > 0.15) t -= 1;
     return t;
@@ -2640,7 +2653,13 @@ function create(seed, opt) {
     if (S.popPeople && T.skills.hunt && (!DAY || S.tickNo % DAY === 0)) for (const h of T.sites) { if (!live(h) || !isHome(h) || h.upon || !(h.members > 0)) continue;
       if (!folk().some(b => b.house === h.id && b.age >= 8 && b.age <= 60 && b.e > 0.3)) continue;
       for (const r of around(h, SNARE_R, b => !b.tame && b.d.mass < 1 && !b.d.people && !b.d.eats.meat)) if (rnd() < SNARE_P) { const m = bodyOf(r) * 0.9; die(r, 'snared'); addFood(h, 'larder', 'meat', m); S.stat.snared = (S.stat.snared || 0) + 1; }   /* the snare line is a morning's chore, not a hunter's trade: it is not counted toward what hunting pays */ }
+    /* FAR-OFF BEASTS. On a wide land most wild beasts are a long way from anyone. Those more than FAR tiles from every fire and from where
+       the player is looking live in coarser steps: one step in every LOD, each LOD times as long. Nothing else about them changes.
+       On a map of the old size (128 a side or less) every beast is stepped every time, as before */
+    const dt0 = dt, fx0 = S.focus ? S.focus.x : -999, fy0 = S.focus ? S.focus.y : -999, fr0 = S.focus ? S.focus.r : 0;
     for (const a of S.agents) {
+      if (LOD > 1 && a.alive && !a.d.people && !a.tame && !a.held && (S.tickNo + a.id) % LOD && !(S.popPeople && Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= FAR) && Math.max(Math.abs(a.x - fx0), Math.abs(a.y - fy0)) > fr0) continue;
+      { const coarse = LOD > 1 && a.alive && !a.d.people && !a.tame && !a.held && !(S.popPeople && Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= FAR) && Math.max(Math.abs(a.x - fx0), Math.abs(a.y - fy0)) > fr0, dt = coarse ? dt0 * LOD : dt0;
       if (!a.alive) continue; const d = a.d, i = I(a.x, a.y), Tc = tempAt(i); if (a.fear > 0) a.fear -= dt * 1.4;
       if (S.popPeople && !d.people && d.eats.meat && d.mass > 3 && cheb(a, T) <= 4 && !a.hidden) T.threat += dt * 3; /* a hunter in among the houses is remembered */
       a.age += dt;
@@ -2674,7 +2693,11 @@ function create(seed, opt) {
         /* a move made in one jump (home by dusk, to the fire to eat) is filled in along the way it would be walked */
         /* worked out only when the view asks for this trail (trailOf): nothing in the simulation reads it */
         { const last = trailNow[trailNow.length - 1], here = I(a.x, a.y); if (last !== here) trailNow.toFill = [last, here, a]; }
-        trails.set(a.id, trailNow); tally(a); if (a.alive) see(a); } else { trailA = a; trailNow = [I(a.x, a.y)]; animal(a, d, dt); trailA = null; const here = I(a.x, a.y); if (trailNow[trailNow.length - 1] !== here) trailNow.push(here); trails.set(a.id, trailNow); }
+        trails.set(a.id, trailNow); tally(a); if (a.alive) see(a); } else if (coarse) { /* far off, a beast's life is taken in outline: a grazer finds its living and bears young only while its own kind are not thick on the ground around it;
+           a hunter lives while there is prey within reach, taking one now and then, and goes hungry where there is none */
+          if (d.eats.meat) { const prey = nearest(a, 8, b => !b.d.people && !b.d.eats.meat && b.d.mass <= d.mass * 3); if (prey) { a.e = Math.max(a.e, 0.9); if (rnd() < dt * 2.5 / Math.max(0.6, prey.d.mass)) die(prey, 'eaten', a.id); } else a.e -= dt * 1.2; if (rnd() < 0.5) roam(a, 4, 2); }
+          else { a.e = Math.max(a.e, 0.9); a.thick = around(a, 5, b => b.sp === a.sp).length >= (d.mass < 1 ? 3 : 5); if (rnd() < 0.5) roam(a, 2, 1); } }
+        else { trailA = a; trailNow = [I(a.x, a.y)]; animal(a, d, dt); trailA = null; const here = I(a.x, a.y); if (trailNow[trailNow.length - 1] !== here) trailNow.push(here); trails.set(a.id, trailNow); }
       if (!a.mood) a.mood = a.e < 0.3 ? 'hungry' : a.e > e0 + 0.02 ? 'fed' : '';
       /* a household remembers going hungry: it is what makes it sow more next spring */
       if (d.people && a.alive && a.e < 0.3 && a.house) { const h = homeSite(a); if (h) h.shortT = (h.shortT || 0) + dt; }
@@ -2696,6 +2719,7 @@ function create(seed, opt) {
             if (kids.length >= want) continue; }
         }   // a household can carry only so many small children at once
         else {
+          if (coarse && a.thick) continue;
           if (!nearest(a, 7, b => b.sp === a.sp && b.age >= d.mature)) continue;
           if (d.territory) { const c = around(a, d.territory * 2, b => b.sp === a.sp).length + 1; if (c > d.territory) continue; }
           /* a grazing mother bears young only where the grass around her will feed them as well as the mouths already there:
@@ -2708,7 +2732,7 @@ function create(seed, opt) {
         const n = d.litter[0] + ((rnd() * (d.litter[1] - d.litter[0] + 1)) | 0); a.e -= 0.25 + 0.08 * n; a.cd = d.interval * (d.people ? 0.85 * BIRTH_GAP : 1) * R(0.85, 1.2);
         for (let k = 0; k < n; k++) born.push([a.sp, a.x, a.y, a.home, a.id]); if (d.people) S.tribe.kidBorn += n;
       }
-    }
+    } }
     /* test levers (G.hold, G.ban): no young beyond a held number, none at all of a banned kind */
     for (const b of born) {
       const cap = S.levers.hold[b[0]];
@@ -3072,6 +3096,8 @@ function create(seed, opt) {
       known: !!S.tribe.skills[k],
       can: !S.tribe.skills[k] && !BEYOND[k] && !!IDEAS[k].can(S.tribe) })).filter(q => !BEYOND[q.k]),
     ledger,
+    /* where the player is looking (tile and radius): beasts there are stepped every time, however far from a fire */
+    setFocus(x, y, r) { S.focus = { x: x | 0, y: y | 0, r: r | 0 }; },
     /* what a person wants most just now, read from their state (for the sign over their head): nothing is decided here */
     wantOf: a => !a || !a.alive ? '' : a.mood === 'afraid' ? 'afraid' : a.illT !== undefined && S.tickNo - a.illT < (DAY || 1) * 2 ? 'ill' : a.e < 0.35 ? 'hungry' : a.mood === 'cold' ? 'cold' : a.mood === 'hot' ? 'hot' : a.grief > 0.3 ? 'grief' : '',
     describe,

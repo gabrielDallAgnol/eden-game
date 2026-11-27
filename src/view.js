@@ -9,7 +9,7 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b
 const SMALL = 4;   /* small children (the tot sprite) until this age; grown at the species' mature age (8 for people) */
 const qs = new URLSearchParams(location.search), seed = +(qs.get('seed') || 1 + Math.floor(Math.random() * 9999));
 let landKept = ''; try { landKept = localStorage.getItem('eden.land') || ''; } catch (e) { /* no storage: the address decides */ }
-const landQ = qs.get('land') || landKept || 'valley';
+const landQ = qs.get('land') || landKept || 'wide';
 /* a saved valley is taken up again when the opening card's Continue was pressed (or ?continue=1); otherwise a new one is made */
 let saved = null;
 try {
@@ -21,7 +21,7 @@ try {
 let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { console.warn('the saved valley could not be loaded; starting a new one', e); } }
 /* a turn of the seasons takes up to this many times as long as a year of a life (midsummer); winter keeps its old length */
 const yearQ = clamp(+(qs.get('yearK') || 3), 1, 8);
-const sizeQ = clamp(+(qs.get('size') || 96), 24, 160);   /* the map, in tiles a side */
+const sizeQ = clamp(+(qs.get('size') || (landQ === 'wide' ? 192 : 96)), 24, 256);   /* the wide country is four times the ground of the others */   /* the map, in tiles a side */
 const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6 }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
@@ -176,7 +176,9 @@ function colorAt(pxx, py) {
   else k = bKn[(((fy * 8) | 0) - cby) * CB + (((fx * 8) | 0) - cbx)];
   /* the shape of the land, before it is drawn in relief: low ground a little darker, ridges a little lighter */
   if (fx < N && fy < N && !W.water[(fy | 0) * N + (fx | 0)]) {
-    const h = bHt[(((fy * 8) | 0) - cby) * CB + (((fx * 8) | 0) - cbx)], f = clamp(0.84 + 0.045 * h, 0.8, 1.2);
+    /* and its slopes: ground that rises away from the light (which comes from the upper left) is lit, ground that falls away is in shade */
+    const xi = fx | 0, yi = fy | 0, H = W.height, hx = H[yi * N + Math.min(N - 1, xi + 1)] - H[yi * N + Math.max(0, xi - 1)], hy = H[Math.min(N - 1, yi + 1) * N + xi] - H[Math.max(0, yi - 1) * N + xi], lit = clamp(hx * 0.28 + hy * 0.12, -1, 1);
+    const h = bHt[(((fy * 8) | 0) - cby) * CB + (((fx * 8) | 0) - cbx)], f = clamp(0.84 + 0.035 * h, 0.8, 1.22) * (1 + 0.2 * lit);
     const r = Math.min(255, (c & 255) * f), g = Math.min(255, ((c >>> 8) & 255) * f), b = Math.min(255, ((c >>> 16) & 255) * f);
     c = (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
   }
@@ -419,6 +421,15 @@ function leafState(i, T, falling) {
   return 'frost';
 }
 const props = new Map();
+/* the tiles on screen, with a margin */
+let propBox = null, propSmall = true, propTrees = true;
+function viewTiles(m) { const z = cam.z; let x0 = N, x1 = 0, y0 = N, y1 = 0;
+  for (const [px, py] of [[cam.x, cam.y], [cam.x + cv.width / z, cam.y], [cam.x, cam.y + cv.height / z], [cam.x + cv.width / z, cam.y + cv.height / z]]) { const u = (px - OX) / (TW / 2), v = (py - OY) / (TH / 2), fx = (u + v) / 2, fy = (v - u) / 2; x0 = Math.min(x0, fx); x1 = Math.max(x1, fx); y0 = Math.min(y0, fy); y1 = Math.max(y1, fy); }
+  return { x0: clamp(Math.floor(x0) - m, 0, N - 1), x1: clamp(Math.ceil(x1) + m, 0, N - 1), y0: clamp(Math.floor(y0) - m, 0, N - 1), y1: clamp(Math.ceil(y1) + m, 0, N - 1) }; }
+/* when the view has moved off what was last set out, or the zoom has crossed where small things appear, the scenery is set out again at once (no fading in) */
+function propsFollowView() { if (!propBox) return; const b = viewTiles(1); W.setFocus((b.x0 + b.x1) >> 1, (b.y0 + b.y1) >> 1, Math.max(b.x1 - b.x0, b.y1 - b.y0) / 2 + 4); const small = cam.z / dpr >= 0.55, trees = cam.z / dpr >= 0.3;
+  const edge = (lo, hi, v0, v1) => (v0 < lo && lo > 0) || (v1 > hi && hi < N - 1);
+  if (small !== propSmall || trees !== propTrees || edge(propBox.x0, propBox.x1, b.x0, b.x1) || edge(propBox.y0, propBox.y1, b.y0, b.y1)) { const before = new Set(props.keys()); reconcile(); for (const [k, p] of props) { if (!before.has(k)) p.born = -1e9; else if (p.die === now) props.delete(k); } } }
 function wantProps() {
   const built = new Set(); for (const q of T0.sites) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) built.add((q.y + dy) * N + q.x + dx);   /* the ground a building stands on */
   const FN = campOn ? T0.fence : null;
@@ -429,12 +440,14 @@ function wantProps() {
   const used = new Set(), tileOf = (fx, fy) => Math.floor(fy) * N + Math.floor(fx);   /* tiles something made already stands on: one thing to a tile */
   const setNear = (key, o) => { for (const [dx, dy] of [[0, 0], [0.9, 0], [0, 0.9], [-0.9, 0], [0, -0.9], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9], [1.5, 0], [0, 1.5], [-1.5, 0], [0, -1.5]]) if (clearAt(o.x + dx, o.y + dy, null, true) && !used.has(tileOf(o.x + dx, o.y + dy))) { used.add(tileOf(o.x + dx, o.y + dy)); o.x += dx; o.y += dy; want.set(key, o); return true; } return false; };
   const want = new Map(), falling = !W.daysLengthen(), cR = campR(), ripe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+  /* only the land in view (and a margin round it) is given its trees, bushes and stones; seen from far off, the small things are left out */
+  const B = propBox = viewTiles(8), small = cam.z / dpr >= 0.55, treesToo = cam.z / dpr >= 0.3; propSmall = small; propTrees = treesToo;
+  for (let y = B.y0; y <= B.y1; y++) for (let x = B.x0; x <= B.x1; x++) {
     const i = y * N + x; if (W.water[i]) continue;
     const tr = W.tree[i], h0 = hash(i, 1), jx = (hash(i, 2) - 0.5) * 0.5, jy = (hash(i, 3) - 0.5) * 0.5, T = W.tempAt(i), snowy = W.snow[i] > 0.08;
     const inCamp = campOn && Math.hypot(x + 0.5 - camp.x, y + 0.5 - camp.y) < cR, px = x + 0.5 + jx, py = y + 0.5 + jy;
     const lag = hash(i, 9) * 0.1;                                          // each spot sprouts and fills out at its own pace
-    if (tr >= 0.06 + lag && !inCamp && !W.field[i] && !T0.road[i] && h0 < (tr < 0.42 ? 0.5 : 0.42 + tr * 0.4)) {
+    if (treesToo && tr >= 0.06 + lag && !inCamp && !W.field[i] && !T0.road[i] && h0 < (tr < 0.42 ? 0.5 : 0.42 + tr * 0.4)) {
       const lk = treeLook(i, T, W.warmSum[i] > 0, snowy, falling), stage = Math.round(clamp((tr - 0.06 - lag) / (0.45 + lag * 2), 0, 1) * (STAGES - 1));
       want.set('t' + i, { kind: 'tree', i, x: px, y: py, base: lk.base + lk.state, stage, img: stageImg(lk.img, stage), dy: 0 }); continue;
     }
@@ -445,6 +458,7 @@ function wantProps() {
       want.set('c' + i, { kind: 'crop', i, x: x + 0.5 + jx * 0.3, y: y + 0.5 + jy * 0.3, base: 'c' + k + (img === A.cropDry) + (isGrain ? 'g' : 'v'), img, dy: 3 });
     }
     if (inCamp || W.field[i] || T0.road[i] || built.has(i)) continue;   /* no bush or rock drawn on a field, a made road or under a building */
+    if (!small) continue;
     /* nor on a fence, in a yard, or (a bush being wide) hard against a fence, a field, a road or a building */
     if ((FN && FN[i]) || lotMask[i]) continue;
     const crowded = [i - 1, i + 1, i - N, i + N].some(j => j >= 0 && j < N * N && ((FN && FN[j]) || W.field[j] || T0.road[j] || built.has(j)));
@@ -1374,6 +1388,7 @@ function frame(t) {
   requestAnimationFrame(frame); const dtMs = Math.min(250, t - now); now = t;
   paceCheck(dtMs);
   glideStep(dtMs);
+  propsFollowView();
   const dts = paused ? 0 : dtMs * speed / 1000;
   if (!paused) {
     usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
