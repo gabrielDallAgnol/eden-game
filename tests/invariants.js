@@ -689,7 +689,7 @@ UNITS.push(['a bad harvest raises the price of grain (H2): with most of the grai
   return dearer >= Math.max(3, Math.ceil(lived * 0.6)) ? '' : 'grain dearer in only ' + dearer + ' of ' + lived + ': ' + out.join('; ');
 }]);
 UNITS.push(['after a bad harvest more hands go to the fields the next year (H3)', function () {
-  var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: land, size: 96 }), S = W.S, N = W.N, i, j, f = 0;
+  var run = function (blight, seed, land) { var W = Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', yearK: 3, land: land, size: 96 }), S = W.S, N = W.N, i, j, f = 0;
     for (i = 0; i < 24 * 40; i++) W.tick(); while (S.cal % 1 > 0.05) W.tick();
     /* one calendar year blighted (the season clock, not the life clock: summer is long), then on to next summer's sowing */
     var c0 = S.cal; while (S.cal < c0 + 1) { if (blight) for (j = 0; j < N * N; j++) if (W.field[j]) W.grass[j] = 0; W.tick(); }

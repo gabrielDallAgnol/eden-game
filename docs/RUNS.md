@@ -1679,3 +1679,28 @@ What changed (owner's request: medicine, from plants that differ by where you li
 | highland | 1 | 16 | 51 | 205 | 209 | 27 | 7 | 0 | 0 | 13 | 5/10/6 | 3.4 | 27.7 | 19.9 | 19.6 | 9 | 1.1 | 817 | 143 | 23.6 | 3 | 0.36363636363636365 (11) | 72/0/0/2/24 | 64 | 8.2 | 21 | 1 | 0 | 19872 |
 | highland | 2 | 3 | 4 | 34 | 34 | 9 | 10 | 0 | 1 | 11 | 7/17/7 | 2.5 | 9.1 | 6.3 | 6.9 | 2 | 0.9 | 28 | 73 | 9.4 | 2.2 | 0 (3) | 70/0/0/4/17 | 32 | 3 | 9 | 0 | 0 | 7983 |
 | mean |  | 14.7 | 41.2 | 335.3 | 336.5 | 72.5 | 6.4 | 0.9 | 0.1 | 14.3 |  | 2.9 | 23.1 | 20 | 10.5 | 17.5 | 1.2 | 3165.3 | 118.1 | 25.6 | 3.6 |  |  | 54.3 | 5.5 | 29 | 3.3 | 0 | 21970.6 |
+
+## Several bands on one land: founding, meeting, marriage across, exchange, grudges and raids (2026-11-28)
+
+What changed (owner's question: if four couples start in four places, do they become four villages that converge or diverge?):
+- **Bands.** A land may hold several bands, each with its own fire, store, wants, ideas, fields and name for the player (`S.tribes`; one to four chosen on the opening card). Households that would have left the land found a new fire on a wide map.
+- **Between them.** Near fires meet. Young people marry across; food each has most of is exchanged; among friends one copies the other's ways and herbs; a hungry band begrudges the other; a starving band beside a full store raids it, and may be raided back. The ledger lists the other peoples and how things stand. Numbers under "Planned on purpose".
+- **Seen in three wide worlds over 100 years (3 or 4 founding bands):** every founding band alive in two of them (294/451/165/176 and 400/522/562), one band of four dead in the third; 10 to 21 marriages across; up to 33 exchanges; ideas passed (farm, granary, well, irrigation, herding); 0 to 6 raids. One pair began with a raid in year 6 and two killed, and ended as friends.
+- **Also in this step.** Herbs spread too easily in the last table: the chance of finding a use is halved, housemates learn more slowly, and a healer tends only homes within 10 tiles.
+- **Checked.** tests.html: 543 passed, 1 failed, then fixed: the H3 check (more hands to the fields after a blighted year) is world-dependent and now runs on `demog: 'old'` (passes alone). A new check covers several bands: fires apart, own fields and harvests, nobody under another band's roof, meeting, a forced raid. A bug found by it and fixed before this table: each band, laying out its fields, cleared every other band's. Against the table above (one band): mean at year 100 335.3 -> 220.0, from the herb changes.
+- **Not right.** Plains 2 and highland 2 die out and end at 2 and 5 people. With three or four bands a land holds 1,000 to 1,500 people by year 100 and a step takes 50 to 65 ms on a desktop.
+- **Not done.** The Town panel shows only the first band. No carts or made roads between places. Walls come only from the old `danger` want.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 22 | 60 | 314 | 314 | 88 | 2 | 4 | 0 | 17 | 7/99/10 | 3.2 | 24.2 | 20 | 9.4 | 52 | 1.2 | 2474 | 134 | 23.3 | 2.2 |  | 68/1/0/4/24 | 82 | 14.9 | 29 | 13 | 0 | 21695 |
+| valley | 2 | 18 | 33 | 237 | 238 | 70 | 1 | 0 | 0 | 11 | 17/90/13 | 2.5 | 22.2 | 25.1 | 6.1 | 7 | 1.5 | 1545 | 188 | 24.8 | 3.8 | 0 (1) | 57/0/0/7/29 | 45 | 3 | 25 | 1 | 0 | 17111 |
+| plains | 1 | 19 | 53 | 358 | 362 | 44 | 10 | 0 | 0 | 16 | 12/175/0 | 4.7 | 28 | 19 | 17.9 | 15 | 1.7 | 4205 | 40 | 28 | 5.3 |  | 67/0/0/2/27 | 77 | 9 | 29 | 3 | 0 | 27554 |
+| plains | 2 | 10 | 15 | 2 | 17 | 1 | 4 | 0 | 1 | 2 | 1/203/1 | 2.9 | 14.9 | 14.4 | 8.9 | 6 | 1.5 | 37 | 11 | 23.7 | 4.7 |  | 75/0/0/0/25 | 2 | 3 | 8 | 0 | 0 | 10789 |
+| forest | 1 | 8 | 16 | 124 | 124 | 34 | 5 | 0 | 0 | 13 | 39/61/6 | 3 | 13.2 | 11.8 | 6.4 | 2 | 0.7 | 392 | 50 | 19.7 | 3.3 | 0 (1) | 61/0/0/5/24 | 38 | 3 | 21 | 1 | 0 | 15163 |
+| forest | 2 | 19 | 62 | 401 | 402 | 120 | 4 | 0 | 0 | 13 | 29/56/5 | 2.4 | 22.4 | 24.5 | 7.4 | 35 | 0.9 | 2326 | 73 | 45.9 | 6.2 | 0 (3) | 75/0/0/5/17 | 45 | 3.1 | 37 | 2 | 0 | 28763 |
+| lakeland | 1 | 13 | 37 | 282 | 282 | 79 | 4 | 0 | 0 | 16 | 67/133/6 | 2.6 | 25.4 | 19.5 | 11.2 | 34 | 1.2 | 2790 | 73 | 21.4 | 2.3 | 0 (2) | 73/0/0/2/20 | 54 | 4.4 | 33 | 13 | 0 | 20426 |
+| lakeland | 2 | 17 | 47 | 343 | 343 | 93 | 3 | 0 | 0 | 15 | 21/80/0 | 2.5 | 26 | 21.9 | 7.9 | 6 | 1.3 | 3669 | 40 | 28.9 | 3 | 0 (2) | 69/0/0/4/24 | 52 | 3.3 | 37 | 6 | 0 | 24996 |
+| highland | 1 | 16 | 47 | 134 | 138 | 15 | 3 | 36 | 0 | 13 | 5/24/5 | 3.2 | 26.9 | 17.8 | 19.4 | 4 | 1.1 | 224 | 93 | 18.2 | 3 | 2 (7) | 80/0/0/1/16 | 62 | 8.1 | 17 | 2 | 0 | 16311 |
+| highland | 2 | 3 | 1 | 5 | 9 | 2 | 14 | 0 | 5 | 8 | 0/61/5 | 2.6 | 7.2 | 13.3 | 3.7 | 0 | 0.9 | 7 | 46 | 16.7 | 2.3 | 1 (1) | 65/0/0/0/17 | 13 | 3.3 | 8 | 0 | 0 | 6801 |
+| mean |  | 14.5 | 37.1 | 220 | 222.9 | 54.6 | 5 | 4 | 0.6 | 12.4 |  | 3 | 21 | 18.7 | 9.8 | 16.1 | 1.2 | 1766.9 | 74.8 | 25.1 | 3.6 |  |  | 47 | 5.5 | 24.4 | 4.1 | 0 | 18960.9 |
