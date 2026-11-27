@@ -25,7 +25,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#27412a;font-family:ui
 <div id="know"></div>
 <div id="news"></div><div id="tools"></div>
 <div id="intro"><div id="card"><h1>Eden</h1>
-<p>A small band in a valley: three couples and two children. Nothing here is scripted: warmth, water and hunger decide everything. Watch for a while: people fish, pick, carry and build, children play, animals graze, rest together, raise their young and hunt.</p>
+<p>A small band on a wide land: three couples and two children, who know how to make fire and little else. Nothing here is scripted: warmth, water and hunger decide everything. Watch for a while: people fish, pick, carry and build, children play, animals graze, rest together, raise their young and hunt.</p>
 <ul><li><b>Drag</b> to look around, pinch or scroll to zoom.</li>
 <li><b>Your hand is your only power.</b> Press on a thing to lift it, let go to set it down: a person, a beast, a tree, a stone, fire, a handful of water, a house.</li>
 <li>What follows is the world's doing. A stone set on stone strikes a spark. Fire burns what will burn. Water puts it out.</li>
@@ -80,7 +80,7 @@ const SKILLS = {
 
 // Things people may work out for themselves. Why and when is not written here: see IDEAS inside create(), where each is tied
 // to a want that has actually been felt and to the means lying at hand.
-const TECHS = { bridge: 1, pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, tools: 1, medicine: 1, masonry: 1, writing: 1, concrete: 1 };
+const TECHS = { midden: 1, bridge: 1, pottery: 1, palisade: 1, plough: 1, granary: 1, irrigation: 1, tools: 1, medicine: 1, masonry: 1, writing: 1, concrete: 1 };
 const JOBS = { farmer: 'gather', hunter: 'hunt', fisher: 'fish', gatherer: 'gather', builder: 'build', woodcutter: 'build', mason: 'build', herder: 'gather', guard: 'hunt', smith: 'build', potter: 'build', wright: 'build', healer: 'gather', scribe: 'gather', elder: 'gather', dairymaid: 'gather' };
 /* F6: every trade is work in a place: on the land, at the water, on the building plots, or in a building (named by its kind) */
 const TRADE_JOBS = new Set(['smith', 'potter', 'wright', 'scribe', 'healer', 'builder', 'mason', 'herder']);
@@ -288,7 +288,7 @@ function create(seed, opt) {
     let sum = 0; for (const g of FOODS) sum += m[g]; if (tot <= 1e-9) { for (const g of FOODS) m[g] = 0; return m; }
     if (sum <= 1e-9) { m.fruit = tot; return m; }   /* food of no known kind (an old save, the first store) counts as gathered */
     const k = tot / sum; if (Math.abs(k - 1) > 1e-12) for (const g of FOODS) m[g] *= k; return m; }
-  function addFood(o, f, kind, amt) { if (!(amt > 0)) return; const m = mixOf(o, f); o[f] = (o[f] || 0) + amt; m[kind] += amt; if (S.foodIn) S.foodIn[kind] = (S.foodIn[kind] || 0) + amt; }   /* every bit of food that comes in, by kind, for the year's tally */
+  function addFood(o, f, kind, amt) { if (!(amt > 0)) return; const m = mixOf(o, f); o[f] = (o[f] || 0) + amt; m[kind] += amt; { const F = S.tribe.foodIn || (S.tribe.foodIn = {}); F[kind] = (F[kind] || 0) + amt; } }   /* every bit of food that comes in, by kind, for the year's tally */
   /* food moved from one holder to another goes as it is mixed */
   function moveFood(a, fa, b, fb, amt) { if (!(amt > 0)) return; const ma = mixOf(a, fa), mb = mixOf(b, fb), tot = Math.max(1e-9, a[fa]), k = Math.min(1, amt / tot);
     for (const g of FOODS) { const x = ma[g] * k; ma[g] -= x; mb[g] += x; } a[fa] -= amt; b[fb] = (b[fb] || 0) + amt; }
@@ -503,6 +503,7 @@ function create(seed, opt) {
       sown: false, resting: false, cropWarm: 0, lastCampT: -1e9, fields: 0, lastHarvest: 0, seenGrow: 0, lastGrowT: -9, waterAt: null, waterDist: null, pondTold: false, lotAcross: null, lotReach: 8, roadGen: 0 };
     for (const k in SKILLS) T.skills[k] = SKILLS[k].known;
     for (const k in TECHS) T.skills[k] = false;
+    for (const k of opt.startWith || []) T.skills[k] = true;   /* what the founders bring with them (the game's people come knowing fire, as every band of our kind did) */
     return T;
   }
   const S = { t: opt.startT || 0, cal: opt.startT || 0, agents: [], pop: {}, tribe: newSettlement(0, 0), log: [], deaths: {}, nextId: 1,
@@ -781,7 +782,7 @@ function create(seed, opt) {
   const FIRST_NORM = 6;
   const normOf = a => a.norm === undefined ? FIRST_NORM : a.norm;
   const childrenOf = a => folk().filter(b => b.mom === a.id || b.dad === a.id);
-  const tell = text => S.log.push({ t: S.t, text, band: S.tribe.band || 0 }), tellAll = text => S.log.push({ t: S.t, text, band: -1 });   /* news of one band, and news of what passes between bands */
+  const tell = text => S.log.push({ t: S.t, text, band: S.tribe.band || 0 }), tellAll = text => S.log.push({ t: S.t, text, band: -1 }), tellFirst = text => S.log.push({ t: S.t, text, band: S.tribe.band || 0, first: true });   /* a first: kept for the chronicle */   /* news of one band, and news of what passes between bands */
   // a few words about one person, for whoever stops to look
   /* G1. Ties beyond kin: two people grow close by doing things together (one hunt, one building site, one fire to eat, sing,
      hear a story or mourn at) and drift apart slowly when they do not. A friend is someone a tie of 0.5 or more binds them to */
@@ -1879,7 +1880,7 @@ function create(seed, opt) {
     return best ? { who: best, lv, name } : null; }
   function tryHerbs(h, uses) { const T = S.tribe; for (const use of uses) { const k = HERB_USE[use], name = HERBS[k].k; if (!herbNear(h.x, h.y, k, 10)) continue;
       for (const b of folk()) { if (b.age < GROWN || (h !== T ? b.house !== h.id : b.house) || (b.know && b.know[name]) || rnd() >= HERB_TRY * (0.4 + 1.8 * (b.curious === undefined ? 0.33 : b.curious))) continue; (b.know = b.know || {})[name] = 0.3; S.stat.herbsFound = (S.stat.herbsFound || 0) + 1;
-        T.herbTold = T.herbTold || {}; if (!T.herbTold[name]) { T.herbTold[name] = true; tell(b.name + ' has found a use for something that grows near: ' + HERBS[k].says + '.'); } break; } } }
+        T.herbTold = T.herbTold || {}; if (!T.herbTold[name]) { T.herbTold[name] = true; tellFirst(b.name + ' has found a use for something that grows near: ' + HERBS[k].says + '.'); } break; } } }
   const used = c => { if (c) c.who.know[c.name] = Math.min(1, c.who.know[c.name] + 0.05); };
   const scribed = () => !!standing('tallyhouse') && folk().some(b => b.job === 'scribe');
   const presiding = () => !!standing('hall') && folk().some(b => b.job === 'elder');
@@ -2419,12 +2420,13 @@ function create(seed, opt) {
     cheese:     { need: 'spoil',  at: 1.5, can: T => (T.milked || 0) > 20, say: 'Cheese. So much milk gone sour in the store. Pressed and salted, the curd keeps through the winter.' },
     rites:      { need: 'loss',   at: 1.2, can: T => T.skills.fire, say: 'So many buried. The people have begun to keep the dead: stones set up, a fire kept, the names said over.' },
     bridge:     { need: 'cross',  at: 1.2, can: T => T.skills.hut, say: 'Bridge. Too many days lost wading the ford, and the river too high to cross half the year. Logs can be laid across it.' },
+    midden:     { need: 'sick',   at: 2.0, can: T => T.huts > 0, say: 'Too many children buried after a fever. The people have begun to carry their waste away from the houses, to a pit downwind.' },
     concrete:   { need: 'flood',  at: 3.0, can: T => T.skills.masonry && T.skills.fire, say: 'Concrete. The river took the houses again. Burnt lime, sand and stone set like rock, and stay.' }
   };
   /* F7: what each idea works through. Knowing it changes nothing by itself: it is the building, the made thing or the work on
      the ground named here that does. The tests hold every idea to a row of BUILDINGS or to one of the works (WORKS) */
-  const WORKS = { hearth: 'a fire laid and fed at a hearth', fields: 'sown field tiles', ditches: 'ditch tiles dug from the well', bridge: 'a bridge laid across a ford' };
-  const IDEA_VIA = { fire: 'hearth', hut: 'hut', house: 'house', masonry: 'masonsyard', farm: 'fields', plough: 'workshop', pottery: 'kiln', granary: 'granary', well: 'well',
+  const WORKS = { midden: 'waste carried from every house to a pit away from the roofs', hearth: 'a fire laid and fed at a hearth', fields: 'sown field tiles', ditches: 'ditch tiles dug from the well', bridge: 'a bridge laid across a ford' };
+  const IDEA_VIA = { midden: 'midden', fire: 'hearth', hut: 'hut', house: 'house', masonry: 'masonsyard', farm: 'fields', plough: 'workshop', pottery: 'kiln', granary: 'granary', well: 'well',
     irrigation: 'ditches', palisade: 'fence', wheel: 'workshop', tools: 'smithy', medicine: 'healerhouse', writing: 'tallyhouse', bridge: 'bridge', concrete: 'limekiln', council: 'hall', rites: 'shrine', cheese: 'dairy' };
   // the ground settling, year by year, whether or not anyone lives there
   function settlePits() {
@@ -2444,7 +2446,7 @@ function create(seed, opt) {
   }
   function reckonYear() {
     /* the year's food, by where it came from, kept for the Town panel and the tests; a new count begins */
-    { const T0 = S.tribe; T0.foodLast = S.foodIn || {}; S.foodIn = {}; }
+    { const T0 = S.tribe; T0.foodLast = T0.foodIn || {}; T0.foodIn = {}; }   /* each band's own year of food */
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
 /* what was seen of the hand is told at home: each person's belief and trust move a little toward their household's; untended, belief fades slowly */
     { const P = folk(), by = new Map(); for (const a of P) if (a.house) { let g = by.get(a.house); if (!g) by.set(a.house, g = { f: 0, t: 0, n: 0 }); g.f += a.faith || 0; g.t += a.trust || 0; g.n++; }
@@ -2498,7 +2500,7 @@ function create(seed, opt) {
         T.foundBy = T.foundBy || {}; T.foundBy[k] = best.name; best.found = (best.found || []).concat([k]); }
       T.skills[k] = true; if (k === 'writing') T.writingDebts = openDebts;   /* how much was owed when marks were first made, for the record */
       if (d.need !== 'danger') N_[d.need] *= 0.5;
-      tell(d.say);
+      tellFirst(d.say + (T.foundBy && T.foundBy[k] ? ' It was ' + T.foundBy[k] + ' who worked it out.' : ''));
       break;
     }   // one thing at a time; an answer eases the want
     /* the autumn slaughter: a kept herd is only as big as its pasture round the pen and the hay put by can carry through
@@ -2606,7 +2608,7 @@ function create(seed, opt) {
           const lead = set.filter(b => b.age >= WED).sort((p, q) => q.age - p.age)[0]; B.name = uniqueName(lead.name + "'s people"); S.stat.founded = (S.stat.founded || 0) + 1;
           for (const b of set) { b.band = B.band; b.house = 0; b.job = ''; b.trip = null; const f = free(site[0], site[1]); b.x = f[0]; b.y = f[1]; }
           { const R = relOf(T.band, B.band); R.v = 0.5; R.kin = n; }   /* they parted as kin */
-          folkList = null; tell(n + ' people, led by ' + lead.name + ', have left to make a fire of their own ' + Math.round(Math.hypot(site[0] - T.x, site[1] - T.y)) + ' tiles away: there was no ground to sow near the village.'); }
+          folkList = null; tellFirst(n + ' people, led by ' + lead.name + ', have left to make a fire of their own ' + Math.round(Math.hypot(site[0] - T.x, site[1] - T.y)) + ' tiles away: there was no ground to sow near the village.'); }
         else { for (const b of set) leave(b);
         tell(n + ' people have left the valley to find land of their own: there was no ground to sow near the village and the store was running low.'); } }
       T.fields = total; T.sown = true; T.cropWarm = 0; fieldList = null;
@@ -2703,8 +2705,10 @@ function create(seed, opt) {
      the step as it always was */
   /* a step may be taken a band at a time (tickSlice: true when the step is complete), so that a device drawing between the turns never waits on all of them at once */
   let sliceK = 0;
+  /* between steps the people counted are those of the band being watched */
+  const countWatched = () => { let n = 0, g = 0; for (const a of S.agents) if (a.alive && a.d.people && (a.band || 0) === (S.tribe.band || 0)) { n++; if (a.age >= a.d.mature) g++; } S.popPeople = n; for (const sp in SP) if (SP[sp].people) { S.pop[sp] = n; S.adults[sp] = g; } };
   function tickSlice() { const all = S.tribes; if (all.length === 1) { tickBand(true); return true; }
-    const watch = () => { S.tribe = all[Math.min(all.length - 1, S.watch || 0)]; folkList = null; fieldList = null; };
+    const watch = () => { S.tribe = all[Math.min(all.length - 1, S.watch || 0)]; folkList = null; fieldList = null; countWatched(); };
     S.tribe = all[sliceK]; folkList = null; fieldList = null; tickBand(sliceK === 0); sliceK++;
     if (sliceK < all.length) { watch(); return false; }
     sliceK = 0; if (S.tickNo % TPY === 7) betweenBands();
@@ -2799,7 +2803,8 @@ function create(seed, opt) {
     if (S.popPeople && !opt.noSick && (!DAY || S.tickNo % DAY === 0)) {
       const roofs = T.sites.filter(q => !q.gone && isHome(q)), wash = S.precip > 0 ? 0.55 : 0.75, at = new Map();
       { let n0 = 0; for (const a of folk()) if (!a.house) n0++; T.foul = (T.foul || 0) * wash + n0 * (1 - wash); }
-      for (const q of roofs) q.foul = (q.foul || 0) * wash + (q.members || 0) * (1 - wash);
+      const carried = T.skills.midden ? 0.6 : 1;   /* waste carried off to a pit: less of it lies about the house */
+      for (const q of roofs) q.foul = (q.foul || 0) * wash + (q.members || 0) * (1 - wash) * carried;
       const well = standing('well') ? 0.7 : 1, heal = healing() ? 0.85 : 1;   /* a healer's care alone helps a little; what the healer knows of herbs helps much more (cureFor) */
       /* SICK_WILD: what the wild gives everyone anywhere (bad water, parasites, a chill): the share of sickness that no spreading out escapes */
       const expo = (x, y) => { let e = SICK_WILD / well + (T.foul || 0) / (1 + ((x - T.x) * (x - T.x) + (y - T.y) * (y - T.y)) / 9); for (const u of roofs) { if (!(u.foul > 0.05)) continue; const dx = u.x - x, dy = u.y - y; if (dx > 9 || dx < -9 || dy > 9 || dy < -9) continue; e += u.foul / (1 + (dx * dx + dy * dy) / 9); } return e * well; };
@@ -3022,7 +3027,7 @@ function create(seed, opt) {
         nothing: T.godName + ' does not know what to do about the fever.', high: T.godName + ' has said to keep to the high ground.', stay: T.godName + ' has said to stay by the water.' }[opt]); return opt; }
     S.ask = null; const name = String(text || '').replace(/[<>&"]/g, '').trim().slice(0, 24), given = !!name; T.godName = name || 'the Hand'; T.godBy = a ? a.name : ''; T.godT = S.t;
     if (given) { if (a && a.alive) { a.faith = 1; a.trust = Math.min(1, (a.trust || 0) + 0.2); } for (const b of folk()) b.faith = (b.faith || 0) + 0.1 * (1 - (b.faith || 0));
-      tell((a ? a.name : 'Someone') + ' was answered. The one who watches is called ' + T.godName + ', and the name will be said at every fire.'); }
+      tellFirst((a ? a.name : 'Someone') + ' was answered. The one who watches is called ' + T.godName + ', and the name will be said at every fire.'); }
     else tell((a ? a.name : 'Someone') + ' waited by the fire and no answer came. ' + (a ? (a.fem ? 'She' : 'He') : 'They') + ' calls the one who moves things ' + T.godName + '.');
     return T.godName; }
 
@@ -3275,7 +3280,7 @@ function create(seed, opt) {
     /* where the player is looking (tile and radius): beasts there are stepped every time, however far from a fire */
     tickSlice,
     /* which band the player is looking at: its panel, its news, and S.tribe between steps */
-    watch(k) { k = Math.max(0, Math.min(S.tribes.length - 1, k | 0)); S.watch = k; if (sliceK === 0) { S.tribe = S.tribes[k]; folkList = null; fieldList = null; } return S.tribes[k]; },
+    watch(k) { k = Math.max(0, Math.min(S.tribes.length - 1, k | 0)); S.watch = k; if (sliceK === 0) { S.tribe = S.tribes[k]; folkList = null; fieldList = null; countWatched(); } return S.tribes[k]; },
     setFocus(x, y, r) { S.focus = { x: x | 0, y: y | 0, r: r | 0 }; },
     /* what a person wants most just now, read from their state (for the sign over their head): nothing is decided here */
     wantOf: a => !a || !a.alive ? '' : a.mood === 'afraid' ? 'afraid' : a.illT !== undefined && S.tickNo - a.illT < (DAY || 1) * 2 ? 'ill' : a.e < 0.35 ? 'hungry' : a.mood === 'cold' ? 'cold' : a.mood === 'hot' ? 'hot' : a.grief > 0.3 ? 'grief' : '',
@@ -4348,7 +4353,7 @@ let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { c
 /* a turn of the seasons takes up to this many times as long as a year of a life (midsummer); winter keeps its old length */
 const yearQ = clamp(+(qs.get('yearK') || 3), 1, 8);
 const sizeQ = clamp(+(qs.get('size') || (landQ === 'wide' ? 192 : 96)), 24, 256);   /* the wide country is four times the ground of the others */   /* the map, in tiles a side */
-const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6, bands: bandsQ }), N = W.N, S = W.S, A = EdenArt.build();
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6, bands: bandsQ, startWith: ['fire'] }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -6375,8 +6380,8 @@ function drawFace(c, a) {
 }
 /* who it is, when a person is lifted or touched: their face beside what is known of them, for a few moments */
 const whoBox = document.createElement('div'); whoBox.style.cssText = 'display:none;position:fixed;left:8px;top:calc(48px + env(safe-area-inset-top));width:min(72vw,300px);box-sizing:border-box;background:var(--paper);color:var(--ink);border:2px solid var(--line);border-radius:7px;padding:8px;z-index:4;box-shadow:0 3px 0 rgba(59,43,31,.5);font-size:12px;line-height:1.3;pointer-events:none';
-whoBox.innerHTML = '<div style="display:flex;gap:8px;align-items:flex-start"><canvas width="60" height="75" style="width:60px;height:75px;image-rendering:pixelated;flex:none;background:rgba(0,0,0,.08);border-radius:5px"></canvas><div></div></div>'; document.body.appendChild(whoBox); let whoT = 0;
-function showWho(a, text) { if (!a || !a.d.people) return; drawFace(whoBox.querySelector('canvas'), a); whoBox.querySelector('div > div').textContent = text; whoBox.style.display = 'block'; clearTimeout(whoT); whoT = setTimeout(() => { whoBox.style.display = 'none'; }, 9000); }
+whoBox.innerHTML = '<div style="display:flex;gap:8px;align-items:flex-start"><canvas width="60" height="75" style="width:60px;height:75px;image-rendering:pixelated;flex:none;background:rgba(0,0,0,.08);border-radius:5px"></canvas><div class="whoText"></div></div>'; document.body.appendChild(whoBox); let whoT = 0;
+function showWho(a, text) { if (!a || !a.d.people) return; drawFace(whoBox.querySelector('canvas'), a); whoBox.querySelector('.whoText').textContent = text; whoBox.style.display = 'block'; clearTimeout(whoT); whoT = setTimeout(() => { whoBox.style.display = 'none'; }, 9000); }
 // THE FIRST QUESTION: when someone asks who is there, their face comes up with their words, and the player may answer with a name
 { const box = document.createElement('div'); box.id = 'ask';
   box.style.cssText = 'display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));width:min(92vw,400px);box-sizing:border-box;background:var(--paper);color:var(--ink);border:3px solid var(--line);border-radius:9px;padding:12px;z-index:6;box-shadow:0 5px 0 rgba(59,43,31,.5);font-size:14px';
@@ -6436,6 +6441,8 @@ function showWho(a, text) { if (!a || !a.d.people) return; drawFace(whoBox.query
           const row = (t, o) => { const ks = Object.keys(o).filter(k => o[k] > 0); return ks.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>' + t + '</b></td><td>' + ks.map(k => (NAME[k] || k) + ' <b>' + o[k] + '</b>').join(', ') + '</td></tr>' : ''; };
           return '<p><b>Ledger</b></p><table style="border-collapse:collapse;font-size:inherit">' + row('People', L.people) + row('Homes', L.homes) + row('Buildings', L.buildings) + row('Being built', L.building) + row('Food', L.food) + row('Goods', L.goods)
             + row('Food a head, by roof', L.wealth || {}) + row('Know herbs', L.herbs || {}) + (L.bands && L.bands.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Other peoples</b></td><td>' + L.bands.map(b => b.name.replace(/[<>&]/g, '') + ': <b>' + b.people + '</b>, ' + b.dist + ' tiles off, ' + b.feeling + (b.wed ? ', ' + b.wed + ' married across' : '') + (b.raids ? ', ' + b.raids + ' raids' : '')).join('<br>') + '</td></tr>' : '') + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + (L.counsel && L.counsel.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Counsel</b></td><td>' + L.counsel.map(k => ({ spare: 'leave the young trees', cut: 'cut what is needed', apart: 'live further apart', nothing: 'no answer to the fever', high: 'keep to high ground', stay: 'stay by the water' }[k] || k)).join(', ') + '</td></tr>' : '') + '</table>'; })()
+      /* the chronicle: the firsts of this people, and what has passed between peoples, newest last */
+      + (() => { const ev = S.log.filter(e => (e.first && e.band === (S.watch || 0)) || e.band === -1).slice(-14); if (!ev.length) return ''; return '<p><b>Chronicle</b><br>' + ev.map(e => '<span style="opacity:.65">Year ' + Math.floor(e.t) + '.</span> ' + e.text.replace(/[<>&]/g, '')).join('<br>') + '</p>'; })()
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
       /* F6: every place of work standing, and who works there */
       + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');

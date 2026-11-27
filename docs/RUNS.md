@@ -1773,3 +1773,27 @@ What changed:
 | highland | 1 | 13 | 31 | 123 | 124 | 17 | 6 | 0 | 0 | 15 | 5/48/5 | 3.6 | 29.8 | 17.6 | 16.3 | 3 | 1.1 | 504 | 111 | 19.4 | 3.7 | 1.5 (8) | 72/0/0/2/22 | 56 | 6.5 | 17 | 2 | 0 | 14487 |
 | highland | 2 | 2 | 3 | 2 | 10 | 2 | 15 | 0 | 2 | 4 | 9/42/5 | 2.2 | 9 | 5.6 | 4.2 | 2 | 0.9 | 1 | 33 | 8.1 | 3.8 |  | 74/0/0/9/17 | 12 | 3.6 | 8 | 0 | 0 | 6149 |
 | mean |  | 12.4 | 25.6 | 141.6 | 142.8 | 35.5 | 4.8 | 0 | 0.3 | 10.8 |  | 2.5 | 18.8 | 15.8 | 8.2 | 7.4 | 1.2 | 991.2 | 70 | 21.8 | 4.5 |  |  | 39 | 3.6 | 18.9 | 3 | 0 | 15523.3 |
+
+## The midden; a chronicle of firsts; founders who know fire (2026-11-28)
+
+What changed:
+- **The midden.** The first answer to sickness that people work out themselves: with fever deaths felt, somebody thinks of carrying waste to a pit away from the houses, and each roof then fouls its ground 0.6 as much.
+- **Chronicle.** The Town panel lists the firsts of the band being watched (each idea and who worked it out, the first use found for a herb, a name given, a new fire founded) and what has passed between peoples.
+- **Fire.** The game's founders arrive knowing fire, as every band of our kind did. Everything else is still to be worked out.
+- **Fixed.** With several bands, the panel's head count and the year's food by source were another band's or everyone's; they are the watched band's own. The card shown when a person is lifted lost its face; it shows it.
+- **Checked.** tests.html: 544 passed, 1 failed, then fixed: the cattle and dairy check hangs on how fast one village grows and now runs on `demog: 'old'` (passes alone). In a game with four bands: the panel read "A village of 26" with 26 people in its ledger (it read 53), and its chronicle named who worked out sowing, the well and the granary. Against the table above: mean at year 100 141.6 -> 195.2; no world ends under 13 (before: 2); ideas known 10.8 -> 14.1.
+- **Not right.** Highland 2 dies out twice and ends at 13; highland 1 is at 39.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 16 | 33 | 342 | 343 | 90 | 2 | 0 | 0 | 16 | 9/69/15 | 2.4 | 26.4 | 24.7 | 9.6 | 22 | 1.6 | 3377 | 273 | 28.7 | 3.7 | 0 (1) | 71/0/0/4/20 | 58 | 3.6 | 33 | 14 | 0 | 22275 |
+| valley | 2 | 17 | 24 | 189 | 189 | 51 | 3 | 0 | 0 | 15 | 17/131/7 | 2.8 | 20.9 | 20.2 | 6.7 | 4 | 1.2 | 841 | 76 | 23.5 | 2.3 |  | 56/0/0/6/29 | 40 | 3 | 21 | 3 | 0 | 20134 |
+| plains | 1 | 11 | 33 | 136 | 136 | 23 | 2 | 0 | 0 | 16 | 4/127/10 | 3.9 | 23.8 | 18.5 | 14.3 | 4 | 2.1 | 613 | 12 | 28.9 | 7.9 |  | 63/1/0/3/27 | 69 | 7.6 | 17 | 1 | 0 | 19195 |
+| plains | 2 | 20 | 54 | 421 | 429 | 71 | 6 | 0 | 0 | 16 | 5/140/5 | 2.8 | 27 | 22.6 | 12.3 | 32 | 1.8 | 5906 | 49 | 24.9 | 5.6 | 0 (2) | 74/0/0/4/20 | 67 | 7.9 | 33 | 2 | 0 | 25836 |
+| forest | 1 | 8 | 27 | 263 | 272 | 75 | 6 | 0 | 0 | 14 | 26/78/5 | 2.5 | 22.6 | 21.3 | 6.5 | 26 | 1.2 | 1625 | 107 | 18.8 | 5.1 | 0 (1) | 73/0/0/1/21 | 44 | 3 | 29 | 1 | 0 | 17606 |
+| forest | 2 | 13 | 37 | 205 | 207 | 54 | 4 | 0 | 0 | 14 | 29/86/9 | 2.9 | 17 | 19.8 | 7.4 | 17 | 0.9 | 1079 | 25 | 26.9 | 2.7 | 5 (1) | 73/0/0/1/21 | 34 | 3 | 25 | 2 | 0 | 16537 |
+| lakeland | 1 | 14 | 28 | 204 | 204 | 54 | 6 | 0 | 0 | 15 | 14/142/0 | 2.3 | 21.8 | 22 | 9.6 | 17 | 1 | 4919 | 94 | 26.9 | 4.2 |  | 59/0/0/10/25 | 40 | 4 | 29 | 5 | 0 | 15050 |
+| lakeland | 2 | 14 | 26 | 140 | 140 | 39 | 3 | 0 | 0 | 11 | 9/138/5 | 2.3 | 23.1 | 20.2 | 6.5 | 7 | 1.2 | 478 | 42 | 26.8 | 4.7 |  | 68/0/0/2/25 | 36 | 3.1 | 25 | 0 | 0 | 13372 |
+| highland | 1 | 7 | 6 | 39 | 40 | 9 | 5 | 0 | 0 | 14 | 6/35/5 | 2.2 | 29.5 | 14.8 | 15.3 | 10 | 1.2 | 92 | 58 | 19.7 | 2 | 1.5 (8) | 55/2/0/6/28 | 32 | 7.9 | 9 | 0 | 0 | 7478 |
+| highland | 2 | 1 | 4 | 13 | 13 | 4 | 12 | 0 | 2 | 10 | 5/56/5 | 2.6 | 6.6 | 4.8 | 5 | 4 | 1 | 274 | 24 | 8.7 | 2.1 |  | 63/0/0/0/25 | 16 | 3 | 9 | 0 | 0 | 6211 |
+| mean |  | 12.1 | 27.2 | 195.2 | 197.3 | 47 | 4.9 | 0 | 0.2 | 14.1 |  | 2.7 | 21.9 | 18.9 | 9.3 | 14.3 | 1.3 | 1920.4 | 76 | 23.4 | 4 |  |  | 43.6 | 4.6 | 23 | 2.8 | 0 | 16369.4 |

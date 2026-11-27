@@ -745,7 +745,7 @@ UNITS.push(['wild prey live in cover and away from people, and the deer last: 10
 }]);
 UNITS.push(['cattle live on, wild or kept, a calf is brought home from the hunt, the herd is milked at the pen, and a dairy makes cheese', function () {
   var worlds = [[2, 'plains'], [2, 'highland'], [1, 'lakeland'], [1, 'valley']], best = null, out = [], w, i;
-  for (w = 0; w < worlds.length && !best; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: worlds[w][1], size: 96 }), T = W.S.tribe;
+  for (w = 0; w < worlds.length && !best; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', yearK: 3, land: worlds[w][1], size: 96 }), T = W.S.tribe;
     for (i = 0; i < 24 * 80; i++) W.tick();
     var wild = W.S.agents.filter(function (a) { return a.alive && a.sp === 'cow' && !a.tame; }).length; out.push(worlds[w][1] + ' ' + worlds[w][0] + ': ' + wild + ' wild cattle, ' + (W.S.stat.calves || 0) + ' calves caught, milked ' + Math.round(T.milked || 0));
     var kept = W.S.agents.filter(function (a) { return a.alive && a.sp === 'cow' && a.tame; }).length;
