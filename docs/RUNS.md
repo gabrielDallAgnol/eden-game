@@ -1730,3 +1730,23 @@ What changed (owner's question: are people moved by wanting more?):
 | highland | 1 | 15 | 30 | 34 | 84 | 10 | 1 | 50 | 0 | 13 | 7/52/7 | 2.9 | 25 | 15.1 | 16.9 | 14 | 1.3 | 219 | 76 | 21.4 | 2.4 | 1.5625 (16) | 68/0/0/0/20 | 52 | 3.4 | 13 | 3 | 0 | 11026 |
 | highland | 2 | 3 | 1 | 5 | 9 | 3 | 12 | 0 | 3 | 10 | 10/50/5 | 2.5 | 7.6 | 6.3 | 3.4 | 2 | 1 | 184 | 47 | 10.4 | 2.5 | 0.75 (4) | 67/15/0/0/19 | 14 | 3 | 8 | 0 | 0 | 6459 |
 | mean |  | 14.2 | 33.4 | 203.5 | 209.3 | 51.3 | 3.7 | 5 | 0.3 | 13.1 |  | 2.7 | 20.6 | 18.4 | 9.4 | 13.6 | 1.2 | 1902.6 | 74 | 23.5 | 3.7 |  |  | 45.9 | 4 | 22.5 | 4.2 | 0 | 17048.4 |
+
+## A face for each person (2026-11-28)
+
+What changed (owner's request: people you can recognise): each person has a face drawn feature by feature from how they are made: the shape of the head, skin, hair and its style, eyes near or wide and of five colours, brow, nose, mouth, a beard, the grey and lines of age, and a mouth turned by grief or gladness. A child has each feature from one parent or the other. The face is shown, with what is known of the person, when they are lifted, and when one of them asks a question.
+- **Checked.** tests.html: 543 passed, 0 failed (2 warnings, 36 skipped). A sheet of 21 people of one village, youngest to oldest, shows 21 different faces. The table is the same, number for number, as the one above: the features come from each person's number and draw nothing from the run.
+- **Not done.** The small figures on the map still differ only in colours, height and build.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 23 | 52 | 353 | 354 | 104 | 1 | 0 | 0 | 16 | 14/68/2 | 2.9 | 26.4 | 23.1 | 9.3 | 44 | 1.8 | 2722 | 186 | 23.9 | 1.9 | 1.3333333333333333 (6) | 73/0/0/2/19 | 77 | 4.1 | 29 | 15 | 0 | 24153 |
+| valley | 2 | 18 | 21 | 64 | 65 | 16 | 1 | 0 | 0 | 10 | 13/149/8 | 2.5 | 14.1 | 20 | 5.6 | 2 | 1.5 | 37 | 54 | 22.2 | 3.1 |  | 65/0/0/5/23 | 25 | 3 | 9 | 2 | 0 | 14491 |
+| plains | 1 | 7 | 35 | 240 | 240 | 44 | 5 | 0 | 0 | 14 | 3/151/5 | 3.4 | 27.2 | 19.1 | 16.1 | 8 | 1.7 | 2071 | 29 | 25.5 | 6.6 |  | 65/0/0/0/28 | 65 | 9.2 | 21 | 8 | 0 | 23395 |
+| plains | 2 | 21 | 62 | 435 | 436 | 90 | 5 | 0 | 0 | 12 | 4/152/5 | 2.4 | 25.7 | 24.9 | 11.6 | 13 | 1.3 | 5378 | 104 | 35.4 | 5.1 | 0 (4) | 70/0/0/3/23 | 62 | 4.9 | 33 | 3 | 0 | 27765 |
+| forest | 1 | 13 | 31 | 264 | 264 | 70 | 4 | 0 | 0 | 13 | 58/73/5 | 2.9 | 20.5 | 18.6 | 6.7 | 11 | 1.3 | 1598 | 85 | 17 | 3 | 3 (1) | 65/0/0/5/24 | 43 | 3.2 | 29 | 1 | 0 | 18959 |
+| forest | 2 | 17 | 47 | 327 | 327 | 89 | 4 | 0 | 0 | 15 | 40/85/5 | 2.4 | 17.1 | 21.5 | 6.7 | 15 | 0.9 | 2871 | 53 | 31.6 | 5.1 |  | 74/0/0/0/20 | 39 | 3 | 33 | 2 | 0 | 22269 |
+| lakeland | 1 | 12 | 29 | 180 | 180 | 47 | 3 | 0 | 0 | 16 | 3/160/9 | 2.9 | 20.9 | 14.7 | 11.4 | 22 | 1.2 | 3230 | 64 | 19.9 | 2.8 |  | 75/0/0/1/19 | 39 | 3.2 | 25 | 8 | 0 | 15737 |
+| lakeland | 2 | 13 | 26 | 133 | 134 | 40 | 1 | 0 | 0 | 12 | 23/57/5 | 2.3 | 21.6 | 20.9 | 6.2 | 5 | 0.4 | 716 | 42 | 27.2 | 4.5 | 3 (1) | 63/0/0/5/26 | 43 | 3 | 25 | 0 | 0 | 14241 |
+| highland | 1 | 15 | 30 | 34 | 84 | 10 | 1 | 50 | 0 | 13 | 7/52/7 | 2.9 | 25 | 15.1 | 16.9 | 14 | 1.3 | 219 | 76 | 21.4 | 2.4 | 1.5625 (16) | 68/0/0/0/20 | 52 | 3.4 | 13 | 3 | 0 | 11217 |
+| highland | 2 | 3 | 1 | 5 | 9 | 3 | 12 | 0 | 3 | 10 | 10/50/5 | 2.5 | 7.6 | 6.3 | 3.4 | 2 | 1 | 184 | 47 | 10.4 | 2.5 | 0.75 (4) | 67/15/0/0/19 | 14 | 3 | 8 | 0 | 0 | 6993 |
+| mean |  | 14.2 | 33.4 | 203.5 | 209.3 | 51.3 | 3.7 | 5 | 0.3 | 13.1 |  | 2.7 | 20.6 | 18.4 | 9.4 | 13.6 | 1.2 | 1902.6 | 74 | 23.5 | 3.7 |  |  | 45.9 | 4 | 22.5 | 4.2 | 0 | 17922 |
