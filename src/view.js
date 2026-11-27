@@ -208,7 +208,7 @@ function colorAt0(pxx, py) {
       const w0 = bWt[b], wv = wave[p];
       col = w < 0.57 ? C.foam : w0 > 0.88 ? C.deep : w0 > 0.7 ? C.mid : C.shal;
       if (w >= 0.57) { if (w0 > 0.63 && w0 < 0.655 && blot[p] > 96) col = C.glint;
-        else if (wv === 1 && w0 > 0.6) col = w0 > 0.88 ? C.mid : C.glint; else if (wv === 2 && w0 > 0.7) col = mulc(col, 0.9); } }
+        else if (wv === 2 && w0 > 0.7) col = mulc(col, 0.93); } }   /* the strokes of light themselves move: drawFlow */
     if (bS[b] * 3 > 0.6 && T < -3 && n > 110) col = C.snow;
     return col;
   }
@@ -319,6 +319,43 @@ function drawGround(cx) {
       cx.drawImage(ch.fade.from, ch.ox, ch.oy); cx.globalAlpha = ease(k); cx.drawImage(ch.cv, ch.ox, ch.oy); cx.globalAlpha = 1;
       if (k >= 1) { fadePool.push(ch.fade.from); ch.fade = null; }
     } else cx.drawImage(ch.cv, ch.ox, ch.oy);
+  }
+}
+/* THE GROUND MOVES. Light runs down the rivers the way they fall (toward where the water leaves the land); on still water it
+   only drifts. The wind goes through the grass in waves. Drawn over the painted ground each frame, in whole pixels and in
+   steps of about a tenth of a second, so it stays pixel art */
+const flowX = new Float32Array(N * N), flowY = new Float32Array(N * N); let flowSeen = -1;
+function syncFlow() {
+  const dist = new Int32Array(N * N).fill(-1), q = [];
+  for (let i = 0; i < N * N; i++) { const x = i % N, y = (i / N) | 0; if (W.water[i] && (x === 0 || y === 0 || x === N - 1 || y === N - 1)) { dist[i] = 0; q.push(i); } }
+  for (let h = 0; h < q.length; h++) { const i = q[h], x = i % N; for (const j of [x > 0 ? i - 1 : -1, x < N - 1 ? i + 1 : -1, i - N, i + N]) if (j >= 0 && j < N * N && W.water[j] && dist[j] < 0) { dist[j] = dist[i] + 1; q.push(j); } }
+  for (let i = 0; i < N * N; i++) { flowX[i] = flowY[i] = 0; if (dist[i] < 0) continue; const x = i % N, y = (i / N) | 0; let vx = 0, vy = 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) { vx += dx; vy += dy; continue; } const j = ny * N + nx; if (dist[j] < 0) continue; const d = dist[i] - dist[j]; vx += dx * d; vy += dy * d; }
+    const l = Math.hypot(vx, vy); if (l > 0.01) { flowX[i] = vx / l; flowY[i] = vy / l; } }
+}
+function drawFlow(cx, vis) {
+  if (flowSeen !== waterSeen) { syncFlow(); flowSeen = waterSeen; }
+  const z = cam.z, tq = Math.floor(now / 110) * 110, wet = S.precip > 0, road = T0.road;
+  let x0 = N, x1 = 0, y0 = N, y1 = 0;
+  for (const [px, py] of [[cam.x, cam.y], [cam.x + cv.width / z, cam.y], [cam.x, cam.y + cv.height / z], [cam.x + cv.width / z, cam.y + cv.height / z]]) {
+    const u = (px - OX) / (TW / 2), v = (py - OY) / (TH / 2), fx = (u + v) / 2, fy = (v - u) / 2; x0 = Math.min(x0, fx); x1 = Math.max(x1, fx); y0 = Math.min(y0, fy); y1 = Math.max(y1, fy); }
+  x0 = clamp(Math.floor(x0) - 1, 0, N - 1); x1 = clamp(Math.ceil(x1) + 1, 0, N - 1); y0 = clamp(Math.floor(y0) - 1, 0, N - 1); y1 = clamp(Math.ceil(y1) + 1, 0, N - 1);
+  const gt = tq * (wet ? 0.0021 : 0.0012);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const i = y * N + x; if (!vis(isoX(x + 0.5, y + 0.5), isoY(x + 0.5, y + 0.5))) continue;
+    if (W.water[i]) {
+      if (crossing[i] || cellT[i] < -3) continue; const fx = flowX[i], fy = flowY[i], moving = fx !== 0 || fy !== 0;
+      for (let k = 0; k < 5; k++) { const h = hash(i, k + 11); if (h > (moving ? 0.8 : 0.45)) continue;
+        const p = (tq * (moving ? 0.00042 : 0.00013) + h * 7.3) % 1, a = Math.sin(p * Math.PI); if (a < 0.3) continue;
+        const span = moving ? 1.7 : 0.5, tx = x + 0.5 + (hash(i, k + 3) - 0.5) * 0.8 + (moving ? fx : 0.7) * (p - 0.5) * span, ty = y + 0.5 + (hash(k + 5, i) - 0.5) * 0.8 + (moving ? fy : -0.7) * (p - 0.5) * span;
+        if (tx < 0 || ty < 0 || tx >= N || ty >= N || !waterF[(ty | 0) * N + (tx | 0)]) continue;
+        cx.fillStyle = a > 0.8 ? 'rgba(232,248,244,.8)' : 'rgba(200,236,232,.45)'; { const px = Math.round(isoX(tx, ty)), py = Math.round(isoY(tx, ty)), len = moving ? (a > 0.8 ? 8 : 5) : 4; cx.fillRect(px - (len >> 1), py, len, 1); if (moving && a > 0.8) { cx.fillStyle = 'rgba(200,236,232,.4)'; cx.fillRect(px - 1, py + 1, len - 3, 1); } } }
+    } else if (W.grass[i] > 0.45 && !W.field[i] && !lotMask[i] && !road[i] && W.snow[i] < 0.02 && cellT[i] >= 0 && W.tree[i] < 0.5) {
+      /* a gust is a band that travels; where it passes, blades catch the light and lean */
+      const g = Math.sin(x * 0.42 + y * 0.23 - gt + Math.sin(y * 0.11 + gt * 0.31) * 1.6); if (g < 0.5) continue; const s = (g - 0.5) * 2;
+      cx.fillStyle = 'rgba(240,250,180,' + (0.3 + 0.5 * s).toFixed(2) + ')';
+      for (let k = 0; k < 6; k++) { const tx = x + hash(i, k + 21), ty = y + hash(k + 27, i), px = Math.round(isoX(tx, ty)), py = Math.round(isoY(tx, ty)); cx.fillRect(px, py - 1, 1, 2); cx.fillRect(px + 1, py - 3, 1, 2); if (s > 0.6) cx.fillRect(px + 2, py - 3, 1, 1); }
+    }
   }
 }
 // touch up only the ground a power is working on, right away
@@ -1322,6 +1359,7 @@ function frame(t) {
   drawGround(cx);
   const vw = cv.width / z, vh = cv.height / z, vx0 = cam.x - 80, vx1 = cam.x + vw + 80, vy0 = cam.y - 20, vy1 = cam.y + vh + 150;
   const vis = (wx, wy) => wx > vx0 && wx < vx1 && wy > vy0 && wy < vy1;
+  drawFlow(cx, vis);
   // cloud shadows drifting over the land
   const cloudy = S.precip > 0 ? 0.16 : 0.07;
   for (const c of clouds) {
