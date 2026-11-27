@@ -94,12 +94,14 @@ S.apply = function (A, h) {
       return 0;
     };
     const REF = { top: 0.72, legs: 0.74, skin: 0.8, hair: 0.3 };                          // the brightness each key colour was drawn at
-    const dress = (src, cols, headRows) => {
+    const dress = (src, cols, headRows, beard) => {
       const c = mk(src.width, src.height), x = c.getContext('2d'); x.drawImage(src, 0, 0);
       const d = x.getImageData(0, 0, c.width, c.height), p = d.data; let top = 0;
       search: for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) if (p[(yy * c.width + xx) * 4 + 3]) { top = yy; break search; }
       for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) {
-        const i = (yy * c.width + xx) * 4; if (!p[i + 3]) continue; const k = part(p[i], p[i + 1], p[i + 2], yy, top, headRows); if (!k) continue;
+        const i = (yy * c.width + xx) * 4; if (!p[i + 3]) continue; let k = part(p[i], p[i + 1], p[i + 2], yy, top, headRows); if (!k) continue;
+        /* a beard: the skin of the lower face takes the colour of the hair (short: the jaw; full: from under the nose) */
+        if (beard && k === 'skin' && yy - top < headRows && yy - top >= headRows * (beard > 1 ? 0.7 : 0.8)) { const t = cols.hair, f0 = Math.max(0.75, Math.min(1.2, Math.max(p[i], p[i + 1], p[i + 2]) / 255 / REF.skin)); p[i] = Math.min(255, t[0] * f0); p[i + 1] = Math.min(255, t[1] * f0); p[i + 2] = Math.min(255, t[2] * f0); continue; }
         const f = Math.max(0.5, Math.min(1.35, Math.max(p[i], p[i + 1], p[i + 2]) / 255 / REF[k])), t = cols[k];
         p[i] = Math.min(255, t[0] * f); p[i + 1] = Math.min(255, t[1] * f * (f < 1 ? 0.97 : 1)); p[i + 2] = Math.min(255, t[2] * f * (f < 1 ? 1.06 : 0.98));   // shadows lean cool, lights warm
       }
@@ -110,9 +112,13 @@ S.apply = function (A, h) {
     const made = new Map(), built = A.look.human;
     built.make = (a, stage) => {
       const L = a.looks || { skin: a.id % 5, hair: a.id % 6, top: a.id % 10, legs: a.id % 6 }, body = stage === 'young' || stage === 'tot' ? 'child' : a.fem ? 'woman' : 'man';
-      const key = body + stage + L.skin + '.' + L.hair + '.' + L.top + '.' + L.legs; let v = made.get(key); if (v) return v;
+      const grownUp = stage === 'grown' || stage === 'old', tall = grownUp && L.tall !== undefined ? L.tall : 1, build = grownUp && L.build !== undefined ? L.build : 1, beard = grownUp && !a.fem && L.beard ? L.beard : 0;
+      const key = body + stage + L.skin + '.' + L.hair + '.' + L.top + '.' + L.legs + '.' + tall + build + beard; let v = made.get(key); if (v) return v;
       const B = BODY[body], cols = { skin: SKIN[L.skin % SKIN.length], hair: stage === 'old' ? GREY : HAIR[L.hair % HAIR.length], top: TOP[L.top % TOP.length], legs: LEGS[L.legs % LEGS.length] };
-      const size = stage === 'tot' ? 0.78 : 1, mkf = c => sized(dress(c, cols, B.head), size), both = c => ({ r: c, l: flip(c) });
+      /* height and build: the figure a little shorter or taller, slighter or broader */
+      const size = stage === 'tot' ? 0.78 : [0.93, 1, 1.07][tall], wide = [0.9, 1, 1.12][build];
+      const girth = c => { if (wide === 1) return c; const o = mk(Math.max(2, Math.round(c.width * wide)), c.height), g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, o.width, o.height); return o; };
+      const mkf = c => girth(sized(dress(c, cols, B.head, beard), size)), both = c => ({ r: c, l: flip(c) });
       const walk = B.walk.map(mkf), up = mkf(B.up[B.up.length - 1]), upB = mkf(B.up[B.up.length - 2]), sit = mkf(B.sit[B.sit.length - 1]);
       v = { r: walk, l: walk.map(flip), w: walk[0].width, h: walk[0].height, up: both(up), upB: both(upB), sit: both(sit), lie: both(rot(walk[0])) };
       made.set(key, v); return v;

@@ -1237,4 +1237,21 @@ UNITS.push(['the first question: one who is nearly sure goes to the fire and ask
   if (S2.ask) out.push('still waiting after twenty steps'); else if (S2.tribe.godName !== 'the Hand') out.push('unanswered, the name is ' + JSON.stringify(S2.tribe.godName));
   return out.join('; ');
 }]);
+UNITS.push(['later questions: with a name known, a believer brings the trouble that weighs most and asks what to do; the answer is kept as counsel; silence makes them ask less often', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'plains', size: 96, age: 'wood', demog: 'old' }), S = W.S, T = S.tribe, out = [], i;
+  for (i = 0; i < 24 * 30; i++) W.tick();
+  var P = function () { return S.agents.filter(function (a) { return a.alive && a.d.people; }); }, year = function () { for (var k = 0; k < 24 && !S.ask; k++) W.tick(); };
+  T.need.sick = 5; year(); year(); if (S.ask) out.push('a question was asked before anyone believed or knew a name');
+  P().forEach(function (a) { a.faith = 0.9; a.trust = 0.4; }); T.godName = 'Gabriel'; T.need.sick = 5; year(); year();
+  if (!S.ask || S.ask.kind !== 'sick') return out.concat('with fever deaths felt and a name known, the question is ' + JSON.stringify(S.ask && S.ask.kind)).join('; ');
+  if (!/Gabriel/.test(S.ask.say) || !(S.ask.options.length >= 2)) out.push('the question does not use the name or offers no choice');
+  if (W.G.answer('apart') !== 'apart' || !T.counsel || !T.counsel.apart || S.ask) out.push('the answer was not kept as counsel');
+  if (W.ledger().counsel.indexOf('apart') < 0) out.push('the ledger does not carry the counsel');
+  T.need.sick = 9; year(); if (S.ask) out.push('the same question was asked twice');
+  /* a flood takes a house: asked, and nobody answers */
+  T.floodT = S.t; T.askT = -9; year(); year(); if (!S.ask || S.ask.kind !== 'flood') return out.concat('after a flood the question is ' + JSON.stringify(S.ask && S.ask.kind)).join('; ');
+  var id = S.ask.id, t0 = 0; P().forEach(function (a) { t0 += a.trust; }); for (i = 0; i < 30 && S.ask; i++) { P().forEach(function (a) { if (a.id === id) a.e = Math.max(a.e, 0.6); }); W.tick(); }
+  if (S.ask) out.push('still waiting after thirty steps'); if (!(T.askSilent >= 1)) out.push('silence was not remembered'); if (T.counsel.high || T.counsel.stay) out.push('counsel was kept though nothing was said');
+  return out.join('; ');
+}]);
 })();

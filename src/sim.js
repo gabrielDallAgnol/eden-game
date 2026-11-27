@@ -264,7 +264,7 @@ function create(seed, opt) {
   function takePile(pl, max) { const t = Math.min(pl.p.amt, max); pl.p.amt -= t; if (pl.p.amt <= 0.05) S.piles.splice(S.piles.indexOf(pl.p), 1); return t; }
   /* how far a person looks for standing timber is its own habit, apart from how far they look for food: it grows each time no
      tree is found within it and eases back when one is, up to what can be walked out and back with a load in a day */
-  function standFor(x, y, a, minNew) { if (a.reachW === undefined) a.reachW = WALK * 2; const r = a.reachW; let j = nearestWay(x, y, q => cut[q] && tree[q] > 0, 0, r); if (j < 0) j = nearestWay(x, y, q => tree[q] >= minNew, 1.5, r);
+  function standFor(x, y, a, minNew) { if (a.reachW === undefined) a.reachW = WALK * 2; const r = a.reachW; let j = nearestWay(x, y, q => cut[q] && tree[q] > 0, 0, r); if (S.tribe.counsel && S.tribe.counsel.spare) minNew = Math.max(minNew, 0.6);   /* counselled to leave the young trees standing */ if (j < 0) j = nearestWay(x, y, q => tree[q] >= minNew, 1.5, r);
     if (j < 0) { a.reachW = Math.min(REACH_W, r * 1.25 + 1);
       /* timber standing near as the crow flies but out of reach on foot, over the water or round a bend of it: the want of a way across is felt at the narrow place */
       if (S.tickNo % 4 === 0) { let t = -1; for (let q = 1; q <= r && t < 0; q++) for (let dy = -q; dy <= q && t < 0; dy++) for (let dx = -q; dx <= q; dx += (dy === -q || dy === q) ? 1 : 2 * q) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; if (tree[I(nx, ny)] >= minNew) { t = I(nx, ny); break; } }
@@ -674,6 +674,9 @@ function create(seed, opt) {
     a.skill = {}; for (const k of CRAFTS) a.skill[k] = R(0.8, 1.1);
     // how they look: skin and hair come down from the parents, clothes are their own (the view turns these numbers into colours)
     a.looks = { skin: (rnd() * 5) | 0, hair: (rnd() * 6) | 0, top: (rnd() * 10) | 0, legs: (rnd() * 6) | 0 };
+    /* and how they are made: height, build, and for a man how he wears his beard. These come from the person's number, not from chance drawn
+       in the run, and a child has each from one parent or the other (below) */
+    { const hh = k => ((Math.imul(a.id + 17, 2654435761) >>> (8 + k * 5)) & 31) / 32; a.looks.tall = hh(0) < 0.25 ? 0 : hh(0) < 0.75 ? 1 : 2; a.looks.build = hh(1) < 0.25 ? 0 : hh(1) < 0.75 ? 1 : 2; a.looks.beard = hh(2) < 0.4 ? 0 : hh(2) < 0.75 ? 1 : 2; }
   }
   // What people love doing. Each person has one to three things they turn to on a fed, free evening; a child takes after a
   // parent more often than not, and a grown person comes to love what they do every day (the gatherer the garden, the
@@ -1880,8 +1883,8 @@ function create(seed, opt) {
       if (well) { let d = 0; for (const q of homes) d += Math.hypot(q.x - x, q.y - y); sc -= homes.length ? d / homes.length : dc; }   // where it is least far for everyone
       else {
         sc -= dc * 0.55; sc += Math.min(1.5, way) * 1.2;
-        if (T.need.sick > 0.5) { let fo = 0; for (const u of T.sites) if (u.foul > 0.05) { const dx = u.x - x, dy = u.y - y; if (dx <= 9 && dx >= -9 && dy <= 9 && dy >= -9) fo += u.foul / (1 + (dx * dx + dy * dy) / 9); } sc -= fo * 0.08 * Math.min(3, T.need.sick); }   /* where fever has killed, people build away from crowded, fouled ground */                                                      // near the fire and the others, on a way already walked
-        sc -= bank[i] * (0.3 + T.need.flood * 1.5 + (T.floodSeen ? 1.2 : 0));
+        if (T.need.sick > 0.5) { let fo = 0; for (const u of T.sites) if (u.foul > 0.05) { const dx = u.x - x, dy = u.y - y; if (dx <= 9 && dx >= -9 && dy <= 9 && dy >= -9) fo += u.foul / (1 + (dx * dx + dy * dy) / 9); } sc -= fo * 0.08 * Math.min(3, T.need.sick) * (T.counsel && T.counsel.apart ? 2.5 : 1); }   /* where fever has killed, people build away from crowded, fouled ground */                                                      // near the fire and the others, on a way already walked
+        sc -= bank[i] * (0.3 + T.need.flood * 1.5 + (T.floodSeen ? 1.2 : 0) + (T.counsel && T.counsel.high ? 1.5 : 0));
         if (craft === 'fisher' || craft === 'fish') sc += bank[i] * (T.floodSeen ? 2.8 : 2);
         if (craft === 'farmer') sc += crops * 0.5;
         if (craft === 'woodcutter' || craft === 'builder' || craft === 'build') sc += timber * 0.3;
@@ -2270,7 +2273,7 @@ function create(seed, opt) {
     for (const a of S.agents) { if (!a.alive || a.d.people) continue; const to = a.tame ? out.beasts : out.wild; to[a.sp] = (to[a.sp] || 0) + 1; }
     let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
     out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
-    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.offerings = Math.round((T.offer || 0) * 10) / 10; out.godName = T.godName || ''; out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
+    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.offerings = Math.round((T.offer || 0) * 10) / 10; out.godName = T.godName || ''; out.counsel = Object.keys(T.counsel || {}); out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
     out.known = Object.keys(T.skills).filter(k => T.skills[k]);
     return out;
   }
@@ -2350,6 +2353,7 @@ function create(seed, opt) {
       T.offer = (T.offer || 0) * 0.4; for (const [id, g] of by) { if (g.f / g.n <= 0.5) continue; const q = T.sites.find(u => u.id === id); if (!q || !((q.larder || 0) > g.n * 1.5)) continue; const amt = 0.15 * g.n; mixOf(q, 'larder'); q.larder -= amt; mixOf(q, 'larder'); T.offer += amt; S.stat.offerings = (S.stat.offerings || 0) + 1;
         if (!T.offerTold) { T.offerTold = true; const b = P.find(c => c.house === id); tell((b ? b.name + '\'s household has' : 'A household has') + ' left food out ' + (standing('shrine') ? 'at the shrine' : 'by the fire') + ' for ' + (T.godName || 'whoever it is that watches') + '.'); } }
       for (const a of P) { const g = a.house && by.get(a.house); if (g && g.n > 1 && g.f > 0) { a.faith = (a.faith || 0) + 0.2 * (g.f / g.n - (a.faith || 0)); a.trust = (a.trust || 0) + 0.2 * (g.t / g.n - (a.trust || 0)); } if (a.faith) a.faith *= 0.98; } }
+    nextQuestion();
         T.kidDied *= 0.85; T.kidBorn *= 0.85;   /* what was seen of children living and dying fades over the years */
     // wants that are only seen over a year
     N_.crowd += Math.max(0, households() - T.sites.filter(isHome).length);
@@ -2576,6 +2580,7 @@ function create(seed, opt) {
       T.need.flood += 3;
       tell('The flood has taken a ' + (w.was || w.kind) + '.' + (T.floodSeen ? '' : ' Nobody will build so low again without thinking.'));
       T.floodSeen = true;
+      T.floodT = S.t;
       w.was = '';
       w.stage = 0;
       /* what the water leaves: most of the stone and some of the timber lie where the house stood */
@@ -2725,6 +2730,7 @@ function create(seed, opt) {
         if (m) {
           c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin;
           c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair;
+          ['tall', 'build', 'beard'].forEach((k, n) => { const src = f && ((c.id >> n) & 1) ? f : m; if (src.looks[k] !== undefined && (Math.imul(c.id + n, 40503) & 7) !== 0) c.looks[k] = src.looks[k]; });   /* one time in eight a child goes its own way */
         }
         /* a child takes after a parent in what it loves, more often than not */
       { const par = [m, f].filter(Boolean), src = par.length && rnd() < 0.65 ? par[(rnd() * par.length) | 0] : null; if (src && src.likes && src.likes.length) c.likes = [src.likes[(rnd() * src.likes.length) | 0]]; }
@@ -2800,7 +2806,25 @@ function create(seed, opt) {
        for an answer (G.answer); given none, they find a word of their own */
     const T = S.tribe; if (!T.godName && !S.ask) { let who = null; for (const a of folk()) if (a.age >= GROWN && a.faith >= 0.8 && a.sawT === S.tickNo && (!who || a.faith > who.faith)) who = a;
       if (who) { S.ask = { id: who.id, kind: 'name', since: S.tickNo, fear: who.trust < -0.2 }; tell(who.name + ' has gone to the fire and stands looking up. ' + (who.fem ? 'She' : 'He') + ' is asking who is there.'); } } }
-  function settleAsk(text) { const T = S.tribe, q = S.ask; if (!q) return ''; const a = S.byId.get(q.id); S.ask = null; const name = String(text || '').replace(/[<>&"]/g, '').trim().slice(0, 24), given = !!name; T.godName = name || 'the Hand'; T.godBy = a ? a.name : ''; T.godT = S.t;
+  /* LATER QUESTIONS. Once the one who watches has a name, a believer brings it the trouble that weighs most on the place, when there is one, and asks
+     what to do. The answer is counsel, not command: it becomes one more weight in choices the people already make (T.counsel). Silence teaches them to ask less often */
+  const QUESTIONS = {
+    timber: { say: n => 'The trees near us are nearly gone, ' + n + '. Should we leave the young ones standing, and walk further for the old?', options: [['spare', 'Leave the young trees'], ['cut', 'Cut what you need']] },
+    sick: { say: n => 'The fever has taken our children, ' + n + '. What should we do?', options: [['apart', 'Live further apart'], ['nothing', 'I do not know']] },
+    flood: { say: n => 'The river has taken a house, ' + n + '. Do we build by the water again, or keep to the high ground?', options: [['high', 'Keep to high ground'], ['stay', 'Stay by the water']] } };
+  function nextQuestion() { const T = S.tribe; if (!T.godName || S.ask || !S.popPeople) return; T.asked = T.asked || {}; if (S.t < (T.askT || 0) + 3 + 3 * (T.askSilent || 0)) return;
+    let near = 0; for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const x = T.x + dx, y = T.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && tree[I(x, y)] >= 0.3) near++; } if (T.treesNear0 === undefined || near > T.treesNear0) T.treesNear0 = near;
+    const kind = !T.asked.flood && T.floodT > S.t - 1.5 ? 'flood' : !T.asked.sick && T.need.sick >= 3 ? 'sick' : !T.asked.timber && T.treesNear0 >= 10 && near < T.treesNear0 * 0.3 ? 'timber' : ''; if (!kind) return;
+    let who = null; for (const a of folk()) if (a.age >= GROWN && a.faith > 0.5 && (!who || a.faith > who.faith)) who = a; if (!who) return;
+    S.ask = { id: who.id, kind, since: S.tickNo, say: QUESTIONS[kind].say(T.godName), options: QUESTIONS[kind].options }; T.asked[kind] = true; T.askT = S.t;
+    tell(who.name + ' has gone to the fire to ask ' + T.godName + ' what is to be done.'); }
+  function settleAsk(text) { const T = S.tribe, q = S.ask; if (!q) return ''; const a = S.byId.get(q.id);
+    if (q.kind !== 'name') { S.ask = null; const opt = (q.options.find(o => o[0] === text) || [])[0]; T.counsel = T.counsel || {};
+      if (!opt) { T.askSilent = (T.askSilent || 0) + 1; for (const b of folk()) if (b.faith > 0.5) b.trust = Math.max(-1, (b.trust || 0) - 0.05); tell((a ? a.name : 'Someone') + ' waited by the fire and ' + T.godName + ' did not answer. The people will decide for themselves.'); return ''; }
+      T.counsel[opt] = true; T.askSilent = 0; if (a && a.alive) a.trust = Math.min(1, (a.trust || 0) + 0.1);
+      tell({ spare: T.godName + ' has said to leave the young trees standing. Those who trust will walk further for timber.', cut: T.godName + ' has said to cut what is needed.', apart: T.godName + ' has said to live further apart. New houses will keep away from crowded ground.',
+        nothing: T.godName + ' does not know what to do about the fever.', high: T.godName + ' has said to keep to the high ground.', stay: T.godName + ' has said to stay by the water.' }[opt]); return opt; }
+    S.ask = null; const name = String(text || '').replace(/[<>&"]/g, '').trim().slice(0, 24), given = !!name; T.godName = name || 'the Hand'; T.godBy = a ? a.name : ''; T.godT = S.t;
     if (given) { if (a && a.alive) { a.faith = 1; a.trust = Math.min(1, (a.trust || 0) + 0.2); } for (const b of folk()) b.faith = (b.faith || 0) + 0.1 * (1 - (b.faith || 0));
       tell((a ? a.name : 'Someone') + ' was answered. The one who watches is called ' + T.godName + ', and the name will be said at every fire.'); }
     else tell((a ? a.name : 'Someone') + ' waited by the fire and no answer came. ' + (a ? (a.fem ? 'She' : 'He') : 'They') + ' calls the one who moves things ' + T.godName + '.');

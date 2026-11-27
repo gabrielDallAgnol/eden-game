@@ -22,7 +22,7 @@ let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { c
 /* a turn of the seasons takes up to this many times as long as a year of a life (midsummer); winter keeps its old length */
 const yearQ = clamp(+(qs.get('yearK') || 3), 1, 8);
 const sizeQ = clamp(+(qs.get('size') || 96), 24, 160);   /* the map, in tiles a side */
-const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood' }), N = W.N, S = W.S, A = EdenArt.build();
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6 }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -426,7 +426,8 @@ function wantProps() {
   const clearAt = (fx, fy, own, onWay) => { const tx = Math.floor(fx), ty = Math.floor(fy), t = ty * N + tx; if (tx < 0 || ty < 0 || tx >= N || ty >= N || W.water[t] || (T0.road[t] && !onWay) || W.field[t] || (FN && FN[t]) || W.tree[t] > 0.3) return false;
     for (const q of T0.sites) if (q !== own && !q.upon && Math.abs(q.x - tx) <= 1 && Math.abs(q.y - ty) <= 1) return false; return true; };
   /* a thing wanted at a place is put there if the ground is free, else on the nearest free ground within a tile and a half, else not at all */
-  const setNear = (key, o) => { for (const [dx, dy] of [[0, 0], [0.9, 0], [0, 0.9], [-0.9, 0], [0, -0.9], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9], [1.5, 0], [0, 1.5], [-1.5, 0], [0, -1.5]]) if (clearAt(o.x + dx, o.y + dy, null, true)) { o.x += dx; o.y += dy; want.set(key, o); return true; } return false; };
+  const used = new Set(), tileOf = (fx, fy) => Math.floor(fy) * N + Math.floor(fx);   /* tiles something made already stands on: one thing to a tile */
+  const setNear = (key, o) => { for (const [dx, dy] of [[0, 0], [0.9, 0], [0, 0.9], [-0.9, 0], [0, -0.9], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9], [1.5, 0], [0, 1.5], [-1.5, 0], [0, -1.5]]) if (clearAt(o.x + dx, o.y + dy, null, true) && !used.has(tileOf(o.x + dx, o.y + dy))) { used.add(tileOf(o.x + dx, o.y + dy)); o.x += dx; o.y += dy; want.set(key, o); return true; } return false; };
   const want = new Map(), falling = !W.daysLengthen(), cR = campR(), ripe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const i = y * N + x; if (W.water[i]) continue;
@@ -491,7 +492,7 @@ function wantProps() {
      then the firewood, a carved bench, the planter, then the rest; a spot on water, a street, a field or another building is passed over. */
   if (campOn) {
     const P = A.prop || {}, folkBy = new Map(), autumn = !W.daysLengthen() && S.air > -2, taken = new Set();
-    for (const q of T0.sites) taken.add(q.y * N + q.x); const used = new Set();
+    for (const q of T0.sites) taken.add(q.y * N + q.x);
     for (const b of S.agents) if (b.alive && b.d.people && b.house) { let f = folkBy.get(b.house); if (!f) folkBy.set(b.house, f = { n: 0, small: 0, baby: 0, elder: 0, jobs: new Set(), likes: new Set(), herbs: 0 }); f.n++; if (b.age < 2) f.baby++; else if (b.age < b.d.mature) f.small++; if (b.age > 46) f.elder++; if (b.job) f.jobs.add(b.job); for (const k of b.likes || []) f.likes.add(k); if (b.skill && b.skill.gather > 1.3) f.herbs++; }
     const SPOTS = [[1.25, 1.25], [1.45, 0.5], [0.5, 1.45], [1.4, -0.45], [-0.45, 1.4]];   /* all on the household's own lot: the tile beyond is the way between lots */
     for (const q of T0.sites) {
@@ -535,7 +536,7 @@ function wantProps() {
     const P = A.prop;
     /* by the fire and the store: market stalls once there is a market (H4), a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
     /* H4: once there is coin, the four lots round the fire are the market, a stall on each */
-    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) return; /* a stall stands on its market lot while the lot is open; once something is built there the stall is gone (the shop is the house itself) */ const o = { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }; if (clearAt(o.x, o.y)) want.set('mk' + n, o); });
+    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) return; /* a stall stands on its market lot while the lot is open; once something is built there the stall is gone (the shop is the house itself) */ const o = { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }; if (clearAt(o.x, o.y) && !used.has(tileOf(o.x, o.y))) { used.add(tileOf(o.x, o.y)); want.set('mk' + n, o); } });
     if ((T0.hunts || 0) > 0 && P.cooking_spit) setNear('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
     if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) setNear('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
     { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) setNear('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
@@ -1167,6 +1168,10 @@ function stepAt(r, u, dts) {
 let dprCap = 2, slowMs = 16, slowN = 0, fastN = 0, lastDprT = 0;
 function resize() { const old = dpr; dpr = Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1)); if (old !== dpr && cv.width) { const k = dpr / old; cam.z *= k; cam.x /= 1; }
   cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); clampCam(); }
+/* the view carried gently to a place (the one who asks), until it is there or the player takes hold of it */
+let glide = null;
+function glideStep(dtMs) { if (!glide) return; const k = 1 - Math.pow(0.004, dtMs / 1000), cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2, nx = cxw + (glide.wx - cxw) * k, ny = cyw + (glide.wy - cyw) * k; cam.z += (glide.z - cam.z) * k;
+  cam.x = nx - cv.width / cam.z / 2; cam.y = ny - cv.height / cam.z / 2; clampCam(); if (Math.abs(glide.wx - nx) < 0.5 && Math.abs(glide.wy - ny) < 0.5 && Math.abs(glide.z - cam.z) < 0.01) glide = null; }
 function paceCheck(dtMs) { slowMs = slowMs * 0.95 + dtMs * 0.05;
   if (slowMs > 30) { fastN = 0; if (++slowN > 90 && dprCap > 1 && (window.devicePixelRatio || 1) > 1) { const cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2; dprCap = Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1) - 0.5); slowN = 0; lastDprT = now; resize(); cam.x = cxw - cv.width / cam.z / 2; cam.y = cyw - cv.height / cam.z / 2; clampCam(); } }
   else { slowN = 0; if (slowMs < 13 && dprCap < 2 && now - lastDprT > 30000 && ++fastN > 900) { const cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2; dprCap = Math.min(2, dprCap + 0.5); fastN = 0; lastDprT = now; resize(); cam.x = cxw - cv.width / cam.z / 2; cam.y = cyw - cv.height / cam.z / 2; clampCam(); } } }
@@ -1219,6 +1224,7 @@ function liftAt(c, w, ground) {
   return false;
 }
 cv.addEventListener('pointerdown', e => {
+  glide = null;
   if (paused) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 2) { const [p, q] = [...ptrs.values()]; pinch = { d: Math.hypot(p.x - q.x, p.y - q.y), mx: (p.x + q.x) / 2, my: (p.y + q.y) / 2 }; if (held) dropHeld(); act = null; return; }
   const w = toWorld(e.clientX, e.clientY);
@@ -1367,6 +1373,7 @@ function lightAt(tod) { // 0 = full day, 1 = full night; tod runs over one day o
 function frame(t) {
   requestAnimationFrame(frame); const dtMs = Math.min(250, t - now); now = t;
   paceCheck(dtMs);
+  glideStep(dtMs);
   const dts = paused ? 0 : dtMs * speed / 1000;
   if (!paused) {
     usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
@@ -1989,10 +1996,14 @@ bS2.onclick = () => {
     shownFor = q.id; const L = lookOf(a), sp = L.make ? L.make(a, a.age > 46 ? 'old' : 'grown') : L.grown[a.id % L.grown.length], im = sp.r[0];
     const c = box.querySelector('#askFace'), g = c.getContext('2d'), k = Math.max(2, Math.round(c.width / im.width * 1.7)); g.imageSmoothingEnabled = false; g.clearRect(0, 0, c.width, c.height); g.drawImage(im, Math.round((c.width - im.width * k) / 2), 6, im.width * k, im.height * k);   /* head and shoulders, large */
     box.querySelector('#askWho').textContent = a.name + ', ' + Math.floor(a.age);
-    box.querySelector('#askSay').textContent = q.fear ? 'Things move that no hand of ours has touched, and we have been hurt by it. What are you? What are we to call you?' : 'Someone is there. I have seen what you do. Who are you? What shall we call you?';
+    /* a later question: their words and the answers they offer come with it; the name box gives way to buttons */
+    const row = box.querySelector('#askIn').parentNode; for (const old of row.querySelectorAll('.askOpt')) old.remove();
+    const nameQ = q.kind === 'name'; inp.style.display = nameQ ? '' : 'none'; box.querySelector('#askGo').style.display = nameQ ? '' : 'none';
+    if (!nameQ) for (const [k, label] of q.options) { const b = document.createElement('button'); b.className = 'btn askOpt'; b.textContent = label; b.style.flex = '1'; b.onclick = () => { W.G.answer(k); hide(); takeEvents(true); }; row.insertBefore(b, box.querySelector('#askNo')); }
+    box.querySelector('#askSay').textContent = !nameQ ? q.say : q.fear ? 'Things move that no hand of ours has touched, and we have been hurt by it. What are you? What are we to call you?' : 'Someone is there. I have seen what you do. Who are you? What shall we call you?';
     box.style.display = 'block';
     /* the view goes to the one who asks */
-    const r = recOf(a.id), wx = isoX(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5), wy = isoY(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5); cam.z = clamp(Math.max(cam.z, dpr * 2.2), minZ(), maxZ()); cam.x = wx - cv.width / cam.z / 2; cam.y = wy - 30 - cv.height / cam.z / 2; clampCam(); }, 700); }
+    const r = recOf(a.id), wx = isoX(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5), wy = isoY(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5); glide = { wx, wy: wy - 30, z: clamp(Math.max(cam.z, dpr * 2.2), minZ(), maxZ()) }; }, 700); }
 // what the place has become and what its people know: a panel that opens from the corner
 { const el = document.getElementById('know'), btn = document.getElementById('bKnow');
   const fill = () => {
@@ -2027,7 +2038,7 @@ bS2.onclick = () => {
             grieving: 'grieving now', ways: 'tiles of worn way', fields: 'field tiles', fenced: 'fenced', healerhouse: "healer's house", tallyhouse: 'tally house', born: 'born here', died: 'died', left: 'left the valley', cow: 'cattle', deer: 'deer', rabbit: 'rabbits', wolf: 'wolves' };
           const row = (t, o) => { const ks = Object.keys(o).filter(k => o[k] > 0); return ks.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>' + t + '</b></td><td>' + ks.map(k => (NAME[k] || k) + ' <b>' + o[k] + '</b>').join(', ') + '</td></tr>' : ''; };
           return '<p><b>Ledger</b></p><table style="border-collapse:collapse;font-size:inherit">' + row('People', L.people) + row('Homes', L.homes) + row('Buildings', L.buildings) + row('Being built', L.building) + row('Food', L.food) + row('Goods', L.goods)
-            + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + '</table>'; })()
+            + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + (L.counsel && L.counsel.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Counsel</b></td><td>' + L.counsel.map(k => ({ spare: 'leave the young trees', cut: 'cut what is needed', apart: 'live further apart', nothing: 'no answer to the fever', high: 'keep to high ground', stay: 'stay by the water' }[k] || k)).join(', ') + '</td></tr>' : '') + '</table>'; })()
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
       /* F6: every place of work standing, and who works there */
       + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');
@@ -2056,7 +2067,7 @@ cam.z = clamp(dpr * 1.1, minZ(), maxZ()); { const wx = isoX(camp.x, camp.y), wy 
 for (const a of S.agents) if (a.alive) { const e = endOf(a); newRec(a, e.x, e.y); }
 huts.length = 0; onTick();
 syncCrossings(); startPaint(); paintSome(1e9, true); for (const p of props.values()) p.born = -1e9;
-window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => {
+window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, lookOf, setTool: t => {
     tool = t;
   }, start: () => {
     document.getElementById('intro').style.display = 'none';
