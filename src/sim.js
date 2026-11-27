@@ -244,6 +244,8 @@ function create(seed, opt) {
   // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
   // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
   const REACH_W = 30;
+  /* test lever: demog 'old' is the demography before sickness (no fever, no deaths at birth, children borne to 42 every 2.4 years), kept so that checks of what only a large place does can still reach one in a few decades */
+  const OLD_DEMOG = opt.demog === 'old', FERTILE_TO = OLD_DEMOG ? 42 : 30, BIRTH_GAP = OLD_DEMOG ? 2.4 / 3.0 : 1; if (OLD_DEMOG) opt.noSick = true;
   const SICK_WILD = opt.sickWild !== undefined ? opt.sickWild : 8;
   const SICK_K = opt.sickK !== undefined ? opt.sickK : 0.0032, BIRTH_LOSS = opt.birthLoss !== undefined ? opt.birthLoss : 0.08, BIRTH_DEATH = 0.012;
   const cut = new Uint8Array(N * N), CHOP = 0.3, WOOD_PER_STAND = 4, FUEL_PER_WOOD = 4;   /* a full stand of trees on a tile is 4 timber, enough for two thirds of a house; a timber split for the hearth is 4 days' fires (planned on purpose) */
@@ -2666,7 +2668,7 @@ function create(seed, opt) {
         if (d.people) {
           {
             const hm = homeSite(a);
-            if (!a.fem || a.age < WED || a.age > 30 || !(hm ? (hm.larder || 0) >= 0.9 * (hm.members || 2) + 0.5 || storePlenty(S.pop[a.sp]) : storePlenty(S.pop[a.sp]))) continue;
+            if (!a.fem || a.age < WED || a.age > FERTILE_TO || !(hm ? (hm.larder || 0) >= 0.9 * (hm.members || 2) + 0.5 || storePlenty(S.pop[a.sp]) : storePlenty(S.pop[a.sp]))) continue;
           }
           const q = S.byId.get(a.partner);
           if (!q || !q.alive || (a.house ? q.house !== a.house : cheb(q, a) > 3)) continue;   /* a couple under one roof (they are not side by side all day) */
@@ -2687,7 +2689,7 @@ function create(seed, opt) {
             let mouths = d.mass * d.metab * (1 + d.litter[1]); for (const b of around(a, r, b => !b.tame && !b.d.people && b.d.eats.grass && !b.d.eats.meat)) mouths += bodyOf(b) * b.d.metab;
             if (food < CROWD * mouths) continue; }
         }
-        const n = d.litter[0] + ((rnd() * (d.litter[1] - d.litter[0] + 1)) | 0); a.e -= 0.25 + 0.08 * n; a.cd = d.interval * (d.people ? 0.85 : 1) * R(0.85, 1.2);
+        const n = d.litter[0] + ((rnd() * (d.litter[1] - d.litter[0] + 1)) | 0); a.e -= 0.25 + 0.08 * n; a.cd = d.interval * (d.people ? 0.85 * BIRTH_GAP : 1) * R(0.85, 1.2);
         for (let k = 0; k < n; k++) born.push([a.sp, a.x, a.y, a.home, a.id]); if (d.people) S.tribe.kidBorn += n;
       }
     }
@@ -2697,11 +2699,11 @@ function create(seed, opt) {
       if (S.levers.banned[b[0]] || (cap !== undefined && (SP[b[0]].people ? folk().length : S.pop[b[0]]) >= cap)) continue;
       const c = add(b[0], b[1], b[2], 0, 0.55);
       c.mom = b[4];
+      if (SP[b[0]].people) { const mm = S.byId.get(b[4]), T2 = S.tribe, loss = T2.kidDied / (T2.kidBorn + 1); c.norm = clamp(normOf(mm || {}) * 0.8 + 0.2 * ((T2.skills.farm ? 3 : 2) + 8 * loss + Math.min(3, (mm && mm.lostKids) || 0)), 1.5, 9);   /* where the ground is farmed, children are hands: one more */ }
       /* birth is dangerous: some children do not live through it, fewer where the mother is strong; now and then it takes the mother */
       if (SP[b[0]].people && !opt.noSick) { const mm0 = S.byId.get(b[4]), weak = mm0 && mm0.e < 0.5 ? 2 : 1;
         if (mm0 && mm0.alive && rnd() < BIRTH_DEATH * weak) { die(mm0, 'childbirth'); }
         if (rnd() < BIRTH_LOSS * weak) { S.tribe.born++; die(c, 'at birth'); continue; } }
-      if (SP[b[0]].people) { const mm = S.byId.get(b[4]), T2 = S.tribe, loss = T2.kidDied / (T2.kidBorn + 1); c.norm = clamp(normOf(mm || {}) * 0.8 + 0.2 * ((T2.skills.farm ? 3 : 2) + 8 * loss + Math.min(3, (mm && mm.lostKids) || 0)), 1.5, 9);   /* where the ground is farmed, children are hands: one more */ }
       {
         const mm = S.byId.get(b[4]);
         if (mm && mm.tame) c.tame = true;

@@ -521,6 +521,8 @@ function showWorld(run) {
 // ---------------------------------------------------------------- unit checks: short, targeted, run once before the worlds
 // Each is [name, fn]; fn returns '' when it holds, or a sentence saying what went wrong. Steps add their checks here.
 var UNITS = window.EdenUnits = window.EdenUnits || [];
+/* demog: 'old' in a unit's world means the fast-growing demography from before sickness (see OLD_DEMOG in src/sim.js): used where a
+   check needs a large place, or children who all live, within a few decades. Everything else runs on the game's own demography */
 UNITS.push(['every BUILDINGS row is whole: stages with finite wood and stone, a roof, and a known idea (F1)', function () {
   var W = Eden.create(1, { land: 'valley' }), B = W.BUILDINGS, bad = [], ideas = W.IDEAS ? Object.keys(W.IDEAS) : null;
   if (!B) return 'W.BUILDINGS is missing';
@@ -670,13 +672,15 @@ UNITS.push(['fishers\' and farmers\' households trade fish for grain; failed tra
   if (!(fails > 0)) return tr + ' trades and not one failed';
   return n > 0 ? '' : tr + ' trades, none of fish for grain between a fishing and a farming household';
 }]);
-UNITS.push(['a bad harvest raises the price of grain (H2): with half the grain gone, grain is dearer by the next season than in the same place untouched', function () {
+UNITS.push(['a bad harvest raises the price of grain (H2): with most of the grain gone, grain is dearer by the next season than in the same place untouched', function () {
   var out = [], dearer = 0, lived = 0;
   [[1, 'lakeland'], [2, 'valley'], [1, 'valley'], [1, 'plains'], [2, 'lakeland'], [1, 'forest']].forEach(function (w) {
-    var run = function (loss) { var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, i;
+    var run = function (loss) { var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, i;
       for (i = 0; i < 24 * 40; i++) W.tick();
       if (!S.popPeople || !T.price) return null;
-      if (loss) { var cut = function (o, f) { if (!(o[f] > 0)) return; var m = W.mixOf(o, f), g = m.grain * 0.5; m.grain -= g; o[f] -= g; }; cut(T, 'store'); T.sites.forEach(function (q) { cut(q, 'larder'); }); }
+      /* every holder is given grain first, the same in both runs, so that there is a harvest to lose */
+      [T].concat(T.sites.filter(function (q) { return q.members > 0; })).forEach(function (o) { var f = o === T ? 'store' : 'larder', m = W.mixOf(o, f), g = 2 * (o === T ? S.popPeople : o.members); m.grain += g; o[f] = (o[f] || 0) + g; });
+      if (loss) { var cut = function (o, f) { if (!(o[f] > 0)) return; var m = W.mixOf(o, f), g = m.grain * 0.8; m.grain -= g; o[f] -= g; }; cut(T, 'store'); T.sites.forEach(function (q) { cut(q, 'larder'); }); }
       /* on to the next season's prices (the season clock: under a long summer a season is more than six steps) */
       do W.tick(); while (!S.newQuarter); return T.price.grain / T.price.veg; };
     var a = run(false), b = run(true); if (a === null || b === null) { out.push(w[1] + ' ' + w[0] + ': nobody there at year 40'); return; }
@@ -719,7 +723,7 @@ UNITS.push(['one harvest a year, each logged and shown rising from the fields; t
 UNITS.push(['a growing place raises a hall where a trusted elder sits as mayor, and a shrine for its dead (then a church)', function () {
   var W, T, i, w, worlds = [[1, 'plains'], [1, 'valley'], [1, 'lakeland'], [2, 'forest']], tried = [];
   var up = function (k) { return T.sites.some(function (q) { return q.kind === k && q.stage >= W.BUILDINGS[k].stages.length; }); };
-  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: worlds[w][1], size: 96 }); T = W.S.tribe;
+  for (w = 0; w < worlds.length; w++) { W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', yearK: 3, land: worlds[w][1], size: 96 }); T = W.S.tribe;
     for (i = 0; i < 24 * 80 && !up('hall'); i++) W.tick(); if (up('hall')) break; tried.push(worlds[w][1] + ' ' + worlds[w][0] + ': order ' + T.need.order.toFixed(1)); }
   if (!up('hall')) return 'no hall by year 80 in four worlds (' + tried.join('; ') + ')';
   for (i = 0; i < 24 * 3; i++) W.tick();   /* a little while for an elder to be chosen */
@@ -730,7 +734,7 @@ UNITS.push(['a growing place raises a hall where a trusted elder sits as mayor, 
 }]);
 UNITS.push(['wild prey live in cover and away from people, and the deer last: 10 or more at year 30 in most worlds', function () {
   var worlds = [[1, 'valley'], [1, 'lakeland'], [2, 'forest'], [1, 'plains']], kept = 0, out = [], w, i;
-  for (w = 0; w < worlds.length; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }), N = W.N, T = W.S.tribe;
+  for (w = 0; w < worlds.length; w++) { var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', land: worlds[w][1], size: 96 }), N = W.N, T = W.S.tribe;
     for (i = 0; i < 24 * 30; i++) W.tick();
     var deer = W.S.agents.filter(function (a) { return a.alive && a.sp === 'deer' && !a.tame; }), cov = function (j) { return Math.min(0.8, W.tree[j] * 0.8 + W.grass[j] * 0.25); };
     var land = 0, n = 0, j; for (j = 0; j < N * N; j++) if (!W.water[j]) { land += cov(j); n++; }
@@ -887,7 +891,7 @@ UNITS.push(['the land at 40, 96 and 128: water drains to the edge or a lake, nev
 }]);
 UNITS.push(['strike leaves meat from an animal, logs from a tree, stone from rock; logs near the village get used', function () {
   var W, N, T, i, out = [], wl = [[3, 'forest'], [2, 'forest'], [2, 'valley'], [1, 'plains']];
-  for (var k = 0; k < wl.length; k++) { W = Eden.create(wl[k][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: wl[k][1], size: 96 }); N = W.N; T = W.S.tribe; for (i = 0; i < 24 * 8; i++) W.tick(); if (W.S.popPeople >= 4) break; }   /* a place with hands to fetch the logs */
+  for (var k = 0; k < wl.length; k++) { W = Eden.create(wl[k][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', yearK: 3, land: wl[k][1], size: 96 }); N = W.N; T = W.S.tribe; for (i = 0; i < 24 * 8; i++) W.tick(); if (W.S.popPeople >= 4) break; }   /* a place with hands to fetch the logs */
   var deer = W.S.agents.filter(function (a) { return a.alive && !a.d.people && W.cells[a.y * N + a.x].indexOf(a) >= 0; })[0];
   if (deer) { W.G.strike(deer.x, deer.y); if (!W.S.piles.some(function (p) { return p.kind === 'meat'; })) out.push('no meat where a ' + deer.sp + ' was struck'); }
   /* a tree by a lived-in door, where the household's own fires and building would want the logs (else by the fire) */
@@ -1037,7 +1041,7 @@ UNITS.push(['with sticks and stones three grown people stand against a wolf and 
   return '';
 }]);
 UNITS.push(['family size is learned at home: children take their mother\'s norm, families shrink over generations where children live, and a couple stops at what it wants', function () {
-  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: 'valley', size: 96, yearK: 3 }), S = W.S, i, seen = {}, early = [], late = [], over = 0, births = 0;
+  var W = Eden.create(1, { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', land: 'valley', size: 96, yearK: 3 }), S = W.S, i, seen = {}, early = [], late = [], over = 0, births = 0;
   for (i = 0; i < 24 * 70; i++) {
     var kidsBefore = {}; S.agents.forEach(function (b) { if (b.alive && b.d.people && b.fem && b.partner) kidsBefore[b.id] = S.agents.filter(function (c) { return c.alive && c.d.people && c.mom === b.id; }).length; });
     W.tick();
@@ -1058,7 +1062,7 @@ UNITS.push(['family size is learned at home: children take their mother\'s norm,
 UNITS.push(['a small child with water between it and the fire finds the way round (or over a bridge) instead of standing at the bank', function () {
   var out = [], ok = 0, tried = 0;
   [[1, 'valley'], [2, 'valley'], [1, 'lakeland'], [2, 'lakeland']].forEach(function (w) {
-    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, N = W.N, i, r, dx, dy, k;
+    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, N = W.N, i, r, dx, dy, k;
     for (i = 0; i < 24 * 15; i++) W.tick();
     var kid = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 1 && a.age < 4; })[0]; if (!kid) return;
     var spot = null;
@@ -1077,7 +1081,7 @@ UNITS.push(['a household living across a river bend from the fire wants a bridge
   var out = [], ok = 0, tried = 0;
   [[1, 'valley'], [4, 'forest'], [6, 'valley'], [2, 'lakeland']].forEach(function (w) {
     if (ok) return;
-    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, N = W.N, i, dx, dy;
+    var W = Eden.create(w[0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', yearK: 3, land: w[1], size: 96 }), S = W.S, T = S.tribe, N = W.N, i, dx, dy;
     for (i = 0; i < 24 * 10; i++) W.tick();
     var home = T.sites.filter(function (q) { return !q.upon && (q.kind === 'hut' || q.kind === 'house') && S.agents.some(function (b) { return b.alive && b.house === q.id; }); })[0]; if (!home) return;
     var spot = null, narrow = W.fords().filter(function (f) { return f.same; });
@@ -1176,6 +1180,20 @@ UNITS.push(['the hand only lifts and sets down: a tree moves whole, stone on sto
   if (!S.agents.some(function (a) { return a.alive && a.d.people && a.saw > 0; }) || !(W.ledger().faith.haveSeenTheHand > 0)) out.push('nobody saw the hand');
   for (i = 0; i < 24 * 2; i++) W.tick();
   if (S.problems.length) out.push(S.problems[0]);
+  return out.join('; ');
+}]);
+UNITS.push(['sickness comes from fouled, crowded ground: fever and births kill, mostly the young; a roof among many is more exposed than a roof alone; without it nobody dies of fever', function () {
+  var mk = function (o) { var W = Eden.create(1, Object.assign({ resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'valley', size: 96, age: 'wood' }, o)), i; for (i = 0; i < 24 * 60; i++) W.tick(); return W; };
+  var W = mk({}), S = W.S, T = S.tribe, out = [], D = S.deaths, fever = 0, birth = 0, k;
+  for (k in D) { if (/^human.*fever/.test(k)) fever += D[k]; if (/^human.*at birth/.test(k)) birth += D[k]; }
+  if (!fever) out.push('nobody died of fever in 60 years'); if (!birth) out.push('no child was lost at birth in 60 years');
+  if (!(T.kidDied > 0)) out.push('the place remembers no child dying');
+  var homes = T.sites.filter(function (q) { return q.members > 0 && q.expo > 0 && !q.upon; }), near = function (q) { return homes.filter(function (u) { return u !== q && Math.abs(u.x - q.x) <= 6 && Math.abs(u.y - q.y) <= 6; }).length; };
+  if (homes.length >= 4) { var srt = homes.slice().sort(function (a, b) { return near(a) - near(b); }), lo = srt[0], hi = srt[srt.length - 1];
+    if (near(hi) > near(lo) + 1 && !(hi.expo > lo.expo)) out.push('a roof with ' + near(hi) + ' neighbours is exposed to ' + hi.expo.toFixed(1) + ', one with ' + near(lo) + ' to ' + lo.expo.toFixed(1)); }
+  else out.push('fewer than 4 lived-in homes at year 60');
+  var W2 = mk({ demog: 'old' }), D2 = W2.S.deaths; for (k in D2) if (/^human.*(fever|at birth|childbirth)/.test(k) && D2[k]) out.push('with the old demography, ' + D2[k] + ' died of ' + k);
+  if (!(W2.S.popPeople > S.popPeople)) out.push('the place is no smaller with sickness (' + S.popPeople + ') than without (' + W2.S.popPeople + ')');
   return out.join('; ');
 }]);
 })();

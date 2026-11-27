@@ -9,6 +9,17 @@ Written 2026-11-25 after the owner's note: early people died young and had many 
 - **The place remembers** children born (`T.kidBorn`) and children dead before they were grown (`T.kidDied`), both fading by 15% a year.
 - **Result today:** children rarely die in Eden, so the norm falls from 6 toward 3 to 4 over a hundred years. Nothing sets these numbers. They follow from children living and land to farm. (A rule giving more children where food piled up was tried and taken out: once houses were no longer a bottleneck it drove boom and famine.)
 
+## Built 2026-11-27: sickness, birth, and what holds a place's numbers down
+
+Measured before: in valley seed 1 over 60 years, 234 children were born and 13 people died. The place doubled every ten years (about 7% a year); real peoples before medicine grew by well under 1% a year. What was missing was death.
+
+- **Fever.** People foul the ground they live on. What a household is exposed to is its own foulness and its neighbours', so one house alone is nearly safe and houses packed in rows and floors are not. The youngest die first. A well and a working healer help. The numbers are in `docs/ARCHITECTURE.md` under "Planned on purpose".
+- **Birth** kills some children and a few mothers.
+- **Childbearing** runs from 10 to 30, about three years apart.
+- **What people do about it:** once fever has killed, households choosing a lot keep away from crowded, fouled ground (`need.sick`). Nothing else answers it yet: no latrines, no keeping the sick apart, no second well. Those are the next ideas.
+- **Result** (five worlds): 21 to 73 people at year 50 and 76 to 325 at year 100, where it was up to 1,651. About a third of children die before they are grown.
+- **For the tests:** `demog: 'old'` gives the earlier demography, for checks that need a large place within a few decades.
+
 ## Where sickness plugs in
 
 Sickness is the main thing that killed children in the past, and it is what Eden lacks. When it comes, it only has to kill people; the rest follows:
