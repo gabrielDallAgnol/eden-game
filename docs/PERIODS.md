@@ -79,3 +79,21 @@ A band of four cannot stand for all of humankind in 100 years, and it should not
 | Bugs first: plains seed 1 stuck at 6 homes; building sites stalled beside the fire | They make the early village look broken | Small |
 
 Order proposed: bugs, K1, K3, K4, K2, then the readable start (signs over heads, a "why" line, the chronicle), then the square (N1 to N3), then K5 and the town period.
+
+## Where this stands (2026-11-28)
+
+Built since this note was written, in the order it was done:
+
+| Asked for here | State |
+|---|---|
+| Bugs first (plains 1 stuck, sites stalled) | Done: timber now reaches building sites. |
+| The game stops where its drawings do | Done: the Wood Age limit (`age: 'wood'`). |
+| Knowledge held by people (K1) | Done for herbs only: found by trying, held, taught, lost. The `IDEAS` (fire, hut, farm, pottery and the rest) are still switches for a whole band, and the early ones still arrive at nearly the same year everywhere. This is the largest thing left from this note. |
+| Means on the ground (K2) | Done for herbs (each on its own ground). Not done for clay, flint or ore. |
+| A believable pace | Done by sickness, the dangers of birth and fewer childbearing years: ten worlds average 33 people at year 50 and about 200 at year 100. |
+| Several settlements (K5) | Done another way: bands take turns as `S.tribe`. Founding, meeting, marriage across, exchange, copied ways, grudges and raids are in. |
+| A bigger, more varied land | Done: the wide country at 192 tiles, lowland to mountains. Height is still drawn as light and shade only. |
+| The readable start | Done in part: a sign over each head, a face and a description when a person is lifted. No chronicle of firsts yet. |
+| Missing per period | Still missing: moving camp with the seasons, drying meat, grinding, seed kept back, fallow, dogs, weaving, inheritance, feasts, the square (N1 to N3), law, fires and rebuilding. |
+
+Not in this note but built: the hand as the only power; belief, trust and fear from what the hand does; the first question and counsel; holding tight to one's own, and houses that grow rich carrying between peoples.

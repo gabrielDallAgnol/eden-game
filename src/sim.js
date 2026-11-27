@@ -830,11 +830,12 @@ function create(seed, opt) {
     const fr = friendsOf(a).map(b => b.name), friends = fr.length ? ' Friends: ' + fr.join(', ') + '.' : '';
     const bored = hh && hh.larder > 0.5 && variety(hh) < 0.25 ? ' Tired of eating the same thing every day.' : '';
     const lore = a.know && Object.keys(a.know).length ? ' Knows ' + Object.keys(a.know).map(k => HERBS[HERB_USE[HERBS.find(q => q && q.k === k).use]].says).join(', ') + '.' : '';
+    const deals = a.trader ? ' Carries goods between peoples.' : '';
     const cur = a.curious > 0.85 ? ' Curious about everything.' : '';
     const hold = (a.greed || 0) > 0.6 ? ' Holds tight to what is theirs.' : (a.greed || 0) < 0.05 && a.age >= GROWN ? ' Open-handed.' : '';
     const creed = !(a.faith > 0.25) ? '' : a.faith > 0.5 ? (a.trust > 0.2 ? ' Believes ' + (S.tribe.godName || 'someone') + ' watches over the place, and is glad of it.' : a.trust < -0.2 ? ' Believes ' + (S.tribe.godName || 'something') + ' watches the place, and fears it.' : ' Believes ' + (S.tribe.godName ? S.tribe.godName + ' is there.' : 'there is someone there.')) : ' Has seen things move that nobody touched.';
     return a.name + ', ' + age + ', ' + what + '. ' + (p && p.alive ? (a.fem ? 'Her' : 'His') + ' partner is ' + p.name + '. ' : a.age >= WED ? 'On ' + (a.fem ? 'her' : 'his') + ' own. ' : '')
-      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps + cur + hold + lore + creed;
+      + (kids.length ? 'Children: ' + kids.join(', ') + '. ' : '') + (a.age < WED && par.length ? 'Child of ' + par.join(' and ') + '. ' : '') + 'Now: ' + mood + '.' + bored + friends + (a.likes && a.likes.length ? ' Loves ' + a.likes.map(k => LIKES[k].word).join(' and ') + '.' : '') + keeps + cur + hold + deals + lore + creed;
   }
   // Once in each step the camp's ties are looked over: who has grown close, who needs a roof, who has no one to choose
   function society(dt) {
@@ -2633,6 +2634,11 @@ function create(seed, opt) {
       /* exchange: each gives of the food it has most of against the other */
       if (R.v > -0.2 && A.store > 2 && B.store > 2) { const ma = mixOf(A, 'store'), mb = mixOf(B, 'store'); let ga2 = '', gb2 = '', da = 0, db = 0; for (const g of FOODS) { const x = ma[g] / A.store - mb[g] / B.store; if (x > da) { da = x; ga2 = g; } if (-x > db) { db = -x; gb2 = g; } }
         if (ga2 && gb2 && da > 0.1 && db > 0.1) { const q = Math.min(c * 0.1 * Math.min(A.store, B.store), ma[ga2] * 0.5, mb[gb2] * 0.5); if (q > 0.2) { ma[ga2] -= q; mb[ga2] += q; mb[gb2] -= q; ma[gb2] += q; R.v = Math.min(1, R.v + 0.03 * c); R.traded = (R.traded || 0) + q; S.stat.bandTrades = (S.stat.bandTrades || 0) + 1;
+              /* someone carries it. In each band the house that holds tightest to its own, if it has hands for the walk, does the carrying and keeps a tenth of what comes in:
+                 that is how dealing between peoples makes a house rich */
+              for (const [X, px, g] of [[A, pa, gb2], [B, pb, ga2]]) { let best = null, bg = 0.2; for (const h of X.sites) { if (!(h.members > 0) || h.upon) continue; let gr = 0, hands = 0; for (const b of px) if (b.house === h.id && b.age >= GROWN && b.age <= 46) { hands++; if ((b.greed || 0) > gr) gr = b.greed; } if (hands && gr > bg) { bg = gr; best = h; } }
+                if (best) { const cut = q * 0.1, m = mixOf(X, 'store'), take = Math.min(cut, m[g]); if (take > 0.01) { m[g] -= take; X.store -= take; inBand(X, () => addFood(best, 'larder', g, take)); best.dealt = (best.dealt || 0) + take; S.stat.traderCuts = (S.stat.traderCuts || 0) + 1; for (const b of px) if (b.house === best.id && b.age >= GROWN) b.trader = true;
+                    if (!X.traderTold && best.dealt > 3) { X.traderTold = true; const b = px.find(b => b.house === best.id && b.age >= GROWN); if (b) tellAll(b.name + "'s house among " + bandName(X) + ' carries what is exchanged with ' + bandName(X === A ? B : A) + ', and keeps a share of it.'); } } } }
             if (!R.tradeTold) { R.tradeTold = true; tellAll(bandName(A) + ' and ' + bandName(B) + ' have begun to exchange: ' + GOODS[ga2].says + ' for ' + GOODS[gb2].says + '.'); } } } }
       /* what one does and the other does not is seen and, among friends, taken up; a knower of herbs shows one of the others */
       if (R.v > 0.1) { for (const [X, Y] of [[A, B], [B, A]]) for (const k in X.skills) if (X.skills[k] && !Y.skills[k] && !BEYOND[k] && rnd() < 0.15 * c) { Y.skills[k] = true; S.stat.ideasPassed = (S.stat.ideasPassed || 0) + 1; tellAll(bandName(Y) + ' have learned ' + k + ' from ' + bandName(X) + '.'); break; }
