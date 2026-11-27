@@ -1526,3 +1526,27 @@ What changed (owner's requests):
 | highland | 1 | 29 | 33 | 28 | 65 | 3 | 1 | 169 | 0 | 11 | 5/13/7 | 2.8 | 21.5 | 8.7 | 5 | 2 | 1.2 | 248 | 23 | 17.9 | 2.3 | 0 (2) | 71/15/0/0/14 | 53 | 10.2 | 9 | 0 | 0 | 9875 |
 | highland | 2 | 37 | 50 | 139 | 221 | 24 | 4 | 333 | 0 | 15 | 5/57/8 | 3.4 | 21.5 | 12.3 | 12.6 | 10 |  | 190 | 98 | 17.5 | 3.7 | 0 (1) | 78/3/0/0/15 | 36 | 11 | 13 | 1 | 0 | 16982 |
 | mean |  | 30.5 | 99.3 | 601.5 | 714.4 | 135.7 | 7.1 | 346.6 | 0 | 14.1 |  | 3.3 | 19.7 | 21.1 | 8.2 | 51.9 | 1.3 | 159035.8 | 237.1 | 35.9 | 4.5 |  |  | 74.6 | 10.5 | 38.9 | 2.9 | 0 | 80787.7 |
+
+## The hand as the only power; the ground moves; small things set on free ground (2026-11-27)
+
+What changed (owner's design):
+- **The hand.** The Rain, Sun, Grow and Strike buttons are gone. The hand lifts and sets down anything: people, beasts, piles, a whole tree, a stone off bare rock, fire, a handful of water, a building (`G.pick`, `G.drop`). Stone set on stone strikes a spark; fire burns where it is put; water puts it out; a tree set in water is logs; a building lands on the nearest free lot. People within 8 tiles see it (`a.saw`; the ledger counts them).
+- **Fire takes timber buildings**, with what was in them, and may leap to the next lot in dry weather.
+- **The ground moves** (view only): light runs down the rivers toward where they leave the land; wind passes through the grass in bands.
+- **Small things** (view only): nothing wild on fences, in yards or against fields; yard things, stalls and camp things only on free ground.
+- **Checked.** tests.html: 537 passed, 0 failed (1 warning, 35 skipped), run before the two view-only changes. The table below is the same, number for number, as the Wood Age table above: a world the hand does not touch runs as before, and no fire reached a building in these ten runs. Misplaced things counted in two villages (plains 2 at year 30, valley 1 at year 45): 0 of 2,034 and 0 of 3,779. Movement: 60 frames a second zoomed in and out in a headless browser.
+- **Not done.** People do not yet make anything of what they saw. Open water and bare rock need a short hold to lift. The old powers' drawing code is still in `src/view.js`, unreachable.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 33 | 138 | 260 | 501 | 63 | 2 | 696 | 0 | 14 | 18/54/10 | 3.7 | 22.8 | 20.2 | 9.4 | 46 | 1.8 | 1738 | 196 | 24.6 | 3.6 | 0 (1) | 77/0/0/0/18 | 85 | 9.2 | 25 | 7 | 0 | 31527 |
+| valley | 2 | 31 | 115 | 1069 | 1083 | 250 | 9 | 417 | 0 | 14 | 0/1/0 | 3 | 27 | 30.1 | 7.8 | 76 | 1.2 | 17088 | 698 | 42.4 | 4.4 |  | 84/0/0/0/13 | 98 | 11.2 | 57 | 2 | 0 | 67233 |
+| plains | 1 | 33 | 39 | 110 | 143 | 7 | 4 | 244 | 0 | 12 | 5/198/5 | 3.4 | 15.7 | 11.7 | 9.8 | 1 | 2.3 | 12 | 16 | 15.4 | 3.8 |  | 70/1/0/0/25 | 53 | 11.1 | 9 | 0 | 0 | 14207 |
+| plains | 2 | 23 | 99 | 253 | 299 | 23 | 5 | 288 | 0 | 14 | 15/207/5 | 4.1 | 16 | 11.9 | 10.2 | 11 | 1.1 | 202 | 45 | 17.8 | 3.7 |  | 71/2/0/0/25 | 65 | 10.8 | 13 | 1 | 0 | 19844 |
+| forest | 1 | 21 | 74 | 1005 | 1027 | 239 | 5 | 11 | 0 | 13 | 17/3/4 | 2.6 | 11.4 | 28.3 | 5 | 37 | 1.1 | 18463 | 461 | 54.5 | 7.3 | 0 (1) | 82/0/0/3/14 | 86 | 6.3 | 61 | 1 | 0 | 52784 |
+| forest | 2 | 28 | 136 | 1092 | 1255 | 312 | 6 | 422 | 0 | 14 | 23/1/3 | 2.8 | 11.3 | 30.3 | 5.8 | 96 | 1.4 | 16988 | 438 | 73.1 | 6.1 |  | 85/0/0/0/13 | 98 | 6.1 | 69 | 2 | 0 | 88664 |
+| lakeland | 1 | 35 | 162 | 346 | 797 | 84 | 24 | 768 | 0 | 17 | 23/97/5 | 4.2 | 23 | 25.9 | 9.1 | 115 | 0.8 | 2140 | 132 | 30.3 | 5.2 | 0 (1) | 75/0/0/0/19 | 72 | 9.7 | 37 | 8 | 0 | 47368 |
+| lakeland | 2 | 35 | 147 | 1713 | 1753 | 352 | 11 | 118 | 0 | 17 | 1/0/0 | 3 | 27.1 | 31.4 | 7.6 | 125 | 1.2 | 1533289 | 264 | 66 | 5 | 3 (4) | 81/0/0/0/16 | 100 | 18.9 | 96 | 7 | 0 | 449363 |
+| highland | 1 | 29 | 33 | 28 | 65 | 3 | 1 | 169 | 0 | 11 | 5/13/7 | 2.8 | 21.5 | 8.7 | 5 | 2 | 1.2 | 248 | 23 | 17.9 | 2.3 | 0 (2) | 71/15/0/0/14 | 53 | 10.2 | 9 | 0 | 0 | 10253 |
+| highland | 2 | 37 | 50 | 139 | 221 | 24 | 4 | 333 | 0 | 15 | 5/57/8 | 3.4 | 21.5 | 12.3 | 12.6 | 10 |  | 190 | 98 | 17.5 | 3.7 | 0 (1) | 78/3/0/0/15 | 36 | 11 | 13 | 1 | 0 | 17210 |
+| mean |  | 30.5 | 99.3 | 601.5 | 714.4 | 135.7 | 7.1 | 346.6 | 0 | 14.1 |  | 3.3 | 19.7 | 21.1 | 8.2 | 51.9 | 1.3 | 159035.8 | 237.1 | 35.9 | 4.5 |  |  | 74.6 | 10.5 | 38.9 | 2.9 | 0 | 79845.3 |

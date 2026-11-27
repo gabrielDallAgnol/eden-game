@@ -2290,7 +2290,7 @@ function create(seed, opt) {
     for (const a of S.agents) { if (!a.alive || a.d.people) continue; const to = a.tame ? out.beasts : out.wild; to[a.sp] = (to[a.sp] || 0) + 1; }
     let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
     out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
-    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length;
+    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length;
     out.known = Object.keys(T.skills).filter(k => T.skills[k]);
     return out;
   }
@@ -2578,6 +2578,12 @@ function create(seed, opt) {
     if (flood[campI]) { T.store *= 1 - Math.min(1, 2.5 * dt); T.need.flood += dt * 2; }
     /* a store under the flood or the fire is lost, and the food kept there rots as it did before (F3) */
     for (const w of T.sites) { const K = BUILDINGS[w.kind]; if (K && K.keeps && w.stage > 0 && (flood[I(w.x, w.y)] || burn[I(w.x, w.y)] > 0.5)) { w.stage = 0; w.wood = 0; w.stone = 0; tell('The ' + w.kind + ' is lost to the ' + (flood[I(w.x, w.y)] ? 'flood' : 'fire') + '. What it kept will rot again.'); } }
+    /* fire under a building of timber takes it: what was wood is gone, what was in it is gone, and it may leap to the next roof
+       in dry weather. Wells, shrines and the like, more stone than wood, stand */
+    for (const w of T.sites) { const K = BUILDINGS[w.kind]; if (!K || K.keeps || w.upon || !(w.stage > 0 || w.was) || !(burn[I(w.x, w.y)] > 0.5) || stageNeed(K, 9, 'stone') > stageNeed(K, 9, 'wood') || rnd() >= 0.5) continue;
+      tell('Fire has taken a ' + (w.was || w.kind) + '.'); w.was = ''; w.stage = 0; w.part = 0; w.wood = 0; w.stone *= RUBBLE_STONE; w.larder = 0; w.fuel = 0; S.stat.burned = (S.stat.burned || 0) + 1;
+      for (const u of T.sites) if (u.upon === w.id) { u.stage = 0; u.wood = 0; u.larder = 0; }
+      if (S.precip === 0) for (const u of T.sites) if (u !== w && !u.upon && Math.abs(u.x - w.x) <= PITCH && Math.abs(u.y - w.y) <= PITCH && !water[I(u.x, u.y)] && rnd() < 0.35) burn[I(u.x, u.y)] = 1; }
     for (const w of T.sites) if (live(w) && flood[I(w.x, w.y)] && !w.lake && !(w.concrete && w.kind === 'house' && !w.was) && rnd() < 3 * dt) {
       T.need.flood += 3;
       tell('The flood has taken a ' + (w.was || w.kind) + '.' + (T.floodSeen ? '' : ' Nobody will build so low again without thinking.'));
@@ -2766,6 +2772,8 @@ function create(seed, opt) {
       fn(I(nx, ny));
     }
   };
+  /* those near enough to see the hand at work remember it */
+  function sawHand(x, y) { S.stat.hand = (S.stat.hand || 0) + 1; for (const a of folk()) if (Math.max(Math.abs(a.x - x), Math.abs(a.y - y)) <= 8) a.saw = (a.saw || 0) + 1; }
   const G = {
     /* put a creature down at a place (tests and scenarios): returns it */
     place(sp, x, y, age, e) { return add(sp, x, y, age === undefined ? SP[sp].mature : age, e === undefined ? 0.8 : e); },
@@ -2824,6 +2832,57 @@ function create(seed, opt) {
       S.piles.splice(S.piles.indexOf(p), 1); const T = S.tribe;
       if (S.popPeople && Math.max(Math.abs(tx - T.x), Math.abs(ty - T.y)) <= 2) { if (kind === 'meat') addFood(T, 'store', 'meat', p.amt); else if (kind === 'wood') T.wood += p.amt; else T.stone += p.amt; return 'store'; }
       const f = free(tx, ty); dropPile(f[0], f[1], kind, p.amt); return 'ground';
+    },
+    /* THE HAND. The one power: lift a thing and set it down again. It makes nothing happen itself: a stone set down on stone
+       strikes a spark, fire set down burns what will burn, water wets and puts out, a tree stands where it is put, a house is
+       set on the nearest free lot. People who are near see it done (a.saw), which is where knowing of the hand begins */
+    pick(x, y) {
+      x = clamp(x | 0, 0, N - 1); y = clamp(y | 0, 0, N - 1); const i = I(x, y), T = S.tribe;
+      if (burn[i] > 0) { burn[i] = 0; sawHand(x, y); return { k: 'fire' }; }
+      if (S.popPeople && Math.max(Math.abs(x - T.x), Math.abs(y - T.y)) <= 1 && T.skills.fire && T.lit >= 0 && S.tickNo - T.lit <= Math.max(2, (DAY || 1) * 2)) { sawHand(x, y); return { k: 'fire' }; }   /* a brand from the camp's fire; the fire stays */
+      const p = S.piles.find(q => q.x === x && q.y === y); if (p) { S.piles.splice(S.piles.indexOf(p), 1); sawHand(x, y); return { k: 'pile', kind: p.kind, amt: p.amt }; }
+      const q = S.popPeople ? T.sites.find(u => !u.upon && Math.abs(u.x - x) <= 1 && Math.abs(u.y - y) <= 1) : null; if (q) { q.lifted = true; sawHand(x, y); return { k: 'site', id: q.id, kind: q.kind }; }
+      if (!water[i] && tree[i] > 0.1) { const h = { k: 'tree', amt: tree[i], fruit: fruit[i] }; tree[i] = 0; fruit[i] = 0; cut[i] = 0; sawHand(x, y); return h; }
+      if (!water[i] && rock[i] >= 0.15) { const dug = Math.min(rock[i], 0.06); rock[i] -= dug; pit[i] = Math.min(1, pit[i] + dug); sawHand(x, y); return { k: 'pile', kind: 'stone', amt: dug * STONE_PER_TILE }; }
+      if (water[i]) { sawHand(x, y); return { k: 'water' }; }
+      return null;
+    },
+    drop(h, x, y) {
+      if (!h) return ''; x = clamp(x | 0, 0, N - 1); y = clamp(y | 0, 0, N - 1); const i = I(x, y), T = S.tribe, atCamp = S.popPeople && Math.max(Math.abs(x - T.x), Math.abs(y - T.y)) <= 2;
+      sawHand(x, y);
+      if (h.k === 'fire') { if (water[i]) return 'out'; burn[i] = 1; heat[i] += 4; if (atCamp && T.fuel > 0) T.lit = S.tickNo; return 'fire'; }
+      if (h.k === 'water') { if (water[i]) return 'water'; const was = burn[i] > 0; G.rain(x, y, 1, 0.25); return was ? 'doused' : 'wet'; }
+      if (h.k === 'pile') {
+        /* stone on stone: a spark, and whatever is dry beside it catches */
+        let spark = false;
+        if (h.kind === 'stone' && !water[i] && (rock[i] >= 0.15 || S.piles.some(q => q.kind === 'stone' && Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1))) {
+          let best = -1, bd = 0.3; area(x, y, 1, j => { if (!water[j] && snow[j] < 0.05 && soil[j] < 0.9 && grass[j] > bd) { bd = grass[j]; best = j; } });
+          if (best >= 0) { burn[best] = 1; spark = true; } }
+        if (atCamp && !spark) { if (h.kind === 'meat') addFood(T, 'store', 'meat', h.amt); else if (h.kind === 'wood') T.wood += h.amt; else T.stone += h.amt; return 'store'; }
+        const f = free(x, y); dropPile(f[0], f[1], h.kind, h.amt); return spark ? 'spark' : 'ground';
+      }
+      if (h.k === 'tree') {
+        if (water[i]) { const f = free(x, y); dropPile(f[0], f[1], 'wood', h.amt * WOOD_PER_STAND); return 'logs'; }   /* a tree set down in the water is driftwood */
+        let j = -1; const ok = t => !water[t] && tree[t] <= 0.1 && !T.sites.some(q => Math.abs(q.x - (t % N)) <= 1 && Math.abs(q.y - ((t / N) | 0)) <= 1);
+        for (let r = 0; r < 6 && j < 0; r++) area(x, y, r, t => { if (j < 0 && ok(t)) j = t; });
+        if (j < 0) { dropPile(x, y, 'wood', h.amt * WOOD_PER_STAND); return 'logs'; }
+        tree[j] = h.amt; fruit[j] = h.fruit || 0; field[j] = 0; return 'tree';
+      }
+      if (h.k === 'site') {
+        const q = T.sites.find(u => u.id === h.id); if (!q) return ''; q.lifted = false;
+        /* set on the nearest free lot of the lattice: the hand chooses where, the lattice how it sits */
+        const k0 = Math.round((x - T.x - 2) / PITCH), m0 = Math.round((y - T.y - 2) / PITCH); let bx = -1, by = -1, bd = 1e9;
+        for (let m = m0 - 3; m <= m0 + 3; m++) for (let k = k0 - 3; k <= k0 + 3; k++) { const lx = T.x + k * PITCH + 2, ly = T.y + m * PITCH + 2; if (lx < 2 || ly < 2 || lx >= N - 2 || ly >= N - 2 || water[I(lx, ly)]) continue;
+          if (T.sites.some(u => u !== q && u.upon !== q.id && u.x === lx && u.y === ly)) continue; const d = Math.hypot(lx - x, ly - y); if (d < bd) { bd = d; bx = lx; by = ly; } }
+        if (bx < 0 || (bx === q.x && by === q.y)) return 'back';
+        for (let j = 0; j < N * N; j++) if (owner[j] === q.id) owner[j] = 0;
+        for (const u of T.sites) if (u.upon === q.id) { u.x = bx; u.y = by; }
+        q.x = bx; q.y = by; const common = !BUILDINGS[q.kind] || !BUILDINGS[q.kind].room;
+        for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) { const j = I(bx + nx, by + ny); if (water[j]) continue; field[j] = 0; if (!common && !owner[j]) owner[j] = q.id; if (tree[j] > 0.1 && !nx && !ny) { dropPile(bx, by, 'wood', tree[j] * WOOD_PER_STAND); tree[j] = 0; } }
+        hsArr = null; S.stat.handMoved = (S.stat.handMoved || 0) + 1;
+        return 'site';
+      }
+      return '';
     },
     // test levers
     ruin(kind) { for (const q of S.tribe.sites) if (q.kind === kind) { q.stage = 0; q.wood = 0; q.stone = 0; } },   /* scenario lever: the store burns down */
@@ -4185,7 +4244,7 @@ function colorAt0(pxx, py) {
       const w0 = bWt[b], wv = wave[p];
       col = w < 0.57 ? C.foam : w0 > 0.88 ? C.deep : w0 > 0.7 ? C.mid : C.shal;
       if (w >= 0.57) { if (w0 > 0.63 && w0 < 0.655 && blot[p] > 96) col = C.glint;
-        else if (wv === 1 && w0 > 0.6) col = w0 > 0.88 ? C.mid : C.glint; else if (wv === 2 && w0 > 0.7) col = mulc(col, 0.9); } }
+        else if (wv === 2 && w0 > 0.7) col = mulc(col, 0.93); } }   /* the strokes of light themselves move: drawFlow */
     if (bS[b] * 3 > 0.6 && T < -3 && n > 110) col = C.snow;
     return col;
   }
@@ -4298,6 +4357,43 @@ function drawGround(cx) {
     } else cx.drawImage(ch.cv, ch.ox, ch.oy);
   }
 }
+/* THE GROUND MOVES. Light runs down the rivers the way they fall (toward where the water leaves the land); on still water it
+   only drifts. The wind goes through the grass in waves. Drawn over the painted ground each frame, in whole pixels and in
+   steps of about a tenth of a second, so it stays pixel art */
+const flowX = new Float32Array(N * N), flowY = new Float32Array(N * N); let flowSeen = -1;
+function syncFlow() {
+  const dist = new Int32Array(N * N).fill(-1), q = [];
+  for (let i = 0; i < N * N; i++) { const x = i % N, y = (i / N) | 0; if (W.water[i] && (x === 0 || y === 0 || x === N - 1 || y === N - 1)) { dist[i] = 0; q.push(i); } }
+  for (let h = 0; h < q.length; h++) { const i = q[h], x = i % N; for (const j of [x > 0 ? i - 1 : -1, x < N - 1 ? i + 1 : -1, i - N, i + N]) if (j >= 0 && j < N * N && W.water[j] && dist[j] < 0) { dist[j] = dist[i] + 1; q.push(j); } }
+  for (let i = 0; i < N * N; i++) { flowX[i] = flowY[i] = 0; if (dist[i] < 0) continue; const x = i % N, y = (i / N) | 0; let vx = 0, vy = 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) { vx += dx; vy += dy; continue; } const j = ny * N + nx; if (dist[j] < 0) continue; const d = dist[i] - dist[j]; vx += dx * d; vy += dy * d; }
+    const l = Math.hypot(vx, vy); if (l > 0.01) { flowX[i] = vx / l; flowY[i] = vy / l; } }
+}
+function drawFlow(cx, vis) {
+  if (flowSeen !== waterSeen) { syncFlow(); flowSeen = waterSeen; }
+  const z = cam.z, tq = Math.floor(now / 110) * 110, wet = S.precip > 0, road = T0.road;
+  let x0 = N, x1 = 0, y0 = N, y1 = 0;
+  for (const [px, py] of [[cam.x, cam.y], [cam.x + cv.width / z, cam.y], [cam.x, cam.y + cv.height / z], [cam.x + cv.width / z, cam.y + cv.height / z]]) {
+    const u = (px - OX) / (TW / 2), v = (py - OY) / (TH / 2), fx = (u + v) / 2, fy = (v - u) / 2; x0 = Math.min(x0, fx); x1 = Math.max(x1, fx); y0 = Math.min(y0, fy); y1 = Math.max(y1, fy); }
+  x0 = clamp(Math.floor(x0) - 1, 0, N - 1); x1 = clamp(Math.ceil(x1) + 1, 0, N - 1); y0 = clamp(Math.floor(y0) - 1, 0, N - 1); y1 = clamp(Math.ceil(y1) + 1, 0, N - 1);
+  const gt = tq * (wet ? 0.0021 : 0.0012);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const i = y * N + x; if (!vis(isoX(x + 0.5, y + 0.5), isoY(x + 0.5, y + 0.5))) continue;
+    if (W.water[i]) {
+      if (crossing[i] || cellT[i] < -3) continue; const fx = flowX[i], fy = flowY[i], moving = fx !== 0 || fy !== 0;
+      for (let k = 0; k < 5; k++) { const h = hash(i, k + 11); if (h > (moving ? 0.8 : 0.45)) continue;
+        const p = (tq * (moving ? 0.00042 : 0.00013) + h * 7.3) % 1, a = Math.sin(p * Math.PI); if (a < 0.3) continue;
+        const span = moving ? 1.7 : 0.5, tx = x + 0.5 + (hash(i, k + 3) - 0.5) * 0.8 + (moving ? fx : 0.7) * (p - 0.5) * span, ty = y + 0.5 + (hash(k + 5, i) - 0.5) * 0.8 + (moving ? fy : -0.7) * (p - 0.5) * span;
+        if (tx < 0 || ty < 0 || tx >= N || ty >= N || !waterF[(ty | 0) * N + (tx | 0)]) continue;
+        cx.fillStyle = a > 0.8 ? 'rgba(232,248,244,.8)' : 'rgba(200,236,232,.45)'; { const px = Math.round(isoX(tx, ty)), py = Math.round(isoY(tx, ty)), len = moving ? (a > 0.8 ? 8 : 5) : 4; cx.fillRect(px - (len >> 1), py, len, 1); if (moving && a > 0.8) { cx.fillStyle = 'rgba(200,236,232,.4)'; cx.fillRect(px - 1, py + 1, len - 3, 1); } } }
+    } else if (W.grass[i] > 0.45 && !W.field[i] && !lotMask[i] && !road[i] && W.snow[i] < 0.02 && cellT[i] >= 0 && W.tree[i] < 0.5) {
+      /* a gust is a band that travels; where it passes, blades catch the light and lean */
+      const g = Math.sin(x * 0.42 + y * 0.23 - gt + Math.sin(y * 0.11 + gt * 0.31) * 1.6); if (g < 0.5) continue; const s = (g - 0.5) * 2;
+      cx.fillStyle = 'rgba(240,250,180,' + (0.3 + 0.5 * s).toFixed(2) + ')';
+      for (let k = 0; k < 6; k++) { const tx = x + hash(i, k + 21), ty = y + hash(k + 27, i), px = Math.round(isoX(tx, ty)), py = Math.round(isoY(tx, ty)); cx.fillRect(px, py - 1, 1, 2); cx.fillRect(px + 1, py - 3, 1, 2); if (s > 0.6) cx.fillRect(px + 2, py - 3, 1, 1); }
+    }
+  }
+}
 // touch up only the ground a power is working on, right away
 function repaintCells(x0, y0, x1, y1) {
   x0 = clamp(x0 | 0, 0, N - 1); y0 = clamp(y0 | 0, 0, N - 1); x1 = clamp(x1 | 0, 0, N - 1); y1 = clamp(y1 | 0, 0, N - 1);
@@ -4359,6 +4455,12 @@ function leafState(i, T, falling) {
 const props = new Map();
 function wantProps() {
   const built = new Set(); for (const q of T0.sites) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) built.add((q.y + dy) * N + q.x + dx);   /* the ground a building stands on */
+  const FN = campOn ? T0.fence : null;
+  /* ground free for something to be set on: dry, no building's lot (other than the one named), no fence, road, field or standing tree */
+  const clearAt = (fx, fy, own, onWay) => { const tx = Math.floor(fx), ty = Math.floor(fy), t = ty * N + tx; if (tx < 0 || ty < 0 || tx >= N || ty >= N || W.water[t] || (T0.road[t] && !onWay) || W.field[t] || (FN && FN[t]) || W.tree[t] > 0.3) return false;
+    for (const q of T0.sites) if (q !== own && !q.upon && Math.abs(q.x - tx) <= 1 && Math.abs(q.y - ty) <= 1) return false; return true; };
+  /* a thing wanted at a place is put there if the ground is free, else on the nearest free ground within a tile and a half, else not at all */
+  const setNear = (key, o) => { for (const [dx, dy] of [[0, 0], [0.9, 0], [0, 0.9], [-0.9, 0], [0, -0.9], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9], [1.5, 0], [0, 1.5], [-1.5, 0], [0, -1.5]]) if (clearAt(o.x + dx, o.y + dy, null, true)) { o.x += dx; o.y += dy; want.set(key, o); return true; } return false; };
   const want = new Map(), falling = !W.daysLengthen(), cR = campR(), ripe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const i = y * N + x; if (W.water[i]) continue;
@@ -4376,7 +4478,10 @@ function wantProps() {
       want.set('c' + i, { kind: 'crop', i, x: x + 0.5 + jx * 0.3, y: y + 0.5 + jy * 0.3, base: 'c' + k + (img === A.cropDry) + (isGrain ? 'g' : 'v'), img, dy: 3 });
     }
     if (inCamp || W.field[i] || T0.road[i] || built.has(i)) continue;   /* no bush or rock drawn on a field, a made road or under a building */
-    if ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3)) {
+    /* nor on a fence, in a yard, or (a bush being wide) hard against a fence, a field, a road or a building */
+    if ((FN && FN[i]) || lotMask[i]) continue;
+    const crowded = [i - 1, i + 1, i - N, i + N].some(j => j >= 0 && j < N * N && ((FN && FN[j]) || W.field[j] || T0.road[j] || built.has(j)));
+    if (!crowded && ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3))) {
       const B = A.bush[(hash(i, 4) * A.bush.length) | 0], ls = snowy ? 'snow' : leafState(i, T, falling), berry = !snowy && ls !== 'frost' && (W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4));
       /* berries sit on whatever colour the leaves have turned */
       const st = berry ? (ls === 'gold' || ls === 'red' ? ls + 'Berry' : 'berry') : ls;
@@ -4388,7 +4493,7 @@ function wantProps() {
     }
     else if (nearWater[i] && h0 > 0.4 && h0 < 0.62 && T > -3) want.set('d' + i, { kind: 'reeds', i, x: x + 0.5 + jx * 0.6, y: y + 0.5, base: 'd', img: A.reeds, dy: 2 });
     /* tall grass where the grass has grown long and nothing has grazed it down */
-    else if (A.tuft && W.grass[i] > 0.6 && hash(i, 8) < (W.grass[i] - 0.6) * 0.8) {
+    else if (A.tuft && !crowded && W.grass[i] > 0.6 && hash(i, 8) < (W.grass[i] - 0.6) * 0.8) {
       const G = A.tuft[(hash(i, 10) * A.tuft.length) | 0], st = snowy ? 'snow' : leafState(i, T, falling);
       want.set('g' + i, { kind: 'grass', i, x: px, y: py, base: 'g' + st, img: G[st] || G.plain, dy: 4 });
     }
@@ -4420,9 +4525,9 @@ function wantProps() {
      then the firewood, a carved bench, the planter, then the rest; a spot on water, a street, a field or another building is passed over. */
   if (campOn) {
     const P = A.prop || {}, folkBy = new Map(), autumn = !W.daysLengthen() && S.air > -2, taken = new Set();
-    for (const q of T0.sites) taken.add(q.y * N + q.x);
+    for (const q of T0.sites) taken.add(q.y * N + q.x); const used = new Set();
     for (const b of S.agents) if (b.alive && b.d.people && b.house) { let f = folkBy.get(b.house); if (!f) folkBy.set(b.house, f = { n: 0, small: 0, baby: 0, elder: 0, jobs: new Set(), likes: new Set(), herbs: 0 }); f.n++; if (b.age < 2) f.baby++; else if (b.age < b.d.mature) f.small++; if (b.age > 46) f.elder++; if (b.job) f.jobs.add(b.job); for (const k of b.likes || []) f.likes.add(k); if (b.skill && b.skill.gather > 1.3) f.herbs++; }
-    const SPOTS = [[1.25, 1.25], [1.45, 0.5], [0.5, 1.45], [1.5, -0.4], [-0.4, 1.5]];
+    const SPOTS = [[1.25, 1.25], [1.45, 0.5], [0.5, 1.45], [1.4, -0.45], [-0.45, 1.4]];   /* all on the household's own lot: the tile beyond is the way between lots */
     for (const q of T0.sites) {
       if (q.upon || !(W.BUILDINGS[q.kind] || {}).room || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
       const f = folkBy.get(q.id), L = q.larder || 0, n = Math.max(1, f ? f.n : 1), items = [];
@@ -4454,7 +4559,7 @@ function wantProps() {
       let si = 0;
       for (const it of items) {
         while (si < SPOTS.length) { const [ox, oy] = SPOTS[si], tx = Math.floor(q.x + 0.5 + ox), ty = Math.floor(q.y + 0.5 + oy), t = ty * N + tx;
-          if (tx >= 0 && ty >= 0 && tx < N && ty < N && !T0.road[t] && !W.field[t] && !W.water[t] && !(taken.has(t) && (tx !== q.x || ty !== q.y))) break; si++; }
+          if (clearAt(q.x + 0.5 + ox, q.y + 0.5 + oy, q) && !used.has(t)) { used.add(t); break; } si++; }
         if (si >= SPOTS.length) break;
         const [ox, oy] = SPOTS[si++]; want.set(it.key + q.id, { kind: it.kind, x: q.x + 0.5 + ox, y: q.y + 0.5 + oy, base: it.base, img: it.img, dy: it.dy });
       }
@@ -4464,20 +4569,20 @@ function wantProps() {
     const P = A.prop;
     /* by the fire and the store: market stalls once there is a market (H4), a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
     /* H4: once there is coin, the four lots round the fire are the market, a stall on each */
-    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N || W.water[y * N + x]) return; want.set('mk' + n, { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }); });
-    if ((T0.hunts || 0) > 0 && P.cooking_spit) want.set('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
-    if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) want.set('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
-    { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) want.set('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
-    if (S.agents.some(b => b.alive && b.tame) && P.trough) want.set('trough', { kind: 'prop', x: camp.x - 1.4, y: camp.y + 1.8, base: 'trough', img: P.trough, dy: 3 });
+    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) return; /* a stall stands on its market lot while the lot is open; once something is built there the stall is gone (the shop is the house itself) */ const o = { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }; if (clearAt(o.x, o.y)) want.set('mk' + n, o); });
+    if ((T0.hunts || 0) > 0 && P.cooking_spit) setNear('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
+    if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) setNear('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
+    { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) setNear('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
+    if (S.agents.some(b => b.alive && b.tame) && P.trough) setNear('trough', { kind: 'prop', x: camp.x - 1.4, y: camp.y + 1.8, base: 'trough', img: P.trough, dy: 3 });
     /* lanterns on paved crossings of the lattice */
     if (T0.pave >= 2 && P.lantern) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH, y = T0.y + m * W.PITCH; if (x < 0 || y < 0 || x >= N || y >= N || !T0.road[y * N + x] || (k + m) % 2) continue; want.set('ln' + x + ',' + y, { kind: 'prop', x: x + 0.85, y: y + 0.85, base: 'ln', img: P.lantern, dy: 3 }); }
     /* scarecrows in the middle of field lots */
     if (P.scarecrow) for (let m = -8; m <= 8; m++) for (let k = -8; k <= 8; k++) { const x = T0.x + k * W.PITCH + 2, y = T0.y + m * W.PITCH + 2; if (x < 0 || y < 0 || x >= N || y >= N || !W.field[y * N + x] || (k * 7 + m * 3) % 3) continue; want.set('sc' + x + ',' + y, { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'sc', img: P.scarecrow, dy: 3 }); }
     /* stumps left by felling, with mushrooms, where nothing else has been put since */
-    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || (W.owner && W.owner[j]) || W.water[j]) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
+    if (P.stump_mushrooms) for (const j of (S.stumps || []).slice(-40)) { if (W.tree[j] > 0.05 || W.field[j] || T0.road[j] || lotMask[j] || (W.owner && W.owner[j]) || W.water[j] || !clearAt(j % N, (j / N) | 0)) continue; want.set('st' + j, { kind: 'prop', x: (j % N) + 0.5, y: ((j / N) | 0) + 0.5, base: 'st', img: P.stump_mushrooms, dy: 3 }); }
   }
   /* once there has been music by the fire, there are logs to sit on round it */
-  if (campOn && S.musicT) for (let k = 0; k < 3; k++) { const ang = k * 2.1 + 0.5; want.set('ls' + k, { kind: 'seat', x: fire.x + Math.cos(ang) * 1.1, y: fire.y + Math.sin(ang) * 0.9, base: 'ls', img: A.logSeat, dy: 2 }); }
+  if (campOn && S.musicT) for (let k = 0; k < 3; k++) { const ang = k * 2.1 + 0.5; setNear('ls' + k, { kind: 'seat', x: fire.x + Math.cos(ang) * 1.1, y: fire.y + Math.sin(ang) * 0.9, base: 'ls', img: A.logSeat, dy: 2 }); }
   /* bridges: every one finished, and the one being laid as far as its timber goes */
   if (campOn) {
     const byKey = new Map(W.fords().map(f => [f.key, f]));
@@ -4490,8 +4595,11 @@ function wantProps() {
   for (const p of S.piles || []) { const im = A.item[p.kind === 'wood' ? 'log' : p.kind], n = Math.min(6, Math.ceil(p.amt / 1.5)); for (let k = 0; k < n; k++) want.set('p' + p.kind + p.x + ',' + p.y + ':' + k, { kind: 'pile', x: p.x + 0.3 + (k % 3) * 0.16, y: p.y + 0.4 + ((k / 3) | 0) * 0.12, base: 'p' + p.kind, img: im, dy: 3 }); }
   const logs = campOn ? Math.min(6, Math.ceil(T0.wood / 2)) : 0;
   for (let k = 0; k < logs; k++) want.set('w' + k, { kind: 'logs', x: store.x - 0.3 + (k % 3) * 0.14, y: store.y + 0.45 + ((k / 3) | 0) * 0.12, base: 'w', img: A.item.log, dy: 2 });
-  if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) want.set('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
+  if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) setNear('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
   if (campOn && T0.skills.fire) want.set('ring', { kind: 'ring', x: fire.x, y: fire.y, base: 'ring', img: A.ring, dy: 4 });
+  /* nothing wild is drawn where something made has been set down */
+  { const WILD = { bush: 1, rock: 1, reeds: 1, grass: 1 }, busy = new Set(); for (const o of want.values()) if (!WILD[o.kind] && o.kind !== 'tree' && o.kind !== 'crop') busy.add(Math.floor(o.y) * N + Math.floor(o.x));
+    for (const [k, o] of want) if (WILD[o.kind] && busy.has(o.i)) want.delete(k); }
   return want;
 }
 function reconcile() {
@@ -4523,6 +4631,7 @@ function syncHuts() {
       h.p = Math.min(h.p, tp);
       if (h.kind !== st.kind) h.p = 0.05;
     }   // washed out, or being rebuilt as something better
+    if (!st.lifted) { h.x = st.x + 0.5; h.y = st.y + 0.5; }
     h.kind = st.kind; h.was = st.was; h.lake = st.lake; h.target = tp; h.upon = st.upon || 0;
     /* I1: a floor built upon a house is drawn as part of it; the house below counts its floors, the finished ones and one being built */
     h.floors = 1 + sites.filter(u => u.upon === st.id && u.stage >= W.DWELL[u.kind].stages).length; h.floorUp = sites.some(u => u.upon === st.id && u.stage < W.DWELL[u.kind].stages); h.live = !!(W.BUILDINGS[st.kind] || { room: 1 }).room && (!!st.was || st.stage >= n);
@@ -5106,7 +5215,7 @@ function clampCam() {
 const toWorld = (sx, sy) => ({ x: cam.x + sx * dpr / cam.z, y: cam.y + sy * dpr / cam.z });
 const toCell = (sx, sy) => { const w = toWorld(sx, sy), c = cellAt(w.x, w.y); return { x: clamp(c.x, 0, N - 0.01), y: clamp(c.y, 0, N - 0.01), wx: w.x, wy: w.y }; };
 function zoomAt(sx, sy, f) { const w = toWorld(sx, sy); cam.z = clamp(cam.z * f, minZ(), maxZ()); cam.x = w.x - sx * dpr / cam.z; cam.y = w.y - sy * dpr / cam.z; clampCam(); }
-const ptrs = new Map(); let pinch = null, held = null, heldPile = null, act = null, lastStrike = 0, bolt = null;
+const ptrs = new Map(); let pinch = null, held = null, heldThing = null, act = null, lastStrike = 0, bolt = null;
 function actorAt(w) {
   let best = null, bd = 26;
   for (const r of actors.values()) {
@@ -5118,6 +5227,21 @@ function actorAt(w) {
     }
   }
   return best;
+}
+/* the hand lifts what is at a place: asks the simulation for it, and remembers its picture to carry */
+function liftAt(c, w, ground) {
+  const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N, T = S.tribe;
+  for (let d = 0; d <= 2; d++) { const x = (c.x | 0) + d, y = (c.y | 0) + d; if (!inb(x, y)) continue; const i = y * N + x;
+    const tall = W.tree[i] > 0.1 || T.sites.some(q => !q.upon && Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1);
+    const low = W.burn[i] > 0 || (S.piles || []).some(p => p.x === x && p.y === y) || (S.popPeople && Math.abs(x - T.x) <= 1 && Math.abs(y - T.y) <= 1);
+    const bare = W.water[i] || (W.rock && W.rock[i] >= 0.15);
+    if (!(tall || (d === 0 && (low || (ground && bare))))) continue;
+    const pr = props.get('t' + i), img = pr ? pr.img : null, h = W.G.pick(x, y); if (!h) continue;
+    heldThing = { h, img, wx: w.x, wy: w.y, cx: x, cy: y };
+    say({ fire: 'Fire.', water: 'Water, cupped in the hand.', tree: 'A tree, roots and all.', site: 'A ' + (h.kind || 'building') + ', lifted off its ground.', pile: { meat: 'Meat.', wood: 'Logs.', stone: 'A stone.' }[h.kind] }[h.k] || '');
+    if (h.k === 'tree' || h.k === 'pile') repaintCells(x - 2, y - 2, x + 2, y + 2);
+    reconcile(); return true; }
+  return false;
 }
 cv.addEventListener('pointerdown', e => {
   if (paused) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -5134,10 +5258,11 @@ cv.addEventListener('pointerdown', e => {
       const who = W.describe(r.a);
       if (who) say(who);
     }
-    /* no creature under the hand: a pile of meat, logs or stone can be picked up instead */
-    let pile = null; if (!r) { let bd = 30; for (const p of S.piles || []) { const d = Math.hypot(isoX(p.x + 0.5, p.y + 0.5) - w.x, isoY(p.x + 0.5, p.y + 0.5) - 4 - w.y); if (d < bd) { bd = d; pile = p; } } }
-    if (pile) { heldPile = { x: pile.x, y: pile.y, kind: pile.kind, wx: w.x, wy: w.y }; say({ meat: 'Meat', wood: 'Logs', stone: 'Stone' }[pile.kind] + ': set it down by the fire for the village, or anywhere for people to fetch.'); }
-    act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r && !pile };
+    /* no creature under the hand: whatever else is there is lifted. Tall things (a tree, a house) are also caught by the
+       ground just in front of where they were touched. Open water and bare rock are taken only by holding still a moment,
+       so that dragging across a lake still moves the view */
+    if (!r) { const c0 = toCell(e.clientX, e.clientY); liftAt(c0, w, false); }
+    act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r && !heldThing, t0: now, x0: e.clientX, y0: e.clientY };
   }
   else if (tool === 'strike') {
     if (now - lastStrike > 600) {
@@ -5169,7 +5294,7 @@ cv.addEventListener('pointermove', e => {
   }
   if (!act || act.id !== e.pointerId) return; act.x = p.x; act.y = p.y;
   if (held) { const c = toCell(p.x, p.y + 10); held.x = c.x; held.y = c.y; }
-  else if (heldPile) { const w2 = toWorld(p.x, p.y); heldPile.wx = w2.x; heldPile.wy = w2.y; }
+  else if (heldThing) { const w2 = toWorld(p.x, p.y); heldThing.wx = w2.x; heldThing.wy = w2.y; if (heldThing.h.k === 'site') { const c2 = toCell(p.x, p.y), hu = huts.find(q => q && q.id === heldThing.h.id); if (hu) { hu.x = c2.x; hu.y = c2.y; } } }
   else if (act.pan) { cam.x -= (p.x - ox) * dpr / cam.z; cam.y -= (p.y - oy) * dpr / cam.z; clampCam(); }
 });
 function dropHeld() {
@@ -5181,11 +5306,17 @@ function dropHeld() {
   if (r.a.d.people) { P.go(camp.x + R(-1, 1), camp.y + R(-1, 1), SPEED.person.walk); } else { const e = endOf(r.a); P.go(e.x, e.y, SPEED[kind(r.a)].walk); }
   P.done('idle'); r.si = -1; for (const s of r.plan) if (s.u1 <= u) { s.u0 = s.u1 = u; }
 }
-const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (act && act.id === e.pointerId) { if (held) dropHeld(); if (heldPile) dropPile(e); act = null; } };
-function dropPile(e) {
-  const hp = heldPile; heldPile = null; const c = toCell(e.clientX, e.clientY), where = W.G.movePile(hp.x, hp.y, hp.kind, clamp(c.x | 0, 0, N - 1), clamp(c.y | 0, 0, N - 1));
-  if (where === 'store') say({ meat: 'The meat is in the common store by the fire.', wood: 'The logs are on the woodpile.', stone: 'The stone is stacked by the fire.' }[hp.kind]);
-  burst(c.x, c.y, 'dust', 6); reconcile();
+const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (act && act.id === e.pointerId) { if (held) dropHeld(); if (heldThing) dropThing(e); act = null; } };
+function dropThing(e) {
+  const ht = heldThing; heldThing = null; const c = toCell(e.clientX, e.clientY), x = clamp(c.x | 0, 0, N - 1), y = clamp(c.y | 0, 0, N - 1), res = W.G.drop(ht.h, x, y);
+  const SAY = { store: 'Set down by the fire: it is the village\'s now.', spark: 'Stone on stone: a spark, and the dry grass has caught.', fire: 'Fire, set down.', out: 'The fire is out in the water.', doused: 'The water has put the fire out.',
+    wet: 'Water on the ground.', tree: 'The tree stands where it was put.', logs: 'The tree has come down as logs.', site: 'Set down on the nearest free lot.', back: 'There is no free lot there: it is back where it stood.' };
+  if (SAY[res]) say(SAY[res]);
+  if (res === 'spark' || res === 'fire') { burst(c.x, c.y, 'ember', 12); burst(c.x, c.y, 'smoke', 8); scatterFrom(c.x, c.y, 3); for (let i = 0; i < N * N; i++) if (W.burn[i] > 0) scar[i] = 1; }
+  else if (res === 'wet' || res === 'doused') burst(c.x, c.y, 'splash', 8, { vy: -0.03, max: 350 }); else if (res === 'out' || res === 'water') ripples.push({ x: isoX(c.x, c.y), y: isoY(c.x, c.y), t: now });
+  else burst(c.x, c.y, 'dust', 6);
+  if (res === 'site' || res === 'back') { syncLots(); syncHuts(); startPaint(); }
+  takeEvents(true); reconcile(); repaintCells(x - 3, y - 3, x + 3, y + 3);
 }
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 0.87); }, { passive: false });
@@ -5201,6 +5332,7 @@ function scatterFrom(x, y, rad) {
 }
 // the powers: each one pushes the engine at the touched place, and the ground answers at once
 function usePower(dtMs) {
+  if (act && tool === 'hand' && act.pan && !held && !heldThing && now - act.t0 > 350 && Math.hypot(act.x - act.x0, act.y - act.y0) < 6) { if (liftAt(toCell(act.x, act.y), toWorld(act.x, act.y), true)) act.pan = false; else act.t0 = 1e15; }
   if (!act || tool === 'hand' || tool === 'strike') return; act.acc += dtMs; act.t += dtMs; if (act.acc < 120) return;
   const frac = act.acc / 2500; act.acc = 0; const c = toCell(act.x, act.y), x = c.x | 0, y = c.y | 0, cold = W.tempAt(y * N + x) < 0;
   if (tool === 'rain') {
@@ -5275,6 +5407,7 @@ function frame(t) {
   drawGround(cx);
   const vw = cv.width / z, vh = cv.height / z, vx0 = cam.x - 80, vx1 = cam.x + vw + 80, vy0 = cam.y - 20, vy1 = cam.y + vh + 150;
   const vis = (wx, wy) => wx > vx0 && wx < vx1 && wy > vy0 && wy < vy1;
+  drawFlow(cx, vis);
   // cloud shadows drifting over the land
   const cloudy = S.precip > 0 ? 0.16 : 0.07;
   for (const c of clouds) {
@@ -5682,7 +5815,11 @@ function frame(t) {
     }
     else if (tool === 'grow') { cx.strokeStyle = 'rgba(214,245,166,.5)'; cx.lineWidth = 1; cx.beginPath(); cx.ellipse(wx, wy, 140, 70, 0, 0, 6.3); cx.stroke(); }
   }
-  if (heldPile) { const im = A.item[heldPile.kind === 'wood' ? 'log' : heldPile.kind]; for (let k = 0; k < 3; k++) cx.drawImage(im, Math.round(heldPile.wx - im.width / 2 + (k - 1) * 4), Math.round(heldPile.wy - 18 - k * 3)); }
+  if (heldThing) { const ht = heldThing, hx = Math.round(ht.wx), hy = Math.round(ht.wy);
+    if (ht.h.k === 'pile') { const im = A.item[ht.h.kind === 'wood' ? 'log' : ht.h.kind]; for (let k = 0; k < 3; k++) cx.drawImage(im, Math.round(hx - im.width / 2 + (k - 1) * 4), hy - 18 - k * 3); }
+    else if (ht.h.k === 'tree' && ht.img) cx.drawImage(ht.img, Math.round(hx - ht.img.width / 2), hy - ht.img.height + 4);
+    else if (ht.h.k === 'fire') { const f = Math.floor(t / 90) % 3; cx.fillStyle = '#e8622c'; cx.fillRect(hx - 3, hy - 14 - f, 6, 8 + f); cx.fillStyle = '#ffb347'; cx.fillRect(hx - 2, hy - 12 - f, 4, 6 + f); cx.fillStyle = '#fff3b0'; cx.fillRect(hx - 1, hy - 9, 2, 3); cx.fillStyle = '#5a3a22'; cx.fillRect(hx - 1, hy - 6, 2, 8); }
+    else if (ht.h.k === 'water') { cx.fillStyle = '#4f93a3'; cx.fillRect(hx - 4, hy - 12, 8, 5); cx.fillRect(hx - 3, hy - 13, 6, 7); cx.fillStyle = '#cfe9e4'; cx.fillRect(hx - 2, hy - 12, 2, 1); } }
   if (bolt) {
     const age = now - bolt.t;
     if (age > 300) bolt = null; else {
@@ -5817,7 +5954,8 @@ function drawRod(d) {
 
 // ================================================================== the few controls there are
 const tools = document.getElementById('tools');
-for (const [id, label] of [['hand', 'Hand'], ['rain', 'Rain'], ['sun', 'Sun'], ['grow', 'Grow'], ['strike', 'Strike']]) {
+/* one power only: the hand. There is nothing to choose between, so no buttons are shown */
+for (const [id, label] of []) {
   const b = document.createElement('button');
   b.className = 'tool' + (id === tool ? ' sel' : '');
   b.dataset.t = id;
