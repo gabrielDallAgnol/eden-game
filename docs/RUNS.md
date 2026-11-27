@@ -1614,3 +1614,24 @@ What changed: the first grown person to be nearly sure someone is there goes to 
 | highland | 1 | 16 | 43 | 76 | 91 | 9 | 1 | 41 | 0 | 12 | 1/45/5 | 3 | 27.9 | 13.5 | 16.6 | 3 |  | 285 | 73 | 17.5 | 2.8 | 0.6923076923076923 (13) | 74/0/0/2/21 | 58 | 6 | 13 | 2 | 0 | 13506 |
 | highland | 2 | 4 | 15 | 72 | 73 | 19 | 5 | 0 | 0 | 12 | 7/44/6 | 2.8 | 18 | 10.7 | 11.8 | 2 |  | 154 | 88 | 11.2 | 4.2 | 0 (1) | 65/0/0/4/24 | 37 | 3.6 | 13 | 5 | 0 | 8974 |
 | mean |  | 12.9 | 31.3 | 160.2 | 162.3 | 41.8 | 3.2 | 4.5 | 0.1 | 13 |  | 2.6 | 18.6 | 17 | 9.5 | 10.4 | 1.3 | 965.5 | 76.8 | 19.2 | 4.6 |  |  | 45.2 | 5 | 20.6 | 3.8 | 0 | 15283.4 |
+
+## Later questions and counsel; people who differ; a founding band of eight (2026-11-27)
+
+What changed: once a name is known, a believer brings the place's worst trouble to the player (flood, fever, vanishing trees) and the answer is kept as counsel that weighs in choices people already make. People differ in height, build and beard, inherited. The game and this table start with three couples and two children (`human: 6`). The view glides to the one who asks. Camp things, stalls and yard things no longer share a tile.
+- **Checked.** tests.html: 537 passed, 0 failed (1 warning, 39 skipped), with a new check of the questions, the counsel and the silence. Against the table above (a family of four): year 25 mean 12.9 -> 13.8, year 50 31.3 -> 33.1, year 100 160.2 -> 156.6. The spread is narrower: nine worlds end between 109 and 297 (before: 30 to 322).
+- **Not right.** Forest 2 dies out twice and ends with 4 people (with a family of four it reached 201). I have not found why; the band may eat out the camp's ground in the first winters. Valley 1 has 13 hunger deaths.
+- **Not done.** Whether counsel turned out well is not remembered; no built answer to sickness.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 11 | 26 | 109 | 109 | 32 | 13 | 0 | 0 | 11 | 17/163/7 | 2.4 | 17 | 17.2 | 5.5 | 5 | 1.2 | 1050 | 94 | 15.6 | 4.1 |  | 63/0/0/4/25 | 45 | 3 | 17 | 4 | 0 | 11876 |
+| valley | 2 | 13 | 31 | 143 | 143 | 35 | 3 | 0 | 0 | 11 | 3/136/10 | 2.6 | 15.3 | 22 | 5.9 | 3 | 1 | 428 | 102 | 24.5 | 3.9 |  | 70/0/0/0/23 | 39 | 3 | 17 | 2 | 0 | 14328 |
+| plains | 1 | 17 | 43 | 149 | 149 | 24 | 4 | 0 | 0 | 15 | 1/147/2 | 3.4 | 27.3 | 15.9 | 12.4 | 3 | 0.7 | 632 | 27 | 24.5 | 6.3 |  | 71/0/0/2/24 | 67 | 8 | 17 | 1 | 0 | 21348 |
+| plains | 2 | 17 | 45 | 297 | 297 | 65 | 1 | 0 | 0 | 15 | 8/154/5 | 3 | 24.2 | 23.8 | 11.7 | 15 | 0.5 | 2762 | 69 | 27.6 | 4.6 |  | 70/0/0/3/23 | 70 | 4.5 | 25 | 3 | 0 | 20733 |
+| forest | 1 | 14 | 26 | 112 | 112 | 33 | 2 | 0 | 0 | 12 | 24/100/9 | 2.8 | 15.5 | 14 | 6.3 | 6 | 1.2 | 2226 | 38 | 17.9 | 3 | 2.5 (2) | 63/0/0/5/23 | 42 | 3.1 | 21 | 1 | 0 | 13217 |
+| forest | 2 | 3 | 1 | 4 | 8 | 1 | 6 | 0 | 2 | 3 | 52/111/0 | 2.1 | 3.8 | 11 | 2.6 | 0 | 0.8 | 7 | 11 | 25.7 | 4.6 |  | 92/6/0/0/3 | 5 | 3 | 8 | 0 | 0 | 8681 |
+| lakeland | 1 | 13 | 39 | 190 | 190 | 55 | 3 | 0 | 0 | 17 | 8/154/9 | 3 | 21.3 | 20 | 11.2 | 25 | 0.5 | 1251 | 56 | 18.9 | 2.8 | 0 (4) | 64/0/0/2/26 | 52 | 9.7 | 29 | 8 | 0 | 17878 |
+| lakeland | 2 | 15 | 31 | 199 | 199 | 60 | 2 | 0 | 0 | 15 | 17/159/0 | 2.5 | 23 | 24.6 | 6.6 | 6 | 1.3 | 2653 | 21 | 33.6 | 2.9 |  | 68/0/0/3/25 | 40 | 3.3 | 29 | 3 | 0 | 16452 |
+| highland | 1 | 21 | 51 | 163 | 163 | 26 | 4 | 0 | 0 | 14 | 7/28/5 | 3 | 28.3 | 18.3 | 17.7 | 8 | 1.2 | 411 | 141 | 18.4 | 2.9 | 1.625 (8) | 78/0/0/0/18 | 65 | 9.5 | 17 | 2 | 0 | 16443 |
+| highland | 2 | 14 | 38 | 200 | 200 | 36 | 8 | 18 | 0 | 17 | 0/71/5 | 3.7 | 25.4 | 13.9 | 16.1 | 15 | 1.1 | 940 | 141 | 15.7 | 4 | 0 (5) | 69/0/0/2/22 | 59 | 12.8 | 25 | 6 | 0 | 16188 |
+| mean |  | 13.8 | 33.1 | 156.6 | 157 | 36.7 | 4.6 | 1.8 | 0.2 | 13 |  | 2.9 | 20.1 | 18.1 | 9.6 | 8.6 | 1 | 1236 | 70 | 22.2 | 3.9 |  |  | 48.4 | 6 | 20.5 | 3 | 0 | 15714.4 |

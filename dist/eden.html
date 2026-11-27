@@ -25,7 +25,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#27412a;font-family:ui
 <div id="know"></div>
 <div id="news"></div><div id="tools"></div>
 <div id="intro"><div id="card"><h1>Eden</h1>
-<p>A family in a valley. Nothing here is scripted: warmth, water and hunger decide everything. Watch for a while: people fish, pick, carry and build, children play, animals graze, rest together, raise their young and hunt.</p>
+<p>A small band in a valley: three couples and two children. Nothing here is scripted: warmth, water and hunger decide everything. Watch for a while: people fish, pick, carry and build, children play, animals graze, rest together, raise their young and hunt.</p>
 <ul><li><b>Drag</b> to look around, pinch or scroll to zoom.</li>
 <li><b>Your hand is your only power.</b> Press on a thing to lift it, let go to set it down: a person, a beast, a tree, a stone, fire, a handful of water, a house.</li>
 <li>What follows is the world's doing. A stone set on stone strikes a spark. Fire burns what will burn. Water puts it out.</li>
@@ -302,7 +302,7 @@ function create(seed, opt) {
   function takePile(pl, max) { const t = Math.min(pl.p.amt, max); pl.p.amt -= t; if (pl.p.amt <= 0.05) S.piles.splice(S.piles.indexOf(pl.p), 1); return t; }
   /* how far a person looks for standing timber is its own habit, apart from how far they look for food: it grows each time no
      tree is found within it and eases back when one is, up to what can be walked out and back with a load in a day */
-  function standFor(x, y, a, minNew) { if (a.reachW === undefined) a.reachW = WALK * 2; const r = a.reachW; let j = nearestWay(x, y, q => cut[q] && tree[q] > 0, 0, r); if (j < 0) j = nearestWay(x, y, q => tree[q] >= minNew, 1.5, r);
+  function standFor(x, y, a, minNew) { if (a.reachW === undefined) a.reachW = WALK * 2; const r = a.reachW; let j = nearestWay(x, y, q => cut[q] && tree[q] > 0, 0, r); if (S.tribe.counsel && S.tribe.counsel.spare) minNew = Math.max(minNew, 0.6);   /* counselled to leave the young trees standing */ if (j < 0) j = nearestWay(x, y, q => tree[q] >= minNew, 1.5, r);
     if (j < 0) { a.reachW = Math.min(REACH_W, r * 1.25 + 1);
       /* timber standing near as the crow flies but out of reach on foot, over the water or round a bend of it: the want of a way across is felt at the narrow place */
       if (S.tickNo % 4 === 0) { let t = -1; for (let q = 1; q <= r && t < 0; q++) for (let dy = -q; dy <= q && t < 0; dy++) for (let dx = -q; dx <= q; dx += (dy === -q || dy === q) ? 1 : 2 * q) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; if (tree[I(nx, ny)] >= minNew) { t = I(nx, ny); break; } }
@@ -712,6 +712,9 @@ function create(seed, opt) {
     a.skill = {}; for (const k of CRAFTS) a.skill[k] = R(0.8, 1.1);
     // how they look: skin and hair come down from the parents, clothes are their own (the view turns these numbers into colours)
     a.looks = { skin: (rnd() * 5) | 0, hair: (rnd() * 6) | 0, top: (rnd() * 10) | 0, legs: (rnd() * 6) | 0 };
+    /* and how they are made: height, build, and for a man how he wears his beard. These come from the person's number, not from chance drawn
+       in the run, and a child has each from one parent or the other (below) */
+    { const hh = k => ((Math.imul(a.id + 17, 2654435761) >>> (8 + k * 5)) & 31) / 32; a.looks.tall = hh(0) < 0.25 ? 0 : hh(0) < 0.75 ? 1 : 2; a.looks.build = hh(1) < 0.25 ? 0 : hh(1) < 0.75 ? 1 : 2; a.looks.beard = hh(2) < 0.4 ? 0 : hh(2) < 0.75 ? 1 : 2; }
   }
   // What people love doing. Each person has one to three things they turn to on a fed, free evening; a child takes after a
   // parent more often than not, and a grown person comes to love what they do every day (the gatherer the garden, the
@@ -1918,8 +1921,8 @@ function create(seed, opt) {
       if (well) { let d = 0; for (const q of homes) d += Math.hypot(q.x - x, q.y - y); sc -= homes.length ? d / homes.length : dc; }   // where it is least far for everyone
       else {
         sc -= dc * 0.55; sc += Math.min(1.5, way) * 1.2;
-        if (T.need.sick > 0.5) { let fo = 0; for (const u of T.sites) if (u.foul > 0.05) { const dx = u.x - x, dy = u.y - y; if (dx <= 9 && dx >= -9 && dy <= 9 && dy >= -9) fo += u.foul / (1 + (dx * dx + dy * dy) / 9); } sc -= fo * 0.08 * Math.min(3, T.need.sick); }   /* where fever has killed, people build away from crowded, fouled ground */                                                      // near the fire and the others, on a way already walked
-        sc -= bank[i] * (0.3 + T.need.flood * 1.5 + (T.floodSeen ? 1.2 : 0));
+        if (T.need.sick > 0.5) { let fo = 0; for (const u of T.sites) if (u.foul > 0.05) { const dx = u.x - x, dy = u.y - y; if (dx <= 9 && dx >= -9 && dy <= 9 && dy >= -9) fo += u.foul / (1 + (dx * dx + dy * dy) / 9); } sc -= fo * 0.08 * Math.min(3, T.need.sick) * (T.counsel && T.counsel.apart ? 2.5 : 1); }   /* where fever has killed, people build away from crowded, fouled ground */                                                      // near the fire and the others, on a way already walked
+        sc -= bank[i] * (0.3 + T.need.flood * 1.5 + (T.floodSeen ? 1.2 : 0) + (T.counsel && T.counsel.high ? 1.5 : 0));
         if (craft === 'fisher' || craft === 'fish') sc += bank[i] * (T.floodSeen ? 2.8 : 2);
         if (craft === 'farmer') sc += crops * 0.5;
         if (craft === 'woodcutter' || craft === 'builder' || craft === 'build') sc += timber * 0.3;
@@ -2308,7 +2311,7 @@ function create(seed, opt) {
     for (const a of S.agents) { if (!a.alive || a.d.people) continue; const to = a.tame ? out.beasts : out.wild; to[a.sp] = (to[a.sp] || 0) + 1; }
     let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
     out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
-    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.offerings = Math.round((T.offer || 0) * 10) / 10; out.godName = T.godName || ''; out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
+    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.offerings = Math.round((T.offer || 0) * 10) / 10; out.godName = T.godName || ''; out.counsel = Object.keys(T.counsel || {}); out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
     out.known = Object.keys(T.skills).filter(k => T.skills[k]);
     return out;
   }
@@ -2388,6 +2391,7 @@ function create(seed, opt) {
       T.offer = (T.offer || 0) * 0.4; for (const [id, g] of by) { if (g.f / g.n <= 0.5) continue; const q = T.sites.find(u => u.id === id); if (!q || !((q.larder || 0) > g.n * 1.5)) continue; const amt = 0.15 * g.n; mixOf(q, 'larder'); q.larder -= amt; mixOf(q, 'larder'); T.offer += amt; S.stat.offerings = (S.stat.offerings || 0) + 1;
         if (!T.offerTold) { T.offerTold = true; const b = P.find(c => c.house === id); tell((b ? b.name + '\'s household has' : 'A household has') + ' left food out ' + (standing('shrine') ? 'at the shrine' : 'by the fire') + ' for ' + (T.godName || 'whoever it is that watches') + '.'); } }
       for (const a of P) { const g = a.house && by.get(a.house); if (g && g.n > 1 && g.f > 0) { a.faith = (a.faith || 0) + 0.2 * (g.f / g.n - (a.faith || 0)); a.trust = (a.trust || 0) + 0.2 * (g.t / g.n - (a.trust || 0)); } if (a.faith) a.faith *= 0.98; } }
+    nextQuestion();
         T.kidDied *= 0.85; T.kidBorn *= 0.85;   /* what was seen of children living and dying fades over the years */
     // wants that are only seen over a year
     N_.crowd += Math.max(0, households() - T.sites.filter(isHome).length);
@@ -2614,6 +2618,7 @@ function create(seed, opt) {
       T.need.flood += 3;
       tell('The flood has taken a ' + (w.was || w.kind) + '.' + (T.floodSeen ? '' : ' Nobody will build so low again without thinking.'));
       T.floodSeen = true;
+      T.floodT = S.t;
       w.was = '';
       w.stage = 0;
       /* what the water leaves: most of the stone and some of the timber lie where the house stood */
@@ -2763,6 +2768,7 @@ function create(seed, opt) {
         if (m) {
           c.looks.skin = (f && rnd() < 0.5 ? f : m).looks.skin;
           c.looks.hair = (f && rnd() < 0.5 ? f : m).looks.hair;
+          ['tall', 'build', 'beard'].forEach((k, n) => { const src = f && ((c.id >> n) & 1) ? f : m; if (src.looks[k] !== undefined && (Math.imul(c.id + n, 40503) & 7) !== 0) c.looks[k] = src.looks[k]; });   /* one time in eight a child goes its own way */
         }
         /* a child takes after a parent in what it loves, more often than not */
       { const par = [m, f].filter(Boolean), src = par.length && rnd() < 0.65 ? par[(rnd() * par.length) | 0] : null; if (src && src.likes && src.likes.length) c.likes = [src.likes[(rnd() * src.likes.length) | 0]]; }
@@ -2838,7 +2844,25 @@ function create(seed, opt) {
        for an answer (G.answer); given none, they find a word of their own */
     const T = S.tribe; if (!T.godName && !S.ask) { let who = null; for (const a of folk()) if (a.age >= GROWN && a.faith >= 0.8 && a.sawT === S.tickNo && (!who || a.faith > who.faith)) who = a;
       if (who) { S.ask = { id: who.id, kind: 'name', since: S.tickNo, fear: who.trust < -0.2 }; tell(who.name + ' has gone to the fire and stands looking up. ' + (who.fem ? 'She' : 'He') + ' is asking who is there.'); } } }
-  function settleAsk(text) { const T = S.tribe, q = S.ask; if (!q) return ''; const a = S.byId.get(q.id); S.ask = null; const name = String(text || '').replace(/[<>&"]/g, '').trim().slice(0, 24), given = !!name; T.godName = name || 'the Hand'; T.godBy = a ? a.name : ''; T.godT = S.t;
+  /* LATER QUESTIONS. Once the one who watches has a name, a believer brings it the trouble that weighs most on the place, when there is one, and asks
+     what to do. The answer is counsel, not command: it becomes one more weight in choices the people already make (T.counsel). Silence teaches them to ask less often */
+  const QUESTIONS = {
+    timber: { say: n => 'The trees near us are nearly gone, ' + n + '. Should we leave the young ones standing, and walk further for the old?', options: [['spare', 'Leave the young trees'], ['cut', 'Cut what you need']] },
+    sick: { say: n => 'The fever has taken our children, ' + n + '. What should we do?', options: [['apart', 'Live further apart'], ['nothing', 'I do not know']] },
+    flood: { say: n => 'The river has taken a house, ' + n + '. Do we build by the water again, or keep to the high ground?', options: [['high', 'Keep to high ground'], ['stay', 'Stay by the water']] } };
+  function nextQuestion() { const T = S.tribe; if (!T.godName || S.ask || !S.popPeople) return; T.asked = T.asked || {}; if (S.t < (T.askT || 0) + 3 + 3 * (T.askSilent || 0)) return;
+    let near = 0; for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const x = T.x + dx, y = T.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && tree[I(x, y)] >= 0.3) near++; } if (T.treesNear0 === undefined || near > T.treesNear0) T.treesNear0 = near;
+    const kind = !T.asked.flood && T.floodT > S.t - 1.5 ? 'flood' : !T.asked.sick && T.need.sick >= 3 ? 'sick' : !T.asked.timber && T.treesNear0 >= 10 && near < T.treesNear0 * 0.3 ? 'timber' : ''; if (!kind) return;
+    let who = null; for (const a of folk()) if (a.age >= GROWN && a.faith > 0.5 && (!who || a.faith > who.faith)) who = a; if (!who) return;
+    S.ask = { id: who.id, kind, since: S.tickNo, say: QUESTIONS[kind].say(T.godName), options: QUESTIONS[kind].options }; T.asked[kind] = true; T.askT = S.t;
+    tell(who.name + ' has gone to the fire to ask ' + T.godName + ' what is to be done.'); }
+  function settleAsk(text) { const T = S.tribe, q = S.ask; if (!q) return ''; const a = S.byId.get(q.id);
+    if (q.kind !== 'name') { S.ask = null; const opt = (q.options.find(o => o[0] === text) || [])[0]; T.counsel = T.counsel || {};
+      if (!opt) { T.askSilent = (T.askSilent || 0) + 1; for (const b of folk()) if (b.faith > 0.5) b.trust = Math.max(-1, (b.trust || 0) - 0.05); tell((a ? a.name : 'Someone') + ' waited by the fire and ' + T.godName + ' did not answer. The people will decide for themselves.'); return ''; }
+      T.counsel[opt] = true; T.askSilent = 0; if (a && a.alive) a.trust = Math.min(1, (a.trust || 0) + 0.1);
+      tell({ spare: T.godName + ' has said to leave the young trees standing. Those who trust will walk further for timber.', cut: T.godName + ' has said to cut what is needed.', apart: T.godName + ' has said to live further apart. New houses will keep away from crowded ground.',
+        nothing: T.godName + ' does not know what to do about the fever.', high: T.godName + ' has said to keep to the high ground.', stay: T.godName + ' has said to stay by the water.' }[opt]); return opt; }
+    S.ask = null; const name = String(text || '').replace(/[<>&"]/g, '').trim().slice(0, 24), given = !!name; T.godName = name || 'the Hand'; T.godBy = a ? a.name : ''; T.godT = S.t;
     if (given) { if (a && a.alive) { a.faith = 1; a.trust = Math.min(1, (a.trust || 0) + 0.2); } for (const b of folk()) b.faith = (b.faith || 0) + 0.1 * (1 - (b.faith || 0));
       tell((a ? a.name : 'Someone') + ' was answered. The one who watches is called ' + T.godName + ', and the name will be said at every fire.'); }
     else tell((a ? a.name : 'Someone') + ' waited by the fire and no answer came. ' + (a ? (a.fem ? 'She' : 'He') : 'They') + ' calls the one who moves things ' + T.godName + '.');
@@ -4021,12 +4045,14 @@ S.apply = function (A, h) {
       return 0;
     };
     const REF = { top: 0.72, legs: 0.74, skin: 0.8, hair: 0.3 };                          // the brightness each key colour was drawn at
-    const dress = (src, cols, headRows) => {
+    const dress = (src, cols, headRows, beard) => {
       const c = mk(src.width, src.height), x = c.getContext('2d'); x.drawImage(src, 0, 0);
       const d = x.getImageData(0, 0, c.width, c.height), p = d.data; let top = 0;
       search: for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) if (p[(yy * c.width + xx) * 4 + 3]) { top = yy; break search; }
       for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) {
-        const i = (yy * c.width + xx) * 4; if (!p[i + 3]) continue; const k = part(p[i], p[i + 1], p[i + 2], yy, top, headRows); if (!k) continue;
+        const i = (yy * c.width + xx) * 4; if (!p[i + 3]) continue; let k = part(p[i], p[i + 1], p[i + 2], yy, top, headRows); if (!k) continue;
+        /* a beard: the skin of the lower face takes the colour of the hair (short: the jaw; full: from under the nose) */
+        if (beard && k === 'skin' && yy - top < headRows && yy - top >= headRows * (beard > 1 ? 0.7 : 0.8)) { const t = cols.hair, f0 = Math.max(0.75, Math.min(1.2, Math.max(p[i], p[i + 1], p[i + 2]) / 255 / REF.skin)); p[i] = Math.min(255, t[0] * f0); p[i + 1] = Math.min(255, t[1] * f0); p[i + 2] = Math.min(255, t[2] * f0); continue; }
         const f = Math.max(0.5, Math.min(1.35, Math.max(p[i], p[i + 1], p[i + 2]) / 255 / REF[k])), t = cols[k];
         p[i] = Math.min(255, t[0] * f); p[i + 1] = Math.min(255, t[1] * f * (f < 1 ? 0.97 : 1)); p[i + 2] = Math.min(255, t[2] * f * (f < 1 ? 1.06 : 0.98));   // shadows lean cool, lights warm
       }
@@ -4037,9 +4063,13 @@ S.apply = function (A, h) {
     const made = new Map(), built = A.look.human;
     built.make = (a, stage) => {
       const L = a.looks || { skin: a.id % 5, hair: a.id % 6, top: a.id % 10, legs: a.id % 6 }, body = stage === 'young' || stage === 'tot' ? 'child' : a.fem ? 'woman' : 'man';
-      const key = body + stage + L.skin + '.' + L.hair + '.' + L.top + '.' + L.legs; let v = made.get(key); if (v) return v;
+      const grownUp = stage === 'grown' || stage === 'old', tall = grownUp && L.tall !== undefined ? L.tall : 1, build = grownUp && L.build !== undefined ? L.build : 1, beard = grownUp && !a.fem && L.beard ? L.beard : 0;
+      const key = body + stage + L.skin + '.' + L.hair + '.' + L.top + '.' + L.legs + '.' + tall + build + beard; let v = made.get(key); if (v) return v;
       const B = BODY[body], cols = { skin: SKIN[L.skin % SKIN.length], hair: stage === 'old' ? GREY : HAIR[L.hair % HAIR.length], top: TOP[L.top % TOP.length], legs: LEGS[L.legs % LEGS.length] };
-      const size = stage === 'tot' ? 0.78 : 1, mkf = c => sized(dress(c, cols, B.head), size), both = c => ({ r: c, l: flip(c) });
+      /* height and build: the figure a little shorter or taller, slighter or broader */
+      const size = stage === 'tot' ? 0.78 : [0.93, 1, 1.07][tall], wide = [0.9, 1, 1.12][build];
+      const girth = c => { if (wide === 1) return c; const o = mk(Math.max(2, Math.round(c.width * wide)), c.height), g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, o.width, o.height); return o; };
+      const mkf = c => girth(sized(dress(c, cols, B.head, beard), size)), both = c => ({ r: c, l: flip(c) });
       const walk = B.walk.map(mkf), up = mkf(B.up[B.up.length - 1]), upB = mkf(B.up[B.up.length - 2]), sit = mkf(B.sit[B.sit.length - 1]);
       v = { r: walk, l: walk.map(flip), w: walk[0].width, h: walk[0].height, up: both(up), upB: both(upB), sit: both(sit), lie: both(rot(walk[0])) };
       made.set(key, v); return v;
@@ -4149,7 +4179,7 @@ let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { c
 /* a turn of the seasons takes up to this many times as long as a year of a life (midsummer); winter keeps its old length */
 const yearQ = clamp(+(qs.get('yearK') || 3), 1, 8);
 const sizeQ = clamp(+(qs.get('size') || 96), 24, 160);   /* the map, in tiles a side */
-const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood' }), N = W.N, S = W.S, A = EdenArt.build();
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6 }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -4553,7 +4583,8 @@ function wantProps() {
   const clearAt = (fx, fy, own, onWay) => { const tx = Math.floor(fx), ty = Math.floor(fy), t = ty * N + tx; if (tx < 0 || ty < 0 || tx >= N || ty >= N || W.water[t] || (T0.road[t] && !onWay) || W.field[t] || (FN && FN[t]) || W.tree[t] > 0.3) return false;
     for (const q of T0.sites) if (q !== own && !q.upon && Math.abs(q.x - tx) <= 1 && Math.abs(q.y - ty) <= 1) return false; return true; };
   /* a thing wanted at a place is put there if the ground is free, else on the nearest free ground within a tile and a half, else not at all */
-  const setNear = (key, o) => { for (const [dx, dy] of [[0, 0], [0.9, 0], [0, 0.9], [-0.9, 0], [0, -0.9], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9], [1.5, 0], [0, 1.5], [-1.5, 0], [0, -1.5]]) if (clearAt(o.x + dx, o.y + dy, null, true)) { o.x += dx; o.y += dy; want.set(key, o); return true; } return false; };
+  const used = new Set(), tileOf = (fx, fy) => Math.floor(fy) * N + Math.floor(fx);   /* tiles something made already stands on: one thing to a tile */
+  const setNear = (key, o) => { for (const [dx, dy] of [[0, 0], [0.9, 0], [0, 0.9], [-0.9, 0], [0, -0.9], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9], [1.5, 0], [0, 1.5], [-1.5, 0], [0, -1.5]]) if (clearAt(o.x + dx, o.y + dy, null, true) && !used.has(tileOf(o.x + dx, o.y + dy))) { used.add(tileOf(o.x + dx, o.y + dy)); o.x += dx; o.y += dy; want.set(key, o); return true; } return false; };
   const want = new Map(), falling = !W.daysLengthen(), cR = campR(), ripe = T0.sown && T0.cropWarm > 0 ? clamp(T0.cropWarm / 5.6, 0, 1) : 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const i = y * N + x; if (W.water[i]) continue;
@@ -4618,7 +4649,7 @@ function wantProps() {
      then the firewood, a carved bench, the planter, then the rest; a spot on water, a street, a field or another building is passed over. */
   if (campOn) {
     const P = A.prop || {}, folkBy = new Map(), autumn = !W.daysLengthen() && S.air > -2, taken = new Set();
-    for (const q of T0.sites) taken.add(q.y * N + q.x); const used = new Set();
+    for (const q of T0.sites) taken.add(q.y * N + q.x);
     for (const b of S.agents) if (b.alive && b.d.people && b.house) { let f = folkBy.get(b.house); if (!f) folkBy.set(b.house, f = { n: 0, small: 0, baby: 0, elder: 0, jobs: new Set(), likes: new Set(), herbs: 0 }); f.n++; if (b.age < 2) f.baby++; else if (b.age < b.d.mature) f.small++; if (b.age > 46) f.elder++; if (b.job) f.jobs.add(b.job); for (const k of b.likes || []) f.likes.add(k); if (b.skill && b.skill.gather > 1.3) f.herbs++; }
     const SPOTS = [[1.25, 1.25], [1.45, 0.5], [0.5, 1.45], [1.4, -0.45], [-0.45, 1.4]];   /* all on the household's own lot: the tile beyond is the way between lots */
     for (const q of T0.sites) {
@@ -4662,7 +4693,7 @@ function wantProps() {
     const P = A.prop;
     /* by the fire and the store: market stalls once there is a market (H4), a spit once there have been hunts, the music corner where music is played, a signpost once streets meet there, a trough for tame beasts */
     /* H4: once there is coin, the four lots round the fire are the market, a stall on each */
-    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) return; /* a stall stands on its market lot while the lot is open; once something is built there the stall is gone (the shop is the house itself) */ const o = { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }; if (clearAt(o.x, o.y)) want.set('mk' + n, o); });
+    if (T0.market && P.stall_red) [[-2, -2, 'stall_red'], [2, -2, 'stall_green'], [-2, 2, 'stall_green'], [2, 2, 'stall_red']].forEach(([dx, dy, k], n) => { const x = T0.market.x + dx, y = T0.market.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) return; /* a stall stands on its market lot while the lot is open; once something is built there the stall is gone (the shop is the house itself) */ const o = { kind: 'prop', x: x + 0.5, y: y + 0.5, base: 'mk' + k, img: P[k] || P.stall_red, dy: 4 }; if (clearAt(o.x, o.y) && !used.has(tileOf(o.x, o.y))) { used.add(tileOf(o.x, o.y)); want.set('mk' + n, o); } });
     if ((T0.hunts || 0) > 0 && P.cooking_spit) setNear('spit', { kind: 'prop', x: fire.x + 0.95, y: fire.y + 0.7, base: 'spit', img: P.cooking_spit, dy: 3 });
     if (S.musicT && S.tickNo - S.musicT < 48 && P.music_corner) setNear('musicc', { kind: 'prop', x: fire.x - 1.2, y: fire.y + 0.9, base: 'mc', img: P.music_corner, dy: 3 });
     { let rd = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const x = T0.x + dx, y = T0.y + dy; if (x >= 0 && y >= 0 && x < N && y < N && T0.road[y * N + x]) rd++; } if (rd > 4 && P.signpost) setNear('sign', { kind: 'prop', x: camp.x - 1.6, y: camp.y - 1.4, base: 'sign', img: P.signpost, dy: 3 }); }
@@ -5294,6 +5325,10 @@ function stepAt(r, u, dts) {
 let dprCap = 2, slowMs = 16, slowN = 0, fastN = 0, lastDprT = 0;
 function resize() { const old = dpr; dpr = Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1)); if (old !== dpr && cv.width) { const k = dpr / old; cam.z *= k; cam.x /= 1; }
   cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); clampCam(); }
+/* the view carried gently to a place (the one who asks), until it is there or the player takes hold of it */
+let glide = null;
+function glideStep(dtMs) { if (!glide) return; const k = 1 - Math.pow(0.004, dtMs / 1000), cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2, nx = cxw + (glide.wx - cxw) * k, ny = cyw + (glide.wy - cyw) * k; cam.z += (glide.z - cam.z) * k;
+  cam.x = nx - cv.width / cam.z / 2; cam.y = ny - cv.height / cam.z / 2; clampCam(); if (Math.abs(glide.wx - nx) < 0.5 && Math.abs(glide.wy - ny) < 0.5 && Math.abs(glide.z - cam.z) < 0.01) glide = null; }
 function paceCheck(dtMs) { slowMs = slowMs * 0.95 + dtMs * 0.05;
   if (slowMs > 30) { fastN = 0; if (++slowN > 90 && dprCap > 1 && (window.devicePixelRatio || 1) > 1) { const cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2; dprCap = Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1) - 0.5); slowN = 0; lastDprT = now; resize(); cam.x = cxw - cv.width / cam.z / 2; cam.y = cyw - cv.height / cam.z / 2; clampCam(); } }
   else { slowN = 0; if (slowMs < 13 && dprCap < 2 && now - lastDprT > 30000 && ++fastN > 900) { const cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2; dprCap = Math.min(2, dprCap + 0.5); fastN = 0; lastDprT = now; resize(); cam.x = cxw - cv.width / cam.z / 2; cam.y = cyw - cv.height / cam.z / 2; clampCam(); } } }
@@ -5346,6 +5381,7 @@ function liftAt(c, w, ground) {
   return false;
 }
 cv.addEventListener('pointerdown', e => {
+  glide = null;
   if (paused) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 2) { const [p, q] = [...ptrs.values()]; pinch = { d: Math.hypot(p.x - q.x, p.y - q.y), mx: (p.x + q.x) / 2, my: (p.y + q.y) / 2 }; if (held) dropHeld(); act = null; return; }
   const w = toWorld(e.clientX, e.clientY);
@@ -5494,6 +5530,7 @@ function lightAt(tod) { // 0 = full day, 1 = full night; tod runs over one day o
 function frame(t) {
   requestAnimationFrame(frame); const dtMs = Math.min(250, t - now); now = t;
   paceCheck(dtMs);
+  glideStep(dtMs);
   const dts = paused ? 0 : dtMs * speed / 1000;
   if (!paused) {
     usePower(dtMs); gameMs += dtMs * speed; tickFrac += dtMs * speed / TICK_MS;
@@ -6116,10 +6153,14 @@ bS2.onclick = () => {
     shownFor = q.id; const L = lookOf(a), sp = L.make ? L.make(a, a.age > 46 ? 'old' : 'grown') : L.grown[a.id % L.grown.length], im = sp.r[0];
     const c = box.querySelector('#askFace'), g = c.getContext('2d'), k = Math.max(2, Math.round(c.width / im.width * 1.7)); g.imageSmoothingEnabled = false; g.clearRect(0, 0, c.width, c.height); g.drawImage(im, Math.round((c.width - im.width * k) / 2), 6, im.width * k, im.height * k);   /* head and shoulders, large */
     box.querySelector('#askWho').textContent = a.name + ', ' + Math.floor(a.age);
-    box.querySelector('#askSay').textContent = q.fear ? 'Things move that no hand of ours has touched, and we have been hurt by it. What are you? What are we to call you?' : 'Someone is there. I have seen what you do. Who are you? What shall we call you?';
+    /* a later question: their words and the answers they offer come with it; the name box gives way to buttons */
+    const row = box.querySelector('#askIn').parentNode; for (const old of row.querySelectorAll('.askOpt')) old.remove();
+    const nameQ = q.kind === 'name'; inp.style.display = nameQ ? '' : 'none'; box.querySelector('#askGo').style.display = nameQ ? '' : 'none';
+    if (!nameQ) for (const [k, label] of q.options) { const b = document.createElement('button'); b.className = 'btn askOpt'; b.textContent = label; b.style.flex = '1'; b.onclick = () => { W.G.answer(k); hide(); takeEvents(true); }; row.insertBefore(b, box.querySelector('#askNo')); }
+    box.querySelector('#askSay').textContent = !nameQ ? q.say : q.fear ? 'Things move that no hand of ours has touched, and we have been hurt by it. What are you? What are we to call you?' : 'Someone is there. I have seen what you do. Who are you? What shall we call you?';
     box.style.display = 'block';
     /* the view goes to the one who asks */
-    const r = recOf(a.id), wx = isoX(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5), wy = isoY(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5); cam.z = clamp(Math.max(cam.z, dpr * 2.2), minZ(), maxZ()); cam.x = wx - cv.width / cam.z / 2; cam.y = wy - 30 - cv.height / cam.z / 2; clampCam(); }, 700); }
+    const r = recOf(a.id), wx = isoX(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5), wy = isoY(r ? r.x : a.x + 0.5, r ? r.y : a.y + 0.5); glide = { wx, wy: wy - 30, z: clamp(Math.max(cam.z, dpr * 2.2), minZ(), maxZ()) }; }, 700); }
 // what the place has become and what its people know: a panel that opens from the corner
 { const el = document.getElementById('know'), btn = document.getElementById('bKnow');
   const fill = () => {
@@ -6154,7 +6195,7 @@ bS2.onclick = () => {
             grieving: 'grieving now', ways: 'tiles of worn way', fields: 'field tiles', fenced: 'fenced', healerhouse: "healer's house", tallyhouse: 'tally house', born: 'born here', died: 'died', left: 'left the valley', cow: 'cattle', deer: 'deer', rabbit: 'rabbits', wolf: 'wolves' };
           const row = (t, o) => { const ks = Object.keys(o).filter(k => o[k] > 0); return ks.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>' + t + '</b></td><td>' + ks.map(k => (NAME[k] || k) + ' <b>' + o[k] + '</b>').join(', ') + '</td></tr>' : ''; };
           return '<p><b>Ledger</b></p><table style="border-collapse:collapse;font-size:inherit">' + row('People', L.people) + row('Homes', L.homes) + row('Buildings', L.buildings) + row('Being built', L.building) + row('Food', L.food) + row('Goods', L.goods)
-            + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + '</table>'; })()
+            + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + (L.counsel && L.counsel.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Counsel</b></td><td>' + L.counsel.map(k => ({ spare: 'leave the young trees', cut: 'cut what is needed', apart: 'live further apart', nothing: 'no answer to the fever', high: 'keep to high ground', stay: 'stay by the water' }[k] || k)).join(', ') + '</td></tr>' : '') + '</table>'; })()
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
       /* F6: every place of work standing, and who works there */
       + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');
@@ -6183,7 +6224,7 @@ cam.z = clamp(dpr * 1.1, minZ(), maxZ()); { const wx = isoX(camp.x, camp.y), wy 
 for (const a of S.agents) if (a.alive) { const e = endOf(a); newRec(a, e.x, e.y); }
 huts.length = 0; onTick();
 syncCrossings(); startPaint(); paintSome(1e9, true); for (const p of props.values()) p.born = -1e9;
-window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, setTool: t => {
+window.EdenGame = { W, cam, actors, props, huts, isoX, isoY, lookOf, setTool: t => {
     tool = t;
   }, start: () => {
     document.getElementById('intro').style.display = 'none';
