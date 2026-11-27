@@ -1503,3 +1503,26 @@ What changed (owner's report: rabbits eat everything and then disappear; should 
 | highland | 1 | 28 | 71 | 103 | 127 | 7 | 4 | 245 | 0 | 17 | 0/31/7 | 4.2 | 21.6 | 14.4 | 19.3 | 3 | 1.5 | 53 | 57 | 16.9 | 4.3 | 0 (2) | 72/0/0/2/21 | 72 | 13.7 | 9 | 1 | 0 | 18456 |
 | highland | 2 | 34 | 172 | 238 | 238 | 23 | 2 | 405 | 0 | 18 | 0/76/6 | 3.7 | 20.6 | 14 | 12.8 | 21 |  | 263 | 113 | 15.8 | 3.6 | 0 (4) | 80/1/0/0/16 | 41 | 14.1 | 17 | 1 | 0 | 29298 |
 | mean |  | 27.8 | 112.7 | 712.1 | 845 | 162.4 | 9.7 | 402.3 | 0 | 17.3 |  | 3.7 | 20.7 | 23.2 | 10.1 | 63.3 | 1.4 | 32359.9 | 294.9 | 38.3 | 5.4 |  |  | 82.1 | 11.8 | 45.7 | 3.4 | 0 | 100893.7 |
+
+## The Wood Age limit; a ledger; grass and water redrawn (2026-11-27)
+
+What changed (owner's requests):
+- **Wood Age.** The game and this table now create the world with `age: 'wood'`: metal tools, masonry and concrete are never worked out, so no smithy, mason's yard, lime kiln or church is built. This is a cap set by hand (listed under "Planned on purpose"). Field stone is still used for footings, the well and the shrine.
+- **Ledger.** `W.ledger()` and a Ledger section in the Town panel count people, homes, buildings, food by kind, timber, stone, firewood, hay, pots, carts, kept and wild beasts, fields, ways, bridges, and faith (shrines, times mourned at one, people grieving).
+- **Ground.** Grass has tufts and soft patches of tone; water has clean bands by depth, a broken ripple line off the shore and strokes of light. Nothing moves yet.
+- **Checked.** tests.html: 536 passed, 0 failed (1 warning, 35 skipped). Against the table above (all ideas open): mean at year 100 falls from 712.1 to 601.5, ideas from 17.3 to 14.1. Without tools the largest worlds are smaller (valley 1: 646 -> 260; plains 2: 848 -> 253; lakeland 1: 963 -> 346) and three are larger (plains 1: 46 -> 110; forest 1: 818 -> 1005; lakeland 2: 1355 -> 1713). Lakeland 2 refused 1.5 million lots: crowding there needs looking at.
+- **Not done.** Plains 1 and highland 1 are still small (110 and 28). Water and grass do not move.
+
+| land | seed | y25 | y50 | y100 | peak | dwellings | hunger deaths | left | resettled | ideas | animals | food trip | timber trip | stone trip | wood trip | hungry by full | starved out/avg | lots refused | pit trips | pit dist | quarry/new | quarry/flooded | days: food/hunt/wood/build/home % | known % | reach | lot reach | bridges | homes across water | ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| valley | 1 | 33 | 138 | 260 | 501 | 63 | 2 | 696 | 0 | 14 | 18/54/10 | 3.7 | 22.8 | 20.2 | 9.4 | 46 | 1.8 | 1738 | 196 | 24.6 | 3.6 | 0 (1) | 77/0/0/0/18 | 85 | 9.2 | 25 | 7 | 0 | 33814 |
+| valley | 2 | 31 | 115 | 1069 | 1083 | 250 | 9 | 417 | 0 | 14 | 0/1/0 | 3 | 27 | 30.1 | 7.8 | 76 | 1.2 | 17088 | 698 | 42.4 | 4.4 |  | 84/0/0/0/13 | 98 | 11.2 | 57 | 2 | 0 | 69585 |
+| plains | 1 | 33 | 39 | 110 | 143 | 7 | 4 | 244 | 0 | 12 | 5/198/5 | 3.4 | 15.7 | 11.7 | 9.8 | 1 | 2.3 | 12 | 16 | 15.4 | 3.8 |  | 70/1/0/0/25 | 53 | 11.1 | 9 | 0 | 0 | 15075 |
+| plains | 2 | 23 | 99 | 253 | 299 | 23 | 5 | 288 | 0 | 14 | 15/207/5 | 4.1 | 16 | 11.9 | 10.2 | 11 | 1.1 | 202 | 45 | 17.8 | 3.7 |  | 71/2/0/0/25 | 65 | 10.8 | 13 | 1 | 0 | 20986 |
+| forest | 1 | 21 | 74 | 1005 | 1027 | 239 | 5 | 11 | 0 | 13 | 17/3/4 | 2.6 | 11.4 | 28.3 | 5 | 37 | 1.1 | 18463 | 461 | 54.5 | 7.3 | 0 (1) | 82/0/0/3/14 | 86 | 6.3 | 61 | 1 | 0 | 54249 |
+| forest | 2 | 28 | 136 | 1092 | 1255 | 312 | 6 | 422 | 0 | 14 | 23/1/3 | 2.8 | 11.3 | 30.3 | 5.8 | 96 | 1.4 | 16988 | 438 | 73.1 | 6.1 |  | 85/0/0/0/13 | 98 | 6.1 | 69 | 2 | 0 | 90319 |
+| lakeland | 1 | 35 | 162 | 346 | 797 | 84 | 24 | 768 | 0 | 17 | 23/97/5 | 4.2 | 23 | 25.9 | 9.1 | 115 | 0.8 | 2140 | 132 | 30.3 | 5.2 | 0 (1) | 75/0/0/0/19 | 72 | 9.7 | 37 | 8 | 0 | 45737 |
+| lakeland | 2 | 35 | 147 | 1713 | 1753 | 352 | 11 | 118 | 0 | 17 | 1/0/0 | 3 | 27.1 | 31.4 | 7.6 | 125 | 1.2 | 1533289 | 264 | 66 | 5 | 3 (4) | 81/0/0/0/16 | 100 | 18.9 | 96 | 7 | 0 | 451255 |
+| highland | 1 | 29 | 33 | 28 | 65 | 3 | 1 | 169 | 0 | 11 | 5/13/7 | 2.8 | 21.5 | 8.7 | 5 | 2 | 1.2 | 248 | 23 | 17.9 | 2.3 | 0 (2) | 71/15/0/0/14 | 53 | 10.2 | 9 | 0 | 0 | 9875 |
+| highland | 2 | 37 | 50 | 139 | 221 | 24 | 4 | 333 | 0 | 15 | 5/57/8 | 3.4 | 21.5 | 12.3 | 12.6 | 10 |  | 190 | 98 | 17.5 | 3.7 | 0 (1) | 78/3/0/0/15 | 36 | 11 | 13 | 1 | 0 | 16982 |
+| mean |  | 30.5 | 99.3 | 601.5 | 714.4 | 135.7 | 7.1 | 346.6 | 0 | 14.1 |  | 3.3 | 19.7 | 21.1 | 8.2 | 51.9 | 1.3 | 159035.8 | 237.1 | 35.9 | 4.5 |  |  | 74.6 | 10.5 | 38.9 | 2.9 | 0 | 80787.7 |
