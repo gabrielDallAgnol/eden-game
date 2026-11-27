@@ -243,6 +243,7 @@ function create(seed, opt) {
   const pit = new Float32Array(N * N), STONE_PER_TILE = 50;
   // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
   // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
+  const REACH_W = 30;
   const cut = new Uint8Array(N * N), CHOP = 0.3, WOOD_PER_STAND = 4, FUEL_PER_WOOD = 4;   /* a full stand of trees on a tile is 4 timber, enough for two thirds of a house; a timber split for the hearth is 4 days' fires (planned on purpose) */
   const fellPace = a => 1 + (a.job === 'woodcutter' ? 0.5 : 0) + (hasTool(a) ? 0.3 : 0);   /* skill and an axe fell faster; a tree holds what it holds */   /* how much of a stand one day's felling takes (the owner asked for felling to clear ground sooner) */
   function fell(j, amt) { const t = Math.min(tree[j], amt); tree[j] -= t; cut[j] = 1; if (tree[j] < 0.08) { tree[j] = 0; cut[j] = 0; S.stumps.push(j); if (S.stumps.length > 160) S.stumps.shift(); } return t; }   /* a felled stand leaves a stump */
@@ -256,7 +257,14 @@ function create(seed, opt) {
     return best ? { p: best, d: bd } : null;
   }
   function takePile(pl, max) { const t = Math.min(pl.p.amt, max); pl.p.amt -= t; if (pl.p.amt <= 0.05) S.piles.splice(S.piles.indexOf(pl.p), 1); return t; }
-  function standFor(x, y, a, minNew) { const r = reachOf(a) * 2; let j = nearestWay(x, y, q => cut[q] && tree[q] > 0, 0, r); if (j < 0) j = nearestWay(x, y, q => tree[q] >= minNew, 1.5, r); return j; }
+  /* how far a person looks for standing timber is its own habit, apart from how far they look for food: it grows each time no
+     tree is found within it and eases back when one is, up to what can be walked out and back with a load in a day */
+  function standFor(x, y, a, minNew) { if (a.reachW === undefined) a.reachW = WALK * 2; const r = a.reachW; let j = nearestWay(x, y, q => cut[q] && tree[q] > 0, 0, r); if (j < 0) j = nearestWay(x, y, q => tree[q] >= minNew, 1.5, r);
+    if (j < 0) { a.reachW = Math.min(REACH_W, r * 1.25 + 1);
+      /* timber standing near as the crow flies but out of reach on foot, over the water or round a bend of it: the want of a way across is felt at the narrow place */
+      if (S.tickNo % 4 === 0) { let t = -1; for (let q = 1; q <= r && t < 0; q++) for (let dy = -q; dy <= q && t < 0; dy++) for (let dx = -q; dx <= q; dx += (dy === -q || dy === q) ? 1 : 2 * q) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; if (tree[I(nx, ny)] >= minNew) { t = I(nx, ny); break; } }
+        if (t >= 0) { const tx = t % N, ty = (t / N) | 0, w = wayDist(x, y, tx, ty); if (!isFinite(w.d)) { const wh = wayDist(x, y, tx, ty, true); if (wh.ford) wishCross(wh.ford, 1); } else { const f = shortcut(x, y, tx, ty, w.d); if (f) wishCross(f, (w.d - f.via) / 8); } } } }
+    else a.reachW = Math.max(WALK * 2, r * 0.98); return j; }
   // What the settlement knows of the land: every tile one of its people has stood within sight of (less far under trees).
   // It is only a record of what was seen. Nothing in the simulation reads it to decide anything.
   const known = new Uint8Array(N * N), SIGHT = 5, SIGHT_WOOD = 3;
@@ -1594,7 +1602,8 @@ function create(seed, opt) {
       if (T.skills.fire && tempAt(I(hearth.x, hearth.y)) < d.comfort - 3 && (hearth.fuel || 0) < FUEL_KEEP && rnd() < dt * 8) {
         const lp = pileFor(hearth.x, hearth.y, 'wood', a);
         /* split from the timber stacked by the fire, for a hearth not far from it */
-        if (T.wood >= 0.25 && cheb(hearth, T) <= 12) { T.wood -= 0.25; hearth.fuel = (hearth.fuel || 0) + 0.25 * FUEL_PER_WOOD / (1 + cheb(hearth, T) / (WALK * pace)); a.act = { k: 'fetch', x: T.x, y: T.y, item: 'sticks' }; walk(hearth.x, hearth.y, T.x, T.y, 0.02); a.tripD = cheb(hearth, T); S.stat.fuelFromStack = (S.stat.fuelFromStack || 0) + 0.25; return; }
+        /* nobody splits a house beam for kindling while a building stands waiting for timber */
+        if (T.wood >= 0.25 && cheb(hearth, T) <= 12 && !T.sites.some(q => BUILDINGS[q.kind] && !raised(q) && q.wood < stageNeed(BUILDINGS[q.kind], q.stage, 'wood'))) { T.wood -= 0.25; hearth.fuel = (hearth.fuel || 0) + 0.25 * FUEL_PER_WOOD / (1 + cheb(hearth, T) / (WALK * pace)); a.act = { k: 'fetch', x: T.x, y: T.y, item: 'sticks' }; walk(hearth.x, hearth.y, T.x, T.y, 0.02); a.tripD = cheb(hearth, T); S.stat.fuelFromStack = (S.stat.fuelFromStack || 0) + 0.25; return; }
         if (lp) { const ef = 1 / (1 + lp.d / (WALK * pace)); hearth.fuel = (hearth.fuel || 0) + takePile(lp, 0.25) * FUEL_PER_WOOD * ef; a.act = { k: 'fetch', x: lp.p.x, y: lp.p.y, item: 'sticks' }; walk(hearth.x, hearth.y, lp.p.x, lp.p.y, 0.02); a.tripD = lp.d; return; }
         const j = standFor(hearth.x, hearth.y, a, 0.1);
         if (j < 0) stretch(a);
@@ -2032,7 +2041,7 @@ function create(seed, opt) {
          brought back in a day */
       if (fromPile(a, s.x, s.y, 'wood')) return true;
       const bj = standFor(s.x, s.y, a, 0.3);
-      if (bj < 0) { stretch(a); return false; }
+      if (bj < 0) { s.haulFail = today; return false; }   /* no timber in reach today: other work goes on */
       if (startHaul(a, 'timber', bj, { x: s.x, y: s.y })) return true; s.haulFail = today; return false;
     }
     if (s.stone < needS) {
@@ -2116,7 +2125,7 @@ function create(seed, opt) {
     const N_ = T.need, unroofed = Math.max(0, households() - T.sites.filter(isHome).length), work = T.sites.some(q => !raised(q)) || (T.wall && !T.wall.done) || unroofed > 0;
     // wants, strongest first, each asking for hands
     const asks = [['guard', T.threat >= 1.5 ? Math.max(1, Math.round(T.threat / 4)) : 0, T.threat], ['builder', work ? 1 + Math.round(unroofed / 2) : 0, 1 + N_.crowd + N_.cold],
-      ['woodcutter', work && n >= 5 ? 1 : 0, N_.toil], ['mason', work && T.skills.house ? 1 : 0, N_.toil * 0.8]].sort((p, q) => q[2] - p[2]);
+      ['woodcutter', work ? 1 + Math.round(unroofed / 4) : 0, N_.toil + N_.crowd * 0.5], ['mason', work && T.skills.house ? 1 : 0, N_.toil * 0.8]].sort((p, q) => q[2] - p[2]);
     const want = {}; let left = spare; for (const [job, k] of asks) { want[job] = Math.min(k, left); left -= want[job]; }
     // food work: people turn to whatever they have seen bring most home for a day's work. What has not been tried is given
     // a fair chance, and nothing is ever given up entirely, since a bad year for one thing is a good year for another.
@@ -2377,10 +2386,12 @@ function create(seed, opt) {
     for (const q of T.sites) { if (!live(q) || !isHome(q) || q.upon) continue; const k = S.agents.filter(b => b.alive && b.d.people && b.house === q.id).length; if (!k) continue;
       crossed(wayDist(T.x, T.y, q.x, q.y), T.x, T.y, q.x, q.y, k * 2); }
     /* a bridge is laid where the wading was worst this year, while the want of one is still felt */
-    if (T.skills.bridge && !(T.bridge && !T.bridge.done) && N_.cross >= IDEAS.bridge.at * 0.5) {
+    /* a bridge begun where few now feel the want of one is left, and its timber carried to the place most wanted, when that want is three times as great */
+    let moved = 0; if (T.bridge && !T.bridge.done) { const mine = T.fordUse[T.bridge.key] || 0; let top = 0; for (const f of fords) if (!T.bridged[f.key]) top = Math.max(top, T.fordUse[f.key] || 0); if (top > 3 * mine + 1) { moved = T.bridge.wood; T.bridge = null; } }
+    if (T.skills.bridge && !(T.bridge && !T.bridge.done) && (moved > 0 || N_.cross >= IDEAS.bridge.at * 0.5)) {
       let bf = null, bu = 0; for (const f of fords) { const u = T.fordUse[f.key] || 0; if (!T.bridged[f.key] && u > bu) { bu = u; bf = f; } }
       if (bf) { const near = mass[I(bf.ax, bf.ay)] === mass[I(T.x, T.y)], ax = near ? bf.ax : bf.bx, ay = near ? bf.ay : bf.by;
-        T.bridge = { key: bf.key, ax, ay, bx: near ? bf.bx : bf.ax, by: near ? bf.by : bf.ay, horiz: bf.horiz, tiles: bf.tiles.slice(), need: 3 * bf.w, wood: 0, done: false }; N_.cross *= 0.5; }
+        T.bridge = { key: bf.key, ax, ay, bx: near ? bf.bx : bf.ax, by: near ? bf.by : bf.ay, horiz: bf.horiz, tiles: bf.tiles.slice(), need: 3 * bf.w, wood: moved, done: false }; N_.cross *= 0.5; }
     }
     T.fordUse = {};
     for (const a of folk()) if (a.age >= GROWN && a.likes && a.likes.length < 3 && rnd() < 0.08) { const k = LEARN[craftOf(a)]; if (k && !a.likes.includes(k)) { a.likes.push(k); if (rnd() < 0.3) tell(a.name + ' has come to love ' + LIKES[k].word + '.'); } }
