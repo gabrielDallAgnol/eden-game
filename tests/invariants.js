@@ -1129,4 +1129,19 @@ UNITS.push(['fields are laid on dry ground all across: no crop on water or on a 
   });
   return out.slice(0, 4).join('; ');
 }]);
+UNITS.push(['a wood-age world works out nothing of metal, dressed stone or lime, and its ledger adds up to what is in the state', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'plains', size: 96, age: 'wood' }), S = W.S, T = S.tribe, i, out = [];
+  for (i = 0; i < 24 * 45; i++) W.tick();
+  ['tools', 'masonry', 'concrete'].forEach(function (k) { if (T.skills[k]) out.push(k + ' was worked out in a wood-age world'); });
+  T.sites.forEach(function (q) { if (/smithy|masonsyard|limekiln|church/.test(q.kind)) out.push('a ' + q.kind + ' stands in a wood-age world'); });
+  if (W.ideas().some(function (q) { return /tools|masonry|concrete/.test(q.k); })) out.push('the list of ideas still offers what lies beyond wood');
+  var L = W.ledger(), food = T.store, alive = S.agents.filter(function (a) { return a.alive && a.d.people; }).length;
+  T.sites.forEach(function (q) { food += q.larder || 0; });
+  if (L.people.all !== alive || L.people.men + L.people.women + L.people.children !== alive) out.push('ledger counts ' + L.people.all + ' people, the state has ' + alive);
+  if (Math.abs(L.food.all - food) > 0.5) out.push('ledger food ' + L.food.all + ' against ' + food.toFixed(1) + ' in store and larders');
+  var homes = 0, k; for (k in L.homes) homes += L.homes[k]; if (!homes) out.push('no homes in the ledger after 45 years');
+  var beasts = 0, tame = S.agents.filter(function (a) { return a.alive && !a.d.people; }).length; for (k in L.beasts) beasts += L.beasts[k]; for (k in L.wild) beasts += L.wild[k];
+  if (beasts !== tame) out.push('ledger counts ' + beasts + ' animals, the state has ' + tame);
+  return out.join('; ');
+}]);
 })();

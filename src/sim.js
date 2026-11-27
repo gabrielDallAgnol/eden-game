@@ -1550,7 +1550,7 @@ function create(seed, opt) {
     /* a fed, free evening goes to what they love */
     /* an evening is free when the household has food put by for tomorrow, not only when this one has eaten */
     if (DAY && S.tickNo % DAY === DAY - 2 && !a.trip && a.e > 0.65 && (hm ? (hm.larder || 0) >= mouths * 1.2 : T.store >= pop * 1.2) && a.likes && a.likes.length && rnd() < 0.6 && hobby(a, d)) return;
-    if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { const sh = standing('church') || standing('shrine'), to = sh || T; stepTo(a, to.x, to.y, 2); a.act = { k: 'mourn', x: to.x, y: to.y }; return; }   /* at the shrine, once there is one */   // the newly bereaved sit by the fire and do little
+    if (a.grief > 0.55 && a.e > 0.45 && rnd() < 0.6) { const sh = standing('church') || standing('shrine'), to = sh || T; stepTo(a, to.x, to.y, 2); a.act = { k: 'mourn', x: to.x, y: to.y }; if (sh && cheb(a, sh) <= 2) S.stat.rites = (S.stat.rites || 0) + 1; return; }   /* at the shrine, once there is one */   // the newly bereaved sit by the fire and do little
     // foul weather: with a roof, food in the store and nothing pressing, people stay in
     /* ...except a herder whose beasts are going thin in the pen: they go out to feed them whatever the weather */
     const beastsThin = a.job === 'herder' && S.agents.some(b => b.alive && b.tame && b.e < 0.6);
@@ -2235,6 +2235,26 @@ function create(seed, opt) {
     }
   }
   /* who works where, for the Town panel: every standing place of work and the names of those whose trade is there */
+  /* the ledger: everything the place has, counted. It reads the state and changes nothing */
+  function ledger() {
+    const T = S.tribe, P = folk(), r1 = v => Math.round(v * 10) / 10, out = { people: {}, homes: {}, buildings: {}, building: {}, food: {}, goods: {}, beasts: {}, wild: {}, land: {}, faith: {} };
+    out.people.all = P.length; out.people.men = P.filter(a => a.age >= WED && !a.fem).length; out.people.women = P.filter(a => a.age >= WED && a.fem).length;
+    out.people.children = P.filter(a => a.age < WED).length; out.people.households = households(); out.people.born = T.born || 0; out.people.died = T.dead || 0; out.people.left = S.stat.left || 0;
+    for (const q of T.sites) { if (q.gone || q.kind === 'fence') continue; const k = q.kind, to = raised(q) ? (isHome(q) ? out.homes : out.buildings) : out.building; to[k] = (to[k] || 0) + 1; }
+    const tot = {}; for (const g of FOODS) tot[g] = 0;
+    { const m = mixOf(T, 'store'); for (const g of FOODS) tot[g] += m[g]; }
+    for (const q of T.sites) if ((q.larder || 0) > 0) { const m = mixOf(q, 'larder'); for (const g of FOODS) tot[g] += m[g]; }
+    let all = 0; for (const g of FOODS) { out.food[g] = r1(tot[g]); all += tot[g]; } out.food.all = r1(all); out.food.inStore = r1(T.store || 0);
+    let onSite = 0, stoneOn = 0; for (const q of T.sites) { onSite += q.wood || 0; stoneOn += q.stone || 0; }
+    out.goods.timber = r1((T.wood || 0) + onSite); out.goods.stone = r1((T.stone || 0) + stoneOn); out.goods.firewood = r1(T.fuel || 0); out.goods.hay = r1(T.hay || 0);
+    out.goods.pots = r1(T.pots || 0); out.goods.carts = T.carts || 0; if (!BEYOND.tools) { out.goods.tools = r1(T.tools || 0); out.goods.ore = r1(T.ore || 0); }
+    for (const a of S.agents) { if (!a.alive || a.d.people) continue; const to = a.tame ? out.beasts : out.wild; to[a.sp] = (to[a.sp] || 0) + 1; }
+    let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
+    out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
+    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length;
+    out.known = Object.keys(T.skills).filter(k => T.skills[k]);
+    return out;
+  }
   function workplaces() {
     const T = S.tribe, P = folk(), out = [];
     for (const q of T.sites) { const K = BUILDINGS[q.kind]; if (!K || !K.work || !raised(q)) continue; out.push({ place: q.kind, x: q.x, y: q.y, workers: P.filter(a => a.job === K.work).map(a => a.name) }); }
@@ -2246,6 +2266,9 @@ function create(seed, opt) {
   // what it takes is lying at hand. Each line: the want, how much of it, the means, and what is said when it comes.
   const made = (T, kind) => T.sites.some(q => (q.kind === kind && raised(q)) || q.was === kind);
   const tameGrown = () => S.agents.some(b => b.alive && b.tame && b.age >= b.d.mature * 0.75);
+  /* how far this world goes. 'wood': timber, thatch, clay and field stone; nothing of metal, dressed stone or burnt lime is
+     worked out (so no smithy, mason's yard, lime kiln or church). Anything else: every idea below is open */
+  const BEYOND = opt.age === 'wood' ? { tools: 1, masonry: 1, concrete: 1 } : {};
   const IDEAS = {
     fire:       { need: 'cold',   at: 0.2, can: () => true, say: 'Cold enough to try anything: stone struck on stone over dry moss. The people have fire.' },
     hut:        { need: 'cold',   at: 0.4, can: T => made(T, 'tent'), say: 'Too many cold nights under hides, with timber all around. The people have learned to build huts.' },
@@ -2334,7 +2357,7 @@ function create(seed, opt) {
     N_.danger = T.threat;
     if (!opt.noIdeas) for (const k in IDEAS) {
       const d = IDEAS[k];
-      if (T.skills[k] || N_[d.need] < d.at || !d.can(T)) continue;
+      if (T.skills[k] || BEYOND[k] || N_[d.need] < d.at || !d.can(T)) continue;
       T.skills[k] = true; if (k === 'writing') T.writingDebts = openDebts;   /* how much was owed when marks were first made, for the record */
       if (d.need !== 'danger') N_[d.need] *= 0.5;
       tell(d.say);
@@ -2875,7 +2898,8 @@ function create(seed, opt) {
       need: IDEAS[k].need,
       at: IDEAS[k].at,
       known: !!S.tribe.skills[k],
-      can: !S.tribe.skills[k] && !!IDEAS[k].can(S.tribe) })),
+      can: !S.tribe.skills[k] && !BEYOND[k] && !!IDEAS[k].can(S.tribe) })).filter(q => !BEYOND[q.k]),
+    ledger,
     describe,
     craftOf,
     households,

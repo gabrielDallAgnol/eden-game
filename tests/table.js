@@ -4,7 +4,7 @@
 'use strict';
 var q = new URLSearchParams(location.search);
 var YEARS = +(q.get('years') || 100), SEEDS = (q.get('seeds') || '1,2').split(',').map(Number), LANDS = (q.get('lands') || 'valley,plains,forest,lakeland,highland').split(',');
-var OPT = { resettle: true, startT: 0.3, dayCycle: 4, family: true, size: +(q.get('size') || 96), yearK: +(q.get('yearK') || 3) };   /* the game's own map size and year */   /* the game's own map size */
+var OPT = { resettle: true, startT: 0.3, dayCycle: 4, family: true, size: +(q.get('size') || 96), yearK: +(q.get('yearK') || 3), age: q.get('age') || 'wood' };   /* the game's own map size and year */   /* the game's own map size */
 // Columns: [heading, function(world, record) -> value]. Steps add their own columns here.
 var hungerDeaths = function (S) { return (S.deaths['human:hunger'] || 0) + (S.deaths['human:cold and hunger'] || 0); };
 var COLS = [

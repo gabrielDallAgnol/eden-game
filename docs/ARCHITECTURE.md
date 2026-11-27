@@ -117,6 +117,7 @@ Each step is useful on its own and unlocks the next. "Check" is how to know it w
 
 These are rules, not outcomes, and are meant to stay that way:
 
+- **The Wood Age limit (2026-11-27, the owner's choice).** The game is created with `age: 'wood'`: the ideas `tools` (metal), `masonry` and `concrete` are never worked out, so no smithy, mason's yard, lime kiln or church is built. This is a cap set by hand, not a cause; it is there because the game should go only as far as its drawings do. Field stone is still gathered for footings, the well and the shrine. Without the option every idea is open, as the tests use it.
 - The lattice: lots `PITCH` tiles apart, ways between them, one building footprint per lot until density (step 6).
 - Construction stages and what each building costs.
 - How much of a want an idea takes (`IDEAS[k].at`). These are tuning numbers, like an animal's metabolism.

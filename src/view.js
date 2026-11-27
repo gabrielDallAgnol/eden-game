@@ -22,7 +22,7 @@ let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { c
 /* a turn of the seasons takes up to this many times as long as a year of a life (midsummer); winter keeps its old length */
 const yearQ = clamp(+(qs.get('yearK') || 3), 1, 8);
 const sizeQ = clamp(+(qs.get('size') || 96), 24, 160);   /* the map, in tiles a side */
-const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ }), N = W.N, S = W.S, A = EdenArt.build();
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood' }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -68,6 +68,24 @@ function paintChunkRect(ch, x0, y0, x1, y1) {
 /* the speckle in the ground: a 512 x 512 tile of noise repeated over the whole land, so its size does not grow with the map */
 const NT = 512, noise = new Uint8Array(NT * NT), noise2 = new Uint8Array(NT * NT);
 { let s = seed * 9301 + 7; const r = () => { s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff; return s >>> 8 & 255; }; for (let i = 0; i < NT * NT; i++) { noise[i] = r(); noise2[i] = r(); } }
+/* marks that give the ground a hand: tufts of grass (1 a lit blade, 2 the dark at its foot), short strokes of light on water
+   (1 the stroke, 2 the darker line under it), and a soft patchiness for tone. All tile every NT pixels */
+const tuft = new Uint8Array(NT * NT), wave = new Uint8Array(NT * NT), blot = new Uint8Array(NT * NT);
+{ const put = (A, x, y, v) => { A[((y & (NT - 1)) * NT) | (x & (NT - 1))] = v; };
+  for (let gy = 0; gy < NT; gy += 8) for (let gx = 0; gx < NT; gx += 16) {
+    const h = hash(gx + seed, gy), h2 = hash(gy + 31, gx + seed);
+    if (h < 0.5) { const x = gx + ((h2 * 12) | 0), y = gy + ((h * 2 * 5) | 0), tall = h2 > 0.5;
+      put(tuft, x, y, 1); put(tuft, x + 2, y, 1); put(tuft, x + 1, y - 1, 1); if (tall) { put(tuft, x + 1, y - 2, 1); put(tuft, x + 3, y - 1, 1); }
+      put(tuft, x, y + 1, 2); put(tuft, x + 1, y + 1, 2); put(tuft, x + 2, y + 1, 2); }
+    if (h2 < 0.42) { const x = gx + ((h * 10) | 0), y = gy + ((h2 * 2.38 * 6) | 0), len = 3 + ((h * 97) % 5 | 0);
+      for (let k = 0; k < len; k++) put(wave, x + k, y, 1); if (len > 4) { put(wave, x + len, y + 1, 1); put(wave, x + len + 1, y + 1, 1); }
+      for (let k = 1; k < len - 1; k++) put(wave, x + k + 1, y + 2, 2); }
+  }
+  /* patchiness: coarse random values, smoothed between */
+  const G = 32, M = NT / G, cell = (x, y) => hash((x % M) + 7, (y % M) + seed * 3), sm = t => t * t * (3 - 2 * t);
+  for (let y = 0; y < NT; y++) for (let x = 0; x < NT; x++) { const cx = (x / G) | 0, cy = (y / G) | 0, u = sm(x / G - cx), v = sm(y / G - cy);
+    blot[y * NT + x] = 255 * ((cell(cx, cy) * (1 - u) + cell(cx + 1, cy) * u) * (1 - v) + (cell(cx, cy + 1) * (1 - u) + cell(cx + 1, cy + 1) * u) * v); } }
+const mulc = (c, f) => (0xff000000 | (Math.min(255, ((c >>> 16) & 255) * f) << 16) | (Math.min(255, ((c >>> 8) & 255) * f) << 8) | Math.min(255, (c & 255) * f)) >>> 0;
 const rgb = h => { const n = parseInt(h.slice(1), 16); return 0xff000000 | ((n & 255) << 16) | (n & 0xff00) | (n >> 16); };
 const C = {
   deep: rgb('#3d7a8f'), mid: rgb('#4f93a3'), shal: rgb('#6fb0b5'), foam: rgb('#cfe9e4'), glint: rgb('#9fd3d0'), ice: rgb('#cfe6f2'), ice2: rgb('#eef7fb'), iceCrack: rgb('#a9cfe2'),
@@ -186,8 +204,11 @@ function colorAt0(pxx, py) {
   const w = bWt[b] + jn * 0.06, T = cellT[ci]; let col;
   if (w > 0.5) {
     if (T < -3) col = n2 > 248 ? C.iceCrack : n > 170 ? C.ice2 : C.ice;
-    else col = w < 0.57 ? C.foam : w > 0.88 ? C.deep : w > 0.7 ? C.mid : C.shal;
-    if (T >= -3 && n2 > 252 && w > 0.6) col = C.glint;
+    else { /* clean bands by depth, a broken ripple line off the shore, and strokes of light on open water */
+      const w0 = bWt[b], wv = wave[p];
+      col = w < 0.57 ? C.foam : w0 > 0.88 ? C.deep : w0 > 0.7 ? C.mid : C.shal;
+      if (w >= 0.57) { if (w0 > 0.63 && w0 < 0.655 && blot[p] > 96) col = C.glint;
+        else if (wv === 1 && w0 > 0.6) col = w0 > 0.88 ? C.mid : C.glint; else if (wv === 2 && w0 > 0.7) col = mulc(col, 0.9); } }
     if (bS[b] * 3 > 0.6 && T < -3 && n > 110) col = C.snow;
     return col;
   }
@@ -203,8 +224,10 @@ function colorAt0(pxx, py) {
     const patch = bFe[b] + jn * 0.08 > 0.72;
     if (T < 0) col = patch ? C.froB : C.froA; else if (m < 0.3) col = patch ? C.dryB : C.dryA; else if (m > 0.8 && g > 0.5) col = patch ? C.lushB : C.lushA; else col = patch ? C.gB : C.gA;
     if (bT[b] + jn * 0.2 > 0.5) col = patch ? C.shadeB : C.shadeA;
-    if (n2 < 5) col = T < 0 ? C.frost : C.gHi; else if (n2 > 250) col = C.gLo;
-    else if (gWarm && g > 0.5 && m > 0.35 && n2 === 7) col = n < 64 ? C.flowerW : n < 128 ? C.flowerY : n < 192 ? C.flowerP : C.flowerR;
+    /* tone in soft patches, then tufts: a lit blade or two with the dark at their foot */
+    { const bl = blot[((py >> 1) & (NT - 1)) * NT | (pxx >> 1) & (NT - 1)], tf = tuft[p]; if (bl > 168) col = mulc(col, 1.05); else if (bl < 88) col = mulc(col, 0.95);
+      if (tf === 1) col = T < 0 ? C.frost : mulc(col, 1.17); else if (tf === 2) col = mulc(col, 0.84); }
+    if (gWarm && g > 0.5 && m > 0.35 && n2 === 7) col = n < 64 ? C.flowerW : n < 128 ? C.flowerY : n < 192 ? C.flowerP : C.flowerR;
   }
   /* a quarry pit: stepped terraces down to its floor, deeper the more stone has been taken */
   { const pd = W.pit ? W.pit[ci] : 0;
@@ -1884,6 +1907,12 @@ bS2.onclick = () => {
       + '<p><b>What weighs on them</b><br>' + (felt.length ? felt.map(k => bar(T0.need[k]) + ' ' + WANT[k]).join('<br>') : 'nothing much: a good season') + '</p>'
       + (() => { const f = T0.foodLast || {}, src = [['grain', 'the fields, grain'], ['veg', 'the fields, greens'], ['fruit', 'gathered'], ['fish', 'fished'], ['meat', 'hunted']], tot = src.reduce((p, [k]) => p + (f[k] || 0), 0); if (!tot) return '';
           return '<p><b>Food last year</b> (' + (tot / Math.max(1, S.popPeople)).toFixed(1) + ' a head)<br>' + src.filter(([k]) => f[k] > 0.5).map(([k, w]) => Math.round(100 * f[k] / tot) + '% ' + w).join('<br>') + '</p>'; })()
+      /* the ledger: everything the place has, counted */
+      + (() => { const L = W.ledger(), cap = k => k.charAt(0).toUpperCase() + k.slice(1), NAME = { all: 'all', inStore: 'of it in the common store', veg: 'greens', fruit: 'fruit and roots', mournedAtShrine: 'times mourned at the shrine',
+            grieving: 'grieving now', ways: 'tiles of worn way', fields: 'field tiles', fenced: 'fenced', healerhouse: "healer's house", tallyhouse: 'tally house', born: 'born here', died: 'died', left: 'left the valley', cow: 'cattle', deer: 'deer', rabbit: 'rabbits', wolf: 'wolves' };
+          const row = (t, o) => { const ks = Object.keys(o).filter(k => o[k] > 0); return ks.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>' + t + '</b></td><td>' + ks.map(k => (NAME[k] || k) + ' <b>' + o[k] + '</b>').join(', ') + '</td></tr>' : ''; };
+          return '<p><b>Ledger</b></p><table style="border-collapse:collapse;font-size:inherit">' + row('People', L.people) + row('Homes', L.homes) + row('Buildings', L.buildings) + row('Being built', L.building) + row('Food', L.food) + row('Goods', L.goods)
+            + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row('Faith', L.faith) + '</table>'; })()
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
       /* F6: every place of work standing, and who works there */
       + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');
