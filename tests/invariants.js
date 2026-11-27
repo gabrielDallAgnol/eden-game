@@ -628,7 +628,7 @@ UNITS.push(['after a bitter quarrel a household leaves the house by its rival\'s
   var tried = [], w, i;
   var worlds = [[1, 'lakeland', 30], [2, 'valley', 30], [1, 'plains', 40], [2, 'forest', 30]];
   for (w = 0; w < worlds.length; w++) {
-    var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, land: worlds[w][1], size: 96 }), S = W.S, T = S.tribe;
+    var W = Eden.create(worlds[w][0], { resettle: true, startT: 0.3, dayCycle: 4, family: true, demog: 'old', land: worlds[w][1], size: 96 }), S = W.S, T = S.tribe;
     for (i = 0; i < 24 * worlds[w][2]; i++) W.tick();
     var site = function (a) { return T.sites.filter(function (q) { return q.id === a.house; })[0]; }, done = function (q) { var K = W.BUILDINGS[q.kind]; return K && K.room && q.stage >= K.stages.length && q.members > 0; };
     var P = S.agents.filter(function (a) { return a.alive && a.d.people && a.age >= 10 && a.house && site(a) && done(site(a)); }), pair = null;
