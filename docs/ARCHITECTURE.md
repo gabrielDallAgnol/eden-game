@@ -118,6 +118,8 @@ Each step is useful on its own and unlocks the next. "Check" is how to know it w
 These are rules, not outcomes, and are meant to stay that way:
 
 - **The Wood Age limit (2026-11-27, the owner's choice).** The game is created with `age: 'wood'`: the ideas `tools` (metal), `masonry` and `concrete` are never worked out, so no smithy, mason's yard, lime kiln or church is built. This is a cap set by hand, not a cause; it is there because the game should go only as far as its drawings do. Field stone is still gathered for footings, the well and the shrine. Without the option every idea is open, as the tests use it.
+- **The hand (2026-11-27, the owner's design).** The player has one power: lift a thing and set it down (`G.pick`, `G.drop`). Anything can be lifted: a person, a beast, a pile, a tree, a stone off bare rock, fire, a handful of water, a building. The hand causes nothing else itself. Fixed outcomes of setting down: stone on stone strikes a spark that lights the driest grass beside it; a tree set in water becomes logs; a building lands on the nearest free lot of the lattice; things set down within 2 tiles of the fire go into the common store. People within 8 tiles see it (`a.saw`), which nothing reads yet.
+- **Fire takes timber buildings.** A building with at least as much wood as stone in it, with fire on its own tile, is lost (one chance in two each step), with what was in it; in dry weather the fire may leap to a building on a neighbouring lot (0.35 each).
 - The lattice: lots `PITCH` tiles apart, ways between them, one building footprint per lot until density (step 6).
 - Construction stages and what each building costs.
 - How much of a want an idea takes (`IDEAS[k].at`). These are tuning numbers, like an animal's metabolism.

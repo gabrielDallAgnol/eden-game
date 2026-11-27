@@ -1144,4 +1144,38 @@ UNITS.push(['a wood-age world works out nothing of metal, dressed stone or lime,
   if (beasts !== tame) out.push('ledger counts ' + beasts + ' animals, the state has ' + tame);
   return out.join('; ');
 }]);
+UNITS.push(['the hand only lifts and sets down: a tree moves whole, stone on stone lights dry grass, water puts fire out, fire under a timber house takes it, a house is set on a free lot, and those near see it', function () {
+  var W = Eden.create(2, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'plains', size: 96, age: 'wood' }), S = W.S, T = S.tribe, N = W.N, G = W.G, i, out = [], x, y, h, r;
+  for (i = 0; i < 24 * 30; i++) W.tick();
+  var at = function (ok) { for (var j = 0; j < N * N; j++) if (ok(j)) return j; return -1; }, far = function (j) { return Math.max(Math.abs(j % N - T.x), Math.abs(((j / N) | 0) - T.y)) > 12; };
+  /* a tree, whole */
+  var t0 = at(function (j) { return W.tree[j] > 0.5 && far(j); }), g0 = at(function (j) { return !W.water[j] && W.tree[j] < 0.05 && far(j) && !W.field[j] && j !== t0; });
+  if (t0 < 0 || g0 < 0) return 'no tree or open ground to try'; var amt = W.tree[t0];
+  h = G.pick(t0 % N, (t0 / N) | 0); if (!h || h.k !== 'tree' || W.tree[t0] > 0) out.push('the tree was not lifted');
+  r = G.drop(h, g0 % N, (g0 / N) | 0); if (r !== 'tree' || Math.abs(W.tree[g0] - amt) > 1e-6) out.push('the tree did not stand where it was put (' + r + ')');
+  /* stone on stone over dry grass */
+  var d0 = at(function (j) { return !W.water[j] && far(j) && W.tree[j] < 0.05 && j % N > 2 && j % N < N - 3 && j > 3 * N && j < N * N - 3 * N; }); x = d0 % N; y = (d0 / N) | 0;
+  for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var j = (y + dy) * N + x + dx; W.grass[j] = 0.9; W.soil[j] = 0.2; W.snow[j] = 0; W.burn[j] = 0; }
+  r = G.drop({ k: 'pile', kind: 'stone', amt: 1 }, x, y); if (r !== 'ground') out.push('one stone alone made ' + r);
+  r = G.drop({ k: 'pile', kind: 'stone', amt: 1 }, x, y); if (r !== 'spark') out.push('stone on stone made ' + r + ', not a spark');
+  var lit = at(function (j) { return W.burn[j] > 0 && Math.abs(j % N - x) <= 1 && Math.abs(((j / N) | 0) - y) <= 1; }); if (lit < 0) out.push('no grass caught from the spark');
+  /* fire is lifted, and water puts it out */
+  if (lit >= 0) { h = G.pick(lit % N, (lit / N) | 0); if (!h || h.k !== 'fire' || W.burn[lit] > 0) out.push('the fire was not lifted'); G.drop(h, x, y); if (!(W.burn[d0] > 0)) out.push('fire set down did not burn');
+    r = G.drop({ k: 'water' }, x, y); if (r !== 'doused' || W.burn[d0] > 0) out.push('water did not put the fire out (' + r + ')'); }
+  for (i = 0; i < N * N; i++) W.burn[i] = 0;
+  /* a house on a free lot, and the same people in it */
+  var q = T.sites.filter(function (u) { return !u.upon && W.BUILDINGS[u.kind].room && u.stage > 0; })[0]; if (!q) return out.concat('no house to try').join('; ');
+  var ox = q.x, oy = q.y, id = q.id, n0 = T.sites.length; h = G.pick(ox, oy); if (!h || h.k !== 'site' || h.id !== id) out.push('the house was not lifted');
+  r = G.drop(h, ox + 17, oy + 9); if (r !== 'site' && r !== 'back') out.push('the house came down as ' + r);
+  if (r === 'site') { if (q.x === ox && q.y === oy) out.push('the house did not move'); if ((q.x - T.x - 2) % 4 || (q.y - T.y - 2) % 4) out.push('the house is off the lattice at ' + q.x + ',' + q.y);
+    if (T.sites.some(function (u) { return u !== q && !u.upon && u.x === q.x && u.y === q.y; })) out.push('two buildings on one lot'); }
+  if (T.sites.length !== n0 || q.lifted) out.push('the house was lost or left in the air');
+  /* fire under it */
+  var st = q.stage; for (i = 0; i < 12 && q.stage > 0; i++) { W.burn[q.y * N + q.x] = 1; W.tick(); }
+  if (q.stage > 0 && st > 0) out.push('a ' + q.kind + ' stood through a fire under it');
+  if (!S.agents.some(function (a) { return a.alive && a.d.people && a.saw > 0; }) || !(W.ledger().faith.haveSeenTheHand > 0)) out.push('nobody saw the hand');
+  for (i = 0; i < 24 * 2; i++) W.tick();
+  if (S.problems.length) out.push(S.problems[0]);
+  return out.join('; ');
+}]);
 })();

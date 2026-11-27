@@ -2251,7 +2251,7 @@ function create(seed, opt) {
     for (const a of S.agents) { if (!a.alive || a.d.people) continue; const to = a.tame ? out.beasts : out.wild; to[a.sp] = (to[a.sp] || 0) + 1; }
     let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
     out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
-    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length;
+    out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length;
     out.known = Object.keys(T.skills).filter(k => T.skills[k]);
     return out;
   }
@@ -2539,6 +2539,12 @@ function create(seed, opt) {
     if (flood[campI]) { T.store *= 1 - Math.min(1, 2.5 * dt); T.need.flood += dt * 2; }
     /* a store under the flood or the fire is lost, and the food kept there rots as it did before (F3) */
     for (const w of T.sites) { const K = BUILDINGS[w.kind]; if (K && K.keeps && w.stage > 0 && (flood[I(w.x, w.y)] || burn[I(w.x, w.y)] > 0.5)) { w.stage = 0; w.wood = 0; w.stone = 0; tell('The ' + w.kind + ' is lost to the ' + (flood[I(w.x, w.y)] ? 'flood' : 'fire') + '. What it kept will rot again.'); } }
+    /* fire under a building of timber takes it: what was wood is gone, what was in it is gone, and it may leap to the next roof
+       in dry weather. Wells, shrines and the like, more stone than wood, stand */
+    for (const w of T.sites) { const K = BUILDINGS[w.kind]; if (!K || K.keeps || w.upon || !(w.stage > 0 || w.was) || !(burn[I(w.x, w.y)] > 0.5) || stageNeed(K, 9, 'stone') > stageNeed(K, 9, 'wood') || rnd() >= 0.5) continue;
+      tell('Fire has taken a ' + (w.was || w.kind) + '.'); w.was = ''; w.stage = 0; w.part = 0; w.wood = 0; w.stone *= RUBBLE_STONE; w.larder = 0; w.fuel = 0; S.stat.burned = (S.stat.burned || 0) + 1;
+      for (const u of T.sites) if (u.upon === w.id) { u.stage = 0; u.wood = 0; u.larder = 0; }
+      if (S.precip === 0) for (const u of T.sites) if (u !== w && !u.upon && Math.abs(u.x - w.x) <= PITCH && Math.abs(u.y - w.y) <= PITCH && !water[I(u.x, u.y)] && rnd() < 0.35) burn[I(u.x, u.y)] = 1; }
     for (const w of T.sites) if (live(w) && flood[I(w.x, w.y)] && !w.lake && !(w.concrete && w.kind === 'house' && !w.was) && rnd() < 3 * dt) {
       T.need.flood += 3;
       tell('The flood has taken a ' + (w.was || w.kind) + '.' + (T.floodSeen ? '' : ' Nobody will build so low again without thinking.'));
@@ -2727,6 +2733,8 @@ function create(seed, opt) {
       fn(I(nx, ny));
     }
   };
+  /* those near enough to see the hand at work remember it */
+  function sawHand(x, y) { S.stat.hand = (S.stat.hand || 0) + 1; for (const a of folk()) if (Math.max(Math.abs(a.x - x), Math.abs(a.y - y)) <= 8) a.saw = (a.saw || 0) + 1; }
   const G = {
     /* put a creature down at a place (tests and scenarios): returns it */
     place(sp, x, y, age, e) { return add(sp, x, y, age === undefined ? SP[sp].mature : age, e === undefined ? 0.8 : e); },
@@ -2785,6 +2793,57 @@ function create(seed, opt) {
       S.piles.splice(S.piles.indexOf(p), 1); const T = S.tribe;
       if (S.popPeople && Math.max(Math.abs(tx - T.x), Math.abs(ty - T.y)) <= 2) { if (kind === 'meat') addFood(T, 'store', 'meat', p.amt); else if (kind === 'wood') T.wood += p.amt; else T.stone += p.amt; return 'store'; }
       const f = free(tx, ty); dropPile(f[0], f[1], kind, p.amt); return 'ground';
+    },
+    /* THE HAND. The one power: lift a thing and set it down again. It makes nothing happen itself: a stone set down on stone
+       strikes a spark, fire set down burns what will burn, water wets and puts out, a tree stands where it is put, a house is
+       set on the nearest free lot. People who are near see it done (a.saw), which is where knowing of the hand begins */
+    pick(x, y) {
+      x = clamp(x | 0, 0, N - 1); y = clamp(y | 0, 0, N - 1); const i = I(x, y), T = S.tribe;
+      if (burn[i] > 0) { burn[i] = 0; sawHand(x, y); return { k: 'fire' }; }
+      if (S.popPeople && Math.max(Math.abs(x - T.x), Math.abs(y - T.y)) <= 1 && T.skills.fire && T.lit >= 0 && S.tickNo - T.lit <= Math.max(2, (DAY || 1) * 2)) { sawHand(x, y); return { k: 'fire' }; }   /* a brand from the camp's fire; the fire stays */
+      const p = S.piles.find(q => q.x === x && q.y === y); if (p) { S.piles.splice(S.piles.indexOf(p), 1); sawHand(x, y); return { k: 'pile', kind: p.kind, amt: p.amt }; }
+      const q = S.popPeople ? T.sites.find(u => !u.upon && Math.abs(u.x - x) <= 1 && Math.abs(u.y - y) <= 1) : null; if (q) { q.lifted = true; sawHand(x, y); return { k: 'site', id: q.id, kind: q.kind }; }
+      if (!water[i] && tree[i] > 0.1) { const h = { k: 'tree', amt: tree[i], fruit: fruit[i] }; tree[i] = 0; fruit[i] = 0; cut[i] = 0; sawHand(x, y); return h; }
+      if (!water[i] && rock[i] >= 0.15) { const dug = Math.min(rock[i], 0.06); rock[i] -= dug; pit[i] = Math.min(1, pit[i] + dug); sawHand(x, y); return { k: 'pile', kind: 'stone', amt: dug * STONE_PER_TILE }; }
+      if (water[i]) { sawHand(x, y); return { k: 'water' }; }
+      return null;
+    },
+    drop(h, x, y) {
+      if (!h) return ''; x = clamp(x | 0, 0, N - 1); y = clamp(y | 0, 0, N - 1); const i = I(x, y), T = S.tribe, atCamp = S.popPeople && Math.max(Math.abs(x - T.x), Math.abs(y - T.y)) <= 2;
+      sawHand(x, y);
+      if (h.k === 'fire') { if (water[i]) return 'out'; burn[i] = 1; heat[i] += 4; if (atCamp && T.fuel > 0) T.lit = S.tickNo; return 'fire'; }
+      if (h.k === 'water') { if (water[i]) return 'water'; const was = burn[i] > 0; G.rain(x, y, 1, 0.25); return was ? 'doused' : 'wet'; }
+      if (h.k === 'pile') {
+        /* stone on stone: a spark, and whatever is dry beside it catches */
+        let spark = false;
+        if (h.kind === 'stone' && !water[i] && (rock[i] >= 0.15 || S.piles.some(q => q.kind === 'stone' && Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1))) {
+          let best = -1, bd = 0.3; area(x, y, 1, j => { if (!water[j] && snow[j] < 0.05 && soil[j] < 0.9 && grass[j] > bd) { bd = grass[j]; best = j; } });
+          if (best >= 0) { burn[best] = 1; spark = true; } }
+        if (atCamp && !spark) { if (h.kind === 'meat') addFood(T, 'store', 'meat', h.amt); else if (h.kind === 'wood') T.wood += h.amt; else T.stone += h.amt; return 'store'; }
+        const f = free(x, y); dropPile(f[0], f[1], h.kind, h.amt); return spark ? 'spark' : 'ground';
+      }
+      if (h.k === 'tree') {
+        if (water[i]) { const f = free(x, y); dropPile(f[0], f[1], 'wood', h.amt * WOOD_PER_STAND); return 'logs'; }   /* a tree set down in the water is driftwood */
+        let j = -1; const ok = t => !water[t] && tree[t] <= 0.1 && !T.sites.some(q => Math.abs(q.x - (t % N)) <= 1 && Math.abs(q.y - ((t / N) | 0)) <= 1);
+        for (let r = 0; r < 6 && j < 0; r++) area(x, y, r, t => { if (j < 0 && ok(t)) j = t; });
+        if (j < 0) { dropPile(x, y, 'wood', h.amt * WOOD_PER_STAND); return 'logs'; }
+        tree[j] = h.amt; fruit[j] = h.fruit || 0; field[j] = 0; return 'tree';
+      }
+      if (h.k === 'site') {
+        const q = T.sites.find(u => u.id === h.id); if (!q) return ''; q.lifted = false;
+        /* set on the nearest free lot of the lattice: the hand chooses where, the lattice how it sits */
+        const k0 = Math.round((x - T.x - 2) / PITCH), m0 = Math.round((y - T.y - 2) / PITCH); let bx = -1, by = -1, bd = 1e9;
+        for (let m = m0 - 3; m <= m0 + 3; m++) for (let k = k0 - 3; k <= k0 + 3; k++) { const lx = T.x + k * PITCH + 2, ly = T.y + m * PITCH + 2; if (lx < 2 || ly < 2 || lx >= N - 2 || ly >= N - 2 || water[I(lx, ly)]) continue;
+          if (T.sites.some(u => u !== q && u.upon !== q.id && u.x === lx && u.y === ly)) continue; const d = Math.hypot(lx - x, ly - y); if (d < bd) { bd = d; bx = lx; by = ly; } }
+        if (bx < 0 || (bx === q.x && by === q.y)) return 'back';
+        for (let j = 0; j < N * N; j++) if (owner[j] === q.id) owner[j] = 0;
+        for (const u of T.sites) if (u.upon === q.id) { u.x = bx; u.y = by; }
+        q.x = bx; q.y = by; const common = !BUILDINGS[q.kind] || !BUILDINGS[q.kind].room;
+        for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) { const j = I(bx + nx, by + ny); if (water[j]) continue; field[j] = 0; if (!common && !owner[j]) owner[j] = q.id; if (tree[j] > 0.1 && !nx && !ny) { dropPile(bx, by, 'wood', tree[j] * WOOD_PER_STAND); tree[j] = 0; } }
+        hsArr = null; S.stat.handMoved = (S.stat.handMoved || 0) + 1;
+        return 'site';
+      }
+      return '';
     },
     // test levers
     ruin(kind) { for (const q of S.tribe.sites) if (q.kind === kind) { q.stage = 0; q.wood = 0; q.stone = 0; } },   /* scenario lever: the store burns down */

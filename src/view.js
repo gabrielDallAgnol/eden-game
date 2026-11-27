@@ -546,6 +546,7 @@ function syncHuts() {
       h.p = Math.min(h.p, tp);
       if (h.kind !== st.kind) h.p = 0.05;
     }   // washed out, or being rebuilt as something better
+    if (!st.lifted) { h.x = st.x + 0.5; h.y = st.y + 0.5; }
     h.kind = st.kind; h.was = st.was; h.lake = st.lake; h.target = tp; h.upon = st.upon || 0;
     /* I1: a floor built upon a house is drawn as part of it; the house below counts its floors, the finished ones and one being built */
     h.floors = 1 + sites.filter(u => u.upon === st.id && u.stage >= W.DWELL[u.kind].stages).length; h.floorUp = sites.some(u => u.upon === st.id && u.stage < W.DWELL[u.kind].stages); h.live = !!(W.BUILDINGS[st.kind] || { room: 1 }).room && (!!st.was || st.stage >= n);
@@ -1129,7 +1130,7 @@ function clampCam() {
 const toWorld = (sx, sy) => ({ x: cam.x + sx * dpr / cam.z, y: cam.y + sy * dpr / cam.z });
 const toCell = (sx, sy) => { const w = toWorld(sx, sy), c = cellAt(w.x, w.y); return { x: clamp(c.x, 0, N - 0.01), y: clamp(c.y, 0, N - 0.01), wx: w.x, wy: w.y }; };
 function zoomAt(sx, sy, f) { const w = toWorld(sx, sy); cam.z = clamp(cam.z * f, minZ(), maxZ()); cam.x = w.x - sx * dpr / cam.z; cam.y = w.y - sy * dpr / cam.z; clampCam(); }
-const ptrs = new Map(); let pinch = null, held = null, heldPile = null, act = null, lastStrike = 0, bolt = null;
+const ptrs = new Map(); let pinch = null, held = null, heldThing = null, act = null, lastStrike = 0, bolt = null;
 function actorAt(w) {
   let best = null, bd = 26;
   for (const r of actors.values()) {
@@ -1141,6 +1142,21 @@ function actorAt(w) {
     }
   }
   return best;
+}
+/* the hand lifts what is at a place: asks the simulation for it, and remembers its picture to carry */
+function liftAt(c, w, ground) {
+  const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N, T = S.tribe;
+  for (let d = 0; d <= 2; d++) { const x = (c.x | 0) + d, y = (c.y | 0) + d; if (!inb(x, y)) continue; const i = y * N + x;
+    const tall = W.tree[i] > 0.1 || T.sites.some(q => !q.upon && Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1);
+    const low = W.burn[i] > 0 || (S.piles || []).some(p => p.x === x && p.y === y) || (S.popPeople && Math.abs(x - T.x) <= 1 && Math.abs(y - T.y) <= 1);
+    const bare = W.water[i] || (W.rock && W.rock[i] >= 0.15);
+    if (!(tall || (d === 0 && (low || (ground && bare))))) continue;
+    const pr = props.get('t' + i), img = pr ? pr.img : null, h = W.G.pick(x, y); if (!h) continue;
+    heldThing = { h, img, wx: w.x, wy: w.y, cx: x, cy: y };
+    say({ fire: 'Fire.', water: 'Water, cupped in the hand.', tree: 'A tree, roots and all.', site: 'A ' + (h.kind || 'building') + ', lifted off its ground.', pile: { meat: 'Meat.', wood: 'Logs.', stone: 'A stone.' }[h.kind] }[h.k] || '');
+    if (h.k === 'tree' || h.k === 'pile') repaintCells(x - 2, y - 2, x + 2, y + 2);
+    reconcile(); return true; }
+  return false;
 }
 cv.addEventListener('pointerdown', e => {
   if (paused) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1157,10 +1173,11 @@ cv.addEventListener('pointerdown', e => {
       const who = W.describe(r.a);
       if (who) say(who);
     }
-    /* no creature under the hand: a pile of meat, logs or stone can be picked up instead */
-    let pile = null; if (!r) { let bd = 30; for (const p of S.piles || []) { const d = Math.hypot(isoX(p.x + 0.5, p.y + 0.5) - w.x, isoY(p.x + 0.5, p.y + 0.5) - 4 - w.y); if (d < bd) { bd = d; pile = p; } } }
-    if (pile) { heldPile = { x: pile.x, y: pile.y, kind: pile.kind, wx: w.x, wy: w.y }; say({ meat: 'Meat', wood: 'Logs', stone: 'Stone' }[pile.kind] + ': set it down by the fire for the village, or anywhere for people to fetch.'); }
-    act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r && !pile };
+    /* no creature under the hand: whatever else is there is lifted. Tall things (a tree, a house) are also caught by the
+       ground just in front of where they were touched. Open water and bare rock are taken only by holding still a moment,
+       so that dragging across a lake still moves the view */
+    if (!r) { const c0 = toCell(e.clientX, e.clientY); liftAt(c0, w, false); }
+    act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r && !heldThing, t0: now, x0: e.clientX, y0: e.clientY };
   }
   else if (tool === 'strike') {
     if (now - lastStrike > 600) {
@@ -1192,7 +1209,7 @@ cv.addEventListener('pointermove', e => {
   }
   if (!act || act.id !== e.pointerId) return; act.x = p.x; act.y = p.y;
   if (held) { const c = toCell(p.x, p.y + 10); held.x = c.x; held.y = c.y; }
-  else if (heldPile) { const w2 = toWorld(p.x, p.y); heldPile.wx = w2.x; heldPile.wy = w2.y; }
+  else if (heldThing) { const w2 = toWorld(p.x, p.y); heldThing.wx = w2.x; heldThing.wy = w2.y; if (heldThing.h.k === 'site') { const c2 = toCell(p.x, p.y), hu = huts.find(q => q && q.id === heldThing.h.id); if (hu) { hu.x = c2.x; hu.y = c2.y; } } }
   else if (act.pan) { cam.x -= (p.x - ox) * dpr / cam.z; cam.y -= (p.y - oy) * dpr / cam.z; clampCam(); }
 });
 function dropHeld() {
@@ -1204,11 +1221,17 @@ function dropHeld() {
   if (r.a.d.people) { P.go(camp.x + R(-1, 1), camp.y + R(-1, 1), SPEED.person.walk); } else { const e = endOf(r.a); P.go(e.x, e.y, SPEED[kind(r.a)].walk); }
   P.done('idle'); r.si = -1; for (const s of r.plan) if (s.u1 <= u) { s.u0 = s.u1 = u; }
 }
-const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (act && act.id === e.pointerId) { if (held) dropHeld(); if (heldPile) dropPile(e); act = null; } };
-function dropPile(e) {
-  const hp = heldPile; heldPile = null; const c = toCell(e.clientX, e.clientY), where = W.G.movePile(hp.x, hp.y, hp.kind, clamp(c.x | 0, 0, N - 1), clamp(c.y | 0, 0, N - 1));
-  if (where === 'store') say({ meat: 'The meat is in the common store by the fire.', wood: 'The logs are on the woodpile.', stone: 'The stone is stacked by the fire.' }[hp.kind]);
-  burst(c.x, c.y, 'dust', 6); reconcile();
+const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (act && act.id === e.pointerId) { if (held) dropHeld(); if (heldThing) dropThing(e); act = null; } };
+function dropThing(e) {
+  const ht = heldThing; heldThing = null; const c = toCell(e.clientX, e.clientY), x = clamp(c.x | 0, 0, N - 1), y = clamp(c.y | 0, 0, N - 1), res = W.G.drop(ht.h, x, y);
+  const SAY = { store: 'Set down by the fire: it is the village\'s now.', spark: 'Stone on stone: a spark, and the dry grass has caught.', fire: 'Fire, set down.', out: 'The fire is out in the water.', doused: 'The water has put the fire out.',
+    wet: 'Water on the ground.', tree: 'The tree stands where it was put.', logs: 'The tree has come down as logs.', site: 'Set down on the nearest free lot.', back: 'There is no free lot there: it is back where it stood.' };
+  if (SAY[res]) say(SAY[res]);
+  if (res === 'spark' || res === 'fire') { burst(c.x, c.y, 'ember', 12); burst(c.x, c.y, 'smoke', 8); scatterFrom(c.x, c.y, 3); for (let i = 0; i < N * N; i++) if (W.burn[i] > 0) scar[i] = 1; }
+  else if (res === 'wet' || res === 'doused') burst(c.x, c.y, 'splash', 8, { vy: -0.03, max: 350 }); else if (res === 'out' || res === 'water') ripples.push({ x: isoX(c.x, c.y), y: isoY(c.x, c.y), t: now });
+  else burst(c.x, c.y, 'dust', 6);
+  if (res === 'site' || res === 'back') { syncLots(); syncHuts(); startPaint(); }
+  takeEvents(true); reconcile(); repaintCells(x - 3, y - 3, x + 3, y + 3);
 }
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 0.87); }, { passive: false });
@@ -1224,6 +1247,7 @@ function scatterFrom(x, y, rad) {
 }
 // the powers: each one pushes the engine at the touched place, and the ground answers at once
 function usePower(dtMs) {
+  if (act && tool === 'hand' && act.pan && !held && !heldThing && now - act.t0 > 350 && Math.hypot(act.x - act.x0, act.y - act.y0) < 6) { if (liftAt(toCell(act.x, act.y), toWorld(act.x, act.y), true)) act.pan = false; else act.t0 = 1e15; }
   if (!act || tool === 'hand' || tool === 'strike') return; act.acc += dtMs; act.t += dtMs; if (act.acc < 120) return;
   const frac = act.acc / 2500; act.acc = 0; const c = toCell(act.x, act.y), x = c.x | 0, y = c.y | 0, cold = W.tempAt(y * N + x) < 0;
   if (tool === 'rain') {
@@ -1705,7 +1729,11 @@ function frame(t) {
     }
     else if (tool === 'grow') { cx.strokeStyle = 'rgba(214,245,166,.5)'; cx.lineWidth = 1; cx.beginPath(); cx.ellipse(wx, wy, 140, 70, 0, 0, 6.3); cx.stroke(); }
   }
-  if (heldPile) { const im = A.item[heldPile.kind === 'wood' ? 'log' : heldPile.kind]; for (let k = 0; k < 3; k++) cx.drawImage(im, Math.round(heldPile.wx - im.width / 2 + (k - 1) * 4), Math.round(heldPile.wy - 18 - k * 3)); }
+  if (heldThing) { const ht = heldThing, hx = Math.round(ht.wx), hy = Math.round(ht.wy);
+    if (ht.h.k === 'pile') { const im = A.item[ht.h.kind === 'wood' ? 'log' : ht.h.kind]; for (let k = 0; k < 3; k++) cx.drawImage(im, Math.round(hx - im.width / 2 + (k - 1) * 4), hy - 18 - k * 3); }
+    else if (ht.h.k === 'tree' && ht.img) cx.drawImage(ht.img, Math.round(hx - ht.img.width / 2), hy - ht.img.height + 4);
+    else if (ht.h.k === 'fire') { const f = Math.floor(t / 90) % 3; cx.fillStyle = '#e8622c'; cx.fillRect(hx - 3, hy - 14 - f, 6, 8 + f); cx.fillStyle = '#ffb347'; cx.fillRect(hx - 2, hy - 12 - f, 4, 6 + f); cx.fillStyle = '#fff3b0'; cx.fillRect(hx - 1, hy - 9, 2, 3); cx.fillStyle = '#5a3a22'; cx.fillRect(hx - 1, hy - 6, 2, 8); }
+    else if (ht.h.k === 'water') { cx.fillStyle = '#4f93a3'; cx.fillRect(hx - 4, hy - 12, 8, 5); cx.fillRect(hx - 3, hy - 13, 6, 7); cx.fillStyle = '#cfe9e4'; cx.fillRect(hx - 2, hy - 12, 2, 1); } }
   if (bolt) {
     const age = now - bolt.t;
     if (age > 300) bolt = null; else {
@@ -1840,7 +1868,8 @@ function drawRod(d) {
 
 // ================================================================== the few controls there are
 const tools = document.getElementById('tools');
-for (const [id, label] of [['hand', 'Hand'], ['rain', 'Rain'], ['sun', 'Sun'], ['grow', 'Grow'], ['strike', 'Strike']]) {
+/* one power only: the hand. There is nothing to choose between, so no buttons are shown */
+for (const [id, label] of []) {
   const b = document.createElement('button');
   b.className = 'tool' + (id === tool ? ' sel' : '');
   b.dataset.t = id;
