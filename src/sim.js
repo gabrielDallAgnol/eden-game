@@ -263,7 +263,9 @@ function create(seed, opt) {
   // Felling. A stand once begun is worked until it is down: cut marks it, and wood is taken from a begun stand before a new
   // one is started. What is left once a stand is nearly gone is cleared, so felling opens the ground.
   const REACH_W = 30;
-  const HERB_TRY = opt.herbTry !== undefined ? opt.herbTry : 0.04;   /* the chance that a grown person at home tries a herb growing near when there is sickness under the roof */
+  const BAND_REACH = opt.bandReach !== undefined ? opt.bandReach : 90;   /* fires further apart than this do not meet */
+  const HEALER_REACH = 10;
+  const HERB_TRY = opt.herbTry !== undefined ? opt.herbTry : 0.02;   /* the chance that a grown person at home tries a herb growing near when there is sickness under the roof */
   const LOD = opt.lod !== undefined ? opt.lod : N > 128 ? 4 : 1, FAR = 40;
   const ASK_WAIT = 12;   /* steps the asker waits for an answer: three days */
   /* test lever: demog 'old' is the demography before sickness (no fever, no deaths at birth, children borne to 42 every 2.4 years), kept so that checks of what only a large place does can still reach one in a few decades */
@@ -389,8 +391,8 @@ function create(seed, opt) {
         let i = n++; K[i] = k; J[i] = j; while (i > 0) { const q = (i - 1) >> 1; if (K[q] <= K[i]) break; const tk = K[q], tj = J[q]; K[q] = K[i]; J[q] = J[i]; K[i] = tk; J[i] = tj; i = q; } },
       pop() { const top = J[0]; n--; if (n > 0) { K[0] = K[n]; J[0] = J[n]; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < n && K[l] < K[m]) m = l; if (r < n && K[r] < K[m]) m = r; if (m === i) break; const tk = K[m], tj = J[m]; K[m] = K[i]; J[m] = J[i]; K[i] = tk; J[i] = tj; i = m; } } return top; } }; }
   const WALK_HEAP = tileHeap(), ROUTE_HEAP = tileHeap(), WALK_OPEN = new Uint8Array(N * N);
-  const walkFields = new Map(), WALK_G = new Float64Array(N * N); let walkKey = '', walkTribe = null;
-  function walkField(s0) { const br = bridgeTiles(), key = bridgeKeys + ':' + (S.stat ? S.stat.ponds : 0) + ':' + (S.tribe ? S.tribe.roadGen : 0);   /* the walk changes only when water, bridges or roads do */ if (key !== walkKey || S.tribe !== walkTribe) { walkFields.clear(); walkKey = key; walkTribe = S.tribe; }
+  const WALK_OF = new WeakMap(), WALK_G = new Float64Array(N * N); let walkFields = new Map(), walkKey = '', walkTribe = null;   /* each band keeps its own remembered walks */
+  function walkField(s0) { const br = bridgeTiles(), key = bridgeKeys + ':' + (S.stat ? S.stat.ponds : 0) + ':' + (S.tribe ? S.tribe.roadGen : 0);   /* the walk changes only when water, bridges or roads do */ if (S.tribe !== walkTribe) { let w = WALK_OF.get(S.tribe); if (!w) WALK_OF.set(S.tribe, w = { m: new Map(), key: '' }); walkFields = w.m; walkKey = w.key; walkTribe = S.tribe; } if (key !== walkKey) { walkFields.clear(); walkKey = key; WALK_OF.get(S.tribe).key = key; }
     let f = walkFields.get(s0); if (f) return f; f = WALK_G.fill(Infinity); f[s0] = 0; const T = S.tribe, heap = WALK_HEAP; heap.clear(); heap.push(0, s0);
     const open = WALK_OPEN, road = T.road; for (let j = 0; j < N * N; j++) open[j] = !water[j] || br[j] ? 1 : 0;
     while (heap.size) { const g = heap.topK(), c = heap.pop(); if (g > f[c]) continue; const cx = c % N, cy = (c - cx) / N;
@@ -644,17 +646,19 @@ function create(seed, opt) {
       life: d.life * R(0.75, 1.15),
       alive: true,
       mood: '' };
-    S.agents.push(a); S.byId.set(a.id, a); if (d.people) { folkList = null; soul(a); folkList = null; } return a;
+    S.agents.push(a); S.byId.set(a.id, a); if (d.people) { a.band = S.tribe.band || 0; folkList = null; soul(a); folkList = null; } return a;
   }
   // Where newcomers to an empty valley make their camp: water close by, fruiting trees, good ground, and room to range on
   // foot without having to wade a river to reach it.
-  function campSite() {
-    let bx = N >> 1, by = N >> 1, best = -1;
+  function campSite(others) {
+    let bx = N >> 1, by = N >> 1, best = -1e9; const apart = Math.max(24, N / 4);
     for (let k = 0; k < 200; k++) {
       const x = (R(4, N - 4)) | 0, y = (R(4, N - 4)) | 0, i = I(x, y); if (water[i]) continue; let w = 0, tr = 0;
       for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const j = I(clamp(x + dx, 0, N - 1), clamp(y + dy, 0, N - 1)); w += water[j]; tr += yieldOf(tree[j]); }
       let sc = Math.min(w, 4) + Math.min(tr, 12) * 0.5 + fert[i] + Math.min(1, massSize[mass[i]] / 600) * 3;
       for (const q of S.homes.values()) if (q.kind === 'den' && Math.max(Math.abs(q.x - x), Math.abs(q.y - y)) < 12) sc -= 30;   /* nobody pitches camp by a wolves' den */
+      if (LAPSE) sc -= Math.max(0, height[i] - 3) * 1.5;   /* in a wide country nobody chooses the cold heights to camp on */
+      if (others) for (const o of others) { const d = Math.max(Math.abs(o.x - x), Math.abs(o.y - y)); if (d < apart) sc -= (apart - d) * 2; }   /* a second band keeps well away from the first */
       if (sc > best) { best = sc; bx = x; by = y; }
     }
     return [bx, by];
@@ -678,7 +682,8 @@ function create(seed, opt) {
      SMALL, are grown at GROWN (the species' mature age), and may pair off at WED */
   const GROWN = HUMAN.mature, SMALL = 4, WED = 10;
   let folkList = null;                                               // the living people, gathered once and reused until someone is born, arrives or dies
-  const folk = () => folkList || (folkList = S.agents.filter(b => b.alive && b.d.people));
+  /* the people of the band whose turn it is (S.tribe): on a land with one band, everyone */
+  const folk = () => folkList || (folkList = S.agents.filter(b => b.alive && b.d.people && (b.band || 0) === (S.tribe.band || 0)));
   function nameFor(a) {
     const pool = NAMES[a.fem ? 'f' : 'm'], used = new Set(folk().filter(b => b !== a).map(b => b.name));
     let nm = pool[(rnd() * pool.length) | 0];
@@ -731,7 +736,7 @@ function create(seed, opt) {
   const FIRST_NORM = 6;
   const normOf = a => a.norm === undefined ? FIRST_NORM : a.norm;
   const childrenOf = a => folk().filter(b => b.mom === a.id || b.dad === a.id);
-  const tell = text => S.log.push({ t: S.t, text });
+  const tell = text => S.log.push({ t: S.t, text, band: S.tribe.band || 0 }), tellAll = text => S.log.push({ t: S.t, text, band: -1 });   /* news of one band, and news of what passes between bands */
   // a few words about one person, for whoever stops to look
   /* G1. Ties beyond kin: two people grow close by doing things together (one hunt, one building site, one fire to eat, sing,
      hear a story or mourn at) and drift apart slowly when they do not. A friend is someone a tie of 0.5 or more binds them to */
@@ -963,9 +968,13 @@ function create(seed, opt) {
      other, rabbits in warrens. A group is some grown ones and their young, who keep to their mothers. Not everywhere: the
      land between groups starts empty */
   for (const sp in SP) { const d = SP[sp]; if (d.people) continue; const n = opt[sp] === undefined ? Math.round((d.start || 0) * N * N / 1600) : opt[sp]; placeGroups(sp, n); }
-  {
-    const [bx, by] = campSite();
-    S.tribe.x = bx; S.tribe.y = by;
+  /* a new band of people at a place: its own fire, store, wants and knowledge; the ways and bridges of the land are everyone's */
+  function newBand(x, y) { const B = newSettlement(x, y); B.band = S.tribes.length; B.road = S.tribes[0].road; B.bridged = S.tribes[0].bridged; B.fordUse = S.tribes[0].fordUse; S.tribes.push(B); return B; }
+  S.tribes = [S.tribe]; S.tribe.band = 0;
+  /* the founders: one band (as ever), or opt.bands of them, each at the best ground it can find well away from the others */
+  for (let b = 0; b < Math.max(1, opt.bands || 1); b++) {
+    const [bx, by] = campSite(b ? S.tribes : null); const B = b ? newBand(bx, by) : S.tribe;
+    B.x = bx; B.y = by; S.tribe = B; folkList = null;
     for (const sp in SP) if (SP[sp].people) {
       const n = opt[sp] === undefined ? SP[sp].start : opt[sp];
       for (let k = 0; k < n; k++) add(sp, bx, by, 18 + k * 2, 1);
@@ -978,6 +987,8 @@ function create(seed, opt) {
       }
     }
   }
+  for (const B of S.tribes) { const lead = S.agents.find(a => a.d.people && (a.band || 0) === B.band); if (lead && !B.name) { let nm = lead.name + "'s people", k = nm, n = 2; while (S.tribes.some(o => o.name === k)) k = nm + ' the ' + ['', '', 'second', 'third', 'fourth', 'fifth'][Math.min(5, n++)]; B.name = k; } }
+  S.tribe = S.tribes[0]; folkList = null;
   /* one who leaves the valley for good: not a death, nobody grieves; the view lets them go */
   const leave = a => { if (!a.alive) return; a.alive = false; a.left = true; folkList = null; S.stat.left = (S.stat.left || 0) + 1; S.fx.push({ kind: 'leave', sp: a.sp, id: a.id, x: a.x, y: a.y }); };
   const die = (a, why, by) => {
@@ -1008,7 +1019,7 @@ function create(seed, opt) {
           burned: 'died in the fire',
           struck: 'was struck down',
           hunger: 'starved',
-          'cold and hunger': 'died of cold and hunger', fever: 'died of a fever', childbirth: 'died in childbirth', 'at birth': 'did not live through the birth' }[why] || 'has died';
+          'cold and hunger': 'died of cold and hunger', fever: 'died of a fever', 'killed in a raid': 'was killed in a raid', childbirth: 'died in childbirth', 'at birth': 'did not live through the birth' }[why] || 'has died';
         tell(a.name + ' ' + how + '.' + (near.length ? ' ' + near.slice(0, 3).map(b => b.name).join(', ') + (near.length > 1 ? ' mourn.' : ' mourns.') : '')); }
     }
     // a kill is seen: those of its kind nearby stay wary of that kind of hunter for most of a year
@@ -1030,7 +1041,8 @@ function create(seed, opt) {
   }
   // the tiles under crop, gathered once each sowing (and after a load) rather than searched for every step
   let fieldList = null;
-  const fieldTiles = () => { if (!fieldList) { fieldList = []; for (let i = 0; i < N * N; i++) if (field[i]) fieldList.push(i); } return fieldList; };
+  /* the sown tiles of the band whose turn it is: with several bands, those belonging to its own households */
+  const fieldTiles = () => { if (!fieldList) { fieldList = []; const mine = S.tribes.length > 1 ? new Set(S.tribe.sites.map(q => q.id)) : null; for (let i = 0; i < N * N; i++) if (field[i] && (!mine || mine.has(owner[i]))) fieldList.push(i); } return fieldList; };
   // like nearest, but each candidate's distance is shifted by a bias: a way to prefer the weak, the young, the unwary
   function nearestBy(a, r, ok, bias) {
     let best = null, bd = 1e9;
@@ -1810,7 +1822,7 @@ function create(seed, opt) {
   const HERB_USE = {}; for (let k = 1; k < HERBS.length; k++) HERB_USE[HERBS[k].use] = k;
   const herbNear = (x, y, k, r) => { for (let dy = -r; dy <= r; dy++) { const yy = y + dy; if (yy < 0 || yy >= N) continue; for (let dx = -r; dx <= r; dx++) { const xx = x + dx; if (xx < 0 || xx >= N) continue; const j = yy * N + xx; if (herb[j] === k && !field[j] && !S.tribe.road[j]) return true; } } return false; };
   /* who under this roof (or, with a healer at work, the healer) knows the herb for a use best, where it can be had: growing within a walk of the door, or kept in the healer's garden */
-  function cureFor(h, use) { const k = HERB_USE[use], name = HERBS[k].k, T = S.tribe; let best = null, lv = 0; const near = herbNear(h.x, h.y, k, 12), heals = healing();
+  function cureFor(h, use) { const k = HERB_USE[use], name = HERBS[k].k, T = S.tribe; let best = null, lv = 0; const near = herbNear(h.x, h.y, k, 12), hh = healing() ? standing('healerhouse') : null, heals = !!hh && Math.max(Math.abs(hh.x - h.x), Math.abs(hh.y - h.y)) <= HEALER_REACH;   /* a healer tends those who live near enough to be carried there */
     for (const b of folk()) { const kn = b.know && b.know[name]; if (!kn) continue; const mine = h !== T ? b.house === h.id : !b.house; if ((mine && (near || heals)) || (heals && b.job === 'healer')) { if (kn > lv) { lv = kn; best = b; } } }
     return best ? { who: best, lv, name } : null; }
   function tryHerbs(h, uses) { const T = S.tribe; for (const use of uses) { const k = HERB_USE[use], name = HERBS[k].k; if (!herbNear(h.x, h.y, k, 10)) continue;
@@ -2308,7 +2320,7 @@ function create(seed, opt) {
     let fields = 0, roads = 0; for (let i = 0; i < N * N; i++) { if (field[i] > 0) fields++; if (T.road[i]) roads++; }
     out.land.fields = fields; out.land.ways = roads; out.land.bridges = Object.keys(T.bridged || {}).length; out.land.fenced = T.wall && T.wall.done ? 1 : 0;
     out.faith.shrines = T.sites.filter(q => (q.kind === 'shrine' || q.kind === 'church') && raised(q)).length; out.faith.mournedAtShrine = S.stat.rites || 0; out.faith.grieving = P.filter(a => a.grief > 0.2).length; out.faith.haveSeenTheHand = P.filter(a => a.saw > 0).length; out.faith.offerings = Math.round((T.offer || 0) * 10) / 10; out.godName = T.godName || ''; out.counsel = Object.keys(T.counsel || {}); out.faith.believe = P.filter(a => a.faith > 0.5).length; out.faith.trusting = P.filter(a => a.faith > 0.5 && a.trust > 0.2).length; out.faith.fearful = P.filter(a => a.faith > 0.5 && a.trust < -0.2).length;
-    out.known = Object.keys(T.skills).filter(k => T.skills[k]); out.herbs = {}; for (let k = 1; k < HERBS.length; k++) { const n = P.filter(a => a.know && a.know[HERBS[k].k]).length; if (n) out.herbs[HERBS[k].k] = n; }
+    out.known = Object.keys(T.skills).filter(k => T.skills[k]); out.band = bandName(T); out.bands = S.tribes.length < 2 ? [] : S.tribes.filter(B => B !== T && S.agents.some(a => a.alive && a.d.people && (a.band || 0) === B.band)).map(B => { const R = relOf(T.band, B.band), n = S.agents.filter(a => a.alive && a.d.people && (a.band || 0) === B.band).length; return { name: bandName(B), people: n, dist: Math.round(Math.hypot(B.x - T.x, B.y - T.y)), met: R.met > 0, feeling: !R.met ? 'unknown to each other' : R.v > 0.5 ? 'kin' : R.v > 0.15 ? 'friends' : R.v > -0.15 ? 'neighbours' : R.v > -0.5 ? 'wary' : 'enemies', raids: R.raids, wed: R.kin }; }); out.herbs = {}; for (let k = 1; k < HERBS.length; k++) { const n = P.filter(a => a.know && a.know[HERBS[k].k]).length; if (n) out.herbs[HERBS[k].k] = n; }
     return out;
   }
   function workplaces() {
@@ -2390,7 +2402,7 @@ function create(seed, opt) {
     /* what is known of herbs is shown at home to those old enough to learn it, and to the healer by those who bring their sick */
     { const P = folk(), top = new Map(), healer = healing() ? P.find(b => b.job === 'healer') : null;
       for (const b of P) if (b.know && b.house) for (const k in b.know) { const key = b.house + ':' + k; if (!(top.get(key) >= b.know[k])) top.set(key, b.know[k]); }
-      for (const b of P) { if (b.age < GROWN || !b.house) continue; for (let k = 1; k < HERBS.length; k++) { const name = HERBS[k].k, t = top.get(b.house + ':' + name); if (t && !((b.know || {})[name] >= t * 0.6) && rnd() < 0.15) (b.know = b.know || {})[name] = t * 0.6; } }
+      for (const b of P) { if (b.age < GROWN || !b.house) continue; for (let k = 1; k < HERBS.length; k++) { const name = HERBS[k].k, t = top.get(b.house + ":" + name); if (t && !((b.know || {})[name] >= t * 0.6) && rnd() < 0.06) (b.know = b.know || {})[name] = t * 0.6; } }
       if (healer) for (const b of P) if (b.know && b !== healer) for (const k in b.know) if (!((healer.know || {})[k] >= b.know[k] * 0.8) && rnd() < 0.3) (healer.know = healer.know || {})[k] = b.know[k] * 0.8; }
     nextQuestion();
         T.kidDied *= 0.85; T.kidBorn *= 0.85;   /* what was seen of children living and dying fades over the years */
@@ -2479,7 +2491,8 @@ function create(seed, opt) {
       T.againYear = -1;   /* sown once a year, in spring as the days lengthen: one crop a year, not a second cut down by frost */
       T.sownYear = Math.floor(S.cal);
       const P = folk(), homes = T.sites.filter(q => live(q) && q.members > 0), ids = new Set(homes.map(q => q.id)), leaving = []; let total = 0;
-      for (let i = 0; i < N * N; i++) if (field[i] && !ids.has(owner[i])) { field[i] = 0; owner[i] = 0; }      // nobody's any more: it goes back to grass
+      { const others = S.tribes.length > 1 ? new Set() : null; if (others) for (const B of S.tribes) if (B !== T) for (const q of B.sites) others.add(q.id);   /* another band's fields are not this band's to give back to the grass */
+        for (let i = 0; i < N * N; i++) if (field[i] && !ids.has(owner[i]) && !(others && others.has(owner[i]))) { field[i] = 0; owner[i] = 0; } }      // nobody's any more: it goes back to grass
       for (const h of homes) {
         const mine = P.filter(b => b.house === h.id), hands = mine.filter(b => b.age >= GROWN && b.age <= 60).length, farmers = mine.filter(b => b.job === 'farmer').length;
         /* H3: when grain is dear against the other foods, a household puts more of its hands to the fields; when it is cheap, fewer */
@@ -2528,8 +2541,16 @@ function create(seed, opt) {
       /* parents who go take their small children with them, wherever the children are */
       { const ids = new Set(goers.map(b => b.id)); for (const b of P) if (!ids.has(b.id) && b.age < GROWN && !b.partner && (ids.has(b.mom) || ids.has(b.dad))) { goers.push(b); ids.add(b.id); } }
       for (const b of P) b.shortT = 0;
-      if (goers.length) { const n = new Set(goers).size; for (const b of goers) leave(b); S.stat.leftYears = (S.stat.leftYears || 0) + 1;
-        tell(n + ' people have left the valley to find land of their own: there was no ground to sow near the village and the store was running low.'); }
+      if (goers.length) { const set = [...new Set(goers)], n = set.length; S.stat.leftYears = (S.stat.leftYears || 0) + 1;
+        /* on a wide land they need not leave it: with free ground a long walk from every fire, they make a fire of their own there, taking what they know and what they can carry */
+        let site = null; if (N > 128 && S.tribes.length < 8 && set.filter(b => b.age >= WED).length >= 2) { const [sx, sy] = campSite(S.tribes), far = Math.min(...S.tribes.map(o => Math.max(Math.abs(o.x - sx), Math.abs(o.y - sy)))); if (far >= 30) site = [sx, sy]; }
+        if (site) { const B = newBand(site[0], site[1]); for (const k in T.skills) B.skills[k] = T.skills[k]; B.godName = T.godName; B.from = T.band; let carried = T.store * 0.5 * n / Math.max(1, P.length); T.store -= carried; mixOf(T, 'store'); for (const h of leaving) { carried += (h.larder || 0) * 0.8; h.larder = 0; } B.store = carried; B.wood = Math.min(T.wood, 4); T.wood -= B.wood;   /* their share of the common store, what was in their own larders, and a few timbers */ if (carried > 0) mixOf(B, 'store');
+          const lead = set.filter(b => b.age >= WED).sort((p, q) => q.age - p.age)[0]; B.name = uniqueName(lead.name + "'s people"); S.stat.founded = (S.stat.founded || 0) + 1;
+          for (const b of set) { b.band = B.band; b.house = 0; b.job = ''; b.trip = null; const f = free(site[0], site[1]); b.x = f[0]; b.y = f[1]; }
+          { const R = relOf(T.band, B.band); R.v = 0.5; R.kin = n; }   /* they parted as kin */
+          folkList = null; tell(n + ' people, led by ' + lead.name + ', have left to make a fire of their own ' + Math.round(Math.hypot(site[0] - T.x, site[1] - T.y)) + ' tiles away: there was no ground to sow near the village.'); }
+        else { for (const b of set) leave(b);
+        tell(n + ' people have left the valley to find land of their own: there was no ground to sow near the village and the store was running low.'); } }
       T.fields = total; T.sown = true; T.cropWarm = 0; fieldList = null;
     }
     if (T.sown) {
@@ -2577,15 +2598,60 @@ function create(seed, opt) {
     tread.fill(0); owner.fill(0); field.fill(0); known.fill(0); seenFrom.clear();   /* newcomers know nothing of the place */
   }
   // ---------------------------------------------------------------- one step of time
-  function tick() {
-    heardNow = din; din = []; S.din = heardNow;
-    const dt = 1 / TPY; trails.clear(); S.t += dt; { const q0 = QUARTER(S.cal), y0 = Math.floor(S.cal); S.cal += 1 / (TPY * stretchAt(S.cal % 1)); S.newQuarter = QUARTER(S.cal) !== q0; S.newYear = Math.floor(S.cal) !== y0; } S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
+  /* BETWEEN BANDS. Bands whose fires are within three days' walk of each other meet. What passes between them follows from what each has and lacks and from
+     what has already happened between them (S.rel: v from -1, enemies, to 1, kin): young people marry across, food of the kinds each has most of is exchanged,
+     ways of doing things are seen and copied, a hungry band begrudges the other its hunting, and a starving band beside a full store may raid it. A raid is
+     answered. Nothing is decided by counting years: only by nearness, want and memory */
+  const relOf = (a, b) => { const k = Math.min(a, b) + ':' + Math.max(a, b); S.rel = S.rel || {}; return S.rel[k] || (S.rel[k] = { v: 0, met: 0, kin: 0, raids: 0 }); };
+  const bandName = B => B.name || 'the first people';
+  const uniqueName = nm => { let k = nm, n = 2; while (S.tribes.some(B => B.name === k)) k = nm + ' the ' + ['', '', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'][Math.min(8, n++)]; return k; };
+  function inBand(B, fn) { const keep = S.tribe; S.tribe = B; folkList = null; fieldList = null; try { return fn(); } finally { S.tribe = keep; folkList = null; fieldList = null; } }
+  function betweenBands() { const all = S.tribes, P = all.map(B => S.agents.filter(a => a.alive && a.d.people && (a.band || 0) === B.band));
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) { const A = all[i], B = all[j], pa = P[i], pb = P[j]; if (!pa.length || !pb.length) continue;
+      const d = Math.hypot(A.x - B.x, A.y - B.y), c = clamp((BAND_REACH - d) / (BAND_REACH * 0.66), 0, 1); if (c <= 0) continue; const R = relOf(A.band, B.band);
+      if (!R.met) tellAll('People from ' + bandName(A) + ' and ' + bandName(B) + ' have met, ' + Math.round(d) + ' tiles between their fires.'); R.met += c;
+      const grown = q => q.filter(a => a.age >= GROWN && a.age <= 46), ga = grown(pa), gb = grown(pb), per = (T, n) => T.store / Math.max(1, n);
+      /* marriage across: one without a match at home finds one at the other fire, and one of the two moves */
+      if (R.v > -0.3 && rnd() < 0.6 * c) { const single = q => q.filter(a => !a.partner && a.age >= WED && a.age <= 40 && !(a.grief > 0.3)); const sa = single(pa), sb = single(pb); let pair = null;
+        for (const a of sa) { const b = sb.find(b => b.fem !== a.fem && Math.abs(a.age - b.age) <= 14 && !kin(a, b)); if (b) { pair = [a, b]; break; } }
+        if (pair) { const [a, b] = pair, mover = rnd() < 0.5 ? a : b, to = mover === a ? B : A, stay = mover === a ? b : a; a.partner = b.id; b.partner = a.id; mover.band = to.band; mover.house = stay.house || 0; mover.job = ''; mover.trip = null; const f = free(to.x, to.y); mover.x = f[0]; mover.y = f[1];
+          R.v = Math.min(1, R.v + 0.15); R.kin++; S.stat.crossWed = (S.stat.crossWed || 0) + 1; tellAll(mover.name + ' of ' + bandName(mover === a ? A : B) + ' has gone to live with ' + stay.name + ' among ' + bandName(to) + '.'); } }
+      /* exchange: each gives of the food it has most of against the other */
+      if (R.v > -0.2 && A.store > 2 && B.store > 2) { const ma = mixOf(A, 'store'), mb = mixOf(B, 'store'); let ga2 = '', gb2 = '', da = 0, db = 0; for (const g of FOODS) { const x = ma[g] / A.store - mb[g] / B.store; if (x > da) { da = x; ga2 = g; } if (-x > db) { db = -x; gb2 = g; } }
+        if (ga2 && gb2 && da > 0.1 && db > 0.1) { const q = Math.min(c * 0.1 * Math.min(A.store, B.store), ma[ga2] * 0.5, mb[gb2] * 0.5); if (q > 0.2) { ma[ga2] -= q; mb[ga2] += q; mb[gb2] -= q; ma[gb2] += q; R.v = Math.min(1, R.v + 0.03 * c); R.traded = (R.traded || 0) + q; S.stat.bandTrades = (S.stat.bandTrades || 0) + 1;
+            if (!R.tradeTold) { R.tradeTold = true; tellAll(bandName(A) + ' and ' + bandName(B) + ' have begun to exchange: ' + GOODS[ga2].says + ' for ' + GOODS[gb2].says + '.'); } } } }
+      /* what one does and the other does not is seen and, among friends, taken up; a knower of herbs shows one of the others */
+      if (R.v > 0.1) { for (const [X, Y] of [[A, B], [B, A]]) for (const k in X.skills) if (X.skills[k] && !Y.skills[k] && !BEYOND[k] && rnd() < 0.15 * c) { Y.skills[k] = true; S.stat.ideasPassed = (S.stat.ideasPassed || 0) + 1; tellAll(bandName(Y) + ' have learned ' + k + ' from ' + bandName(X) + '.'); break; }
+        for (const [px, py] of [[pa, gb], [pb, ga]]) { const kn = px.find(a => a.know && Object.keys(a.know).length); if (kn && py.length && rnd() < 0.2 * c) { const to = py[(rnd() * py.length) | 0], k = Object.keys(kn.know)[0]; if (!((to.know || {})[k] >= kn.know[k] * 0.5)) { (to.know = to.know || {})[k] = kn.know[k] * 0.5; S.stat.herbsPassed = (S.stat.herbsPassed || 0) + 1; } } } }
+      /* a hungry band begrudges the other the ground they both hunt */
+      for (const [X, n] of [[A, pa.length], [B, pb.length]]) if (X.need.hunger > 0.5 || per(X, n) < 0.3) R.v = Math.max(-1, R.v - 0.08 * c);
+      /* a raid: the starving on the full, where they are not friends; or the wronged paying it back */
+      for (const [X, Y, px, py, gx, gy] of [[A, B, pa, pb, ga, gb], [B, A, pb, pa, gb, ga]]) { const starving = per(X, px.length) < 0.25 && X.need.hunger > 0.6, grudge = R.v < -0.5 && R.wronged === X.band && rnd() < 0.35 / (1 + R.raids * 0.5);   /* each raid already made leaves less heart for another */
+        if (!(c > 0.25 && gx.length >= 3 && R.v < 0.3 && (starving || grudge) && per(Y, py.length) > (grudge ? 0.3 : 0.9) && R.raidT !== Math.floor(S.t))) continue;
+        const take = Math.min(Y.store * 0.4, px.length * 1.5); moveFood(Y, 'store', X, 'store', take); R.raidT = Math.floor(S.t); R.raids++; R.wronged = Y.band; R.v = Math.max(-1, R.v - 0.6); Y.threat += 3; S.stat.raids = (S.stat.raids || 0) + 1;
+        const fallen = []; if (gy.length && rnd() < 0.4) { const v = gy[(rnd() * gy.length) | 0]; inBand(Y, () => die(v, 'killed in a raid')); fallen.push(v.name); } if (rnd() < 0.3 + (gy.length > gx.length ? 0.2 : 0)) { const v = gx[(rnd() * gx.length) | 0]; inBand(X, () => die(v, 'killed in a raid')); fallen.push(v.name); }
+        tellAll((grudge ? bandName(X) + ' have come back on ' + bandName(Y) + ' for what was done to them' : 'With nothing left to eat, ' + bandName(X) + ' have raided the store of ' + bandName(Y)) + ', and carried off ' + Math.round(take) + ' of food.' + (fallen.length ? ' ' + fallen.join(' and ') + (fallen.length > 1 ? ' were' : ' was') + ' killed.' : '')); break; }
+      /* old wrongs fade where nothing new is done */
+      if (R.v < 0 && R.raidT !== Math.floor(S.t)) R.v = Math.min(0, R.v + 0.03); } }
+  /* SEVERAL BANDS. A land may hold more than one band of people (S.tribes), each with its own fire, store, wants, knowledge and beliefs. The world
+     takes its step once; then each band takes its turn as S.tribe, and everything that says "the settlement" means that band. With one band this is
+     the step as it always was */
+  function tick() { const all = S.tribes; if (all.length === 1) { tickBand(true); return; }
+    for (let k = 0; k < all.length; k++) { S.tribe = all[k]; folkList = null; fieldList = null; tickBand(k === 0); }
+    if (S.tickNo % TPY === 7) betweenBands();
+    S.tribe = all[Math.min(all.length - 1, S.watch || 0)]; folkList = null; fieldList = null; let n = 0; for (const a of S.agents) if (a.alive && a.d.people) n++; S.popAll = n; }
+  function tickBand(world) {
+    const dt = 1 / TPY; if (world) { heardNow = din; din = []; S.din = heardNow;
+    trails.clear(); S.t += dt; { const q0 = QUARTER(S.cal), y0 = Math.floor(S.cal); S.cal += 1 / (TPY * stretchAt(S.cal % 1)); S.newQuarter = QUARTER(S.cal) !== q0; S.newYear = Math.floor(S.cal) !== y0; } S.tickNo++; S.night = DAY ? S.tickNo % DAY === DAY - 1 : false; S.dayK = DAY ? (S.night ? 0 : DAY / (DAY - 1)) : 1; weather(dt); land(dt);
     for (let k = S.piles.length - 1; k >= 0; k--) { const p = S.piles[k], i = I(p.x, p.y); if (p.kind === 'meat') p.amt *= 1 - Math.min(1, 2.5 * dt); if (p.kind === 'wood' && burn[i] > 0) p.amt = 0; if (p.amt <= 0.05 || water[i]) S.piles.splice(k, 1); }   /* meat rots in a few months; logs burn */
     for (const q of S.homes.values()) q.n = 0;
     for (const L of cells) L.length = 0; S.pop = {}; for (const sp in SP) S.pop[sp] = 0; S.popPeople = 0;
     S.adults = {};
     for (const a of S.agents) if (a.alive) { cells[I(a.x, a.y)].push(a); S.pop[a.sp]++; if (a.age >= a.d.mature) S.adults[a.sp] = (S.adults[a.sp] || 0) + 1; if (a.d.people) S.popPeople++; const q = a.home && S.homes.get(a.home); if (q) q.n++; else a.home = 0; }
-    for (const q of S.homes.values()) { if (q.n) q.emptyT = 0; else if ((q.emptyT += dt) > 2 || flood[I(q.x, q.y)]) S.homes.delete(q.id); }
+    for (const q of S.homes.values()) { if (q.n) q.emptyT = 0; else if ((q.emptyT += dt) > 2 || flood[I(q.x, q.y)]) S.homes.delete(q.id); } }
+    /* with several bands, the people counted are this band's */
+    if (S.tribes.length > 1) { let n = 0, g = 0; for (const a of S.agents) if (a.alive && a.d.people && (a.band || 0) === S.tribe.band) { n++; if (a.age >= a.d.mature) g++; } S.popPeople = n; for (const sp in SP) if (SP[sp].people) { S.pop[sp] = n; S.adults[sp] = g; } }
+    S.tribe.pop0 = S.popPeople > 0;
     const T = S.tribe, born = [], campI = I(T.x, T.y), lengthening = daysLengthen(), sunH = sunHeight();
     /* the common store at this time last year: people see whether the granary is fuller or emptier than a year ago */
     const slotY = YK === 1 ? S.tickNo % TPY : Math.floor((S.cal % 1) * TPY); if (!T.storeRing) T.storeRing = []; const storeYearAgo = T.storeRing[slotY]; T.storeRing[slotY] = T.store; T.storeFalling = T.store < storeYearAgo;
@@ -2686,10 +2752,12 @@ function create(seed, opt) {
     /* FAR-OFF BEASTS. On a wide land most wild beasts are a long way from anyone. Those more than FAR tiles from every fire and from where
        the player is looking live in coarser steps: one step in every LOD, each LOD times as long. Nothing else about them changes.
        On a map of the old size (128 a side or less) every beast is stepped every time, as before */
+    const nearFire = a => { for (const B of S.tribes) if ((B.pop0 || B === T) && Math.max(Math.abs(a.x - B.x), Math.abs(a.y - B.y)) <= FAR) return S.tribes.length > 1 || S.popPeople > 0; return false; };
     const dt0 = dt, fx0 = S.focus ? S.focus.x : -999, fy0 = S.focus ? S.focus.y : -999, fr0 = S.focus ? S.focus.r : 0;
     for (const a of S.agents) {
-      if (LOD > 1 && a.alive && !a.d.people && !a.tame && !a.held && (S.tickNo + a.id) % LOD && !(S.popPeople && Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= FAR) && Math.max(Math.abs(a.x - fx0), Math.abs(a.y - fy0)) > fr0) continue;
-      { const coarse = LOD > 1 && a.alive && !a.d.people && !a.tame && !a.held && !(S.popPeople && Math.max(Math.abs(a.x - T.x), Math.abs(a.y - T.y)) <= FAR) && Math.max(Math.abs(a.x - fx0), Math.abs(a.y - fy0)) > fr0, dt = coarse ? dt0 * LOD : dt0;
+      if (a.d.people ? (a.band || 0) !== (T.band || 0) : !world) continue;   /* people in their own band's turn; beasts with the world's */
+      if (LOD > 1 && a.alive && !a.d.people && !a.tame && !a.held && (S.tickNo + a.id) % LOD && !nearFire(a) && Math.max(Math.abs(a.x - fx0), Math.abs(a.y - fy0)) > fr0) continue;
+      { const coarse = LOD > 1 && a.alive && !a.d.people && !a.tame && !a.held && !nearFire(a) && Math.max(Math.abs(a.x - fx0), Math.abs(a.y - fy0)) > fr0, dt = coarse ? dt0 * LOD : dt0;
       if (!a.alive) continue; const d = a.d, i = I(a.x, a.y), Tc = tempAt(i); if (a.fear > 0) a.fear -= dt * 1.4;
       if (S.popPeople && !d.people && d.eats.meat && d.mass > 3 && cheb(a, T) <= 4 && !a.hidden) T.threat += dt * 3; /* a hunter in among the houses is remembered */
       a.age += dt;
@@ -2798,8 +2866,9 @@ function create(seed, opt) {
       if (SP[b[0]].people) T.born++;
     }
     if (S.fx.length > 200) S.fx.splice(0, S.fx.length - 200);
+    if (!world) return;
     // an empty valley does not stay empty of people for ever: after a few years, strangers find it
-    if (opt.resettle) {
+    if (opt.resettle && S.tribes.length === 1) {
       if (S.popPeople) S.emptyT = 0; else {
         S.emptyT += dt;
         if (S.emptyT > 3) {
@@ -3075,6 +3144,8 @@ function create(seed, opt) {
     rs = o.rs; din = o.din; heardNow = o.heardNow;
     for (const k of Object.keys(S)) delete S[k];
     Object.assign(S, o.S); S.din = heardNow; if (S.cal === undefined) S.cal = S.t;
+    /* the bands: the one being watched is S.tribe again, and what they share (ways, bridges) is one thing again, not a copy each */
+    if (!S.tribes || !S.tribes.length) { S.tribes = [S.tribe]; S.tribe.band = 0; } else { S.tribe = S.tribes[Math.min(S.tribes.length - 1, S.watch || 0)]; for (const B of S.tribes) { B.road = S.tribes[0].road; B.bridged = S.tribes[0].bridged; B.fordUse = S.tribes[0].fordUse; } }
     /* a save from an older version lacks the settlement fields added since: they take a fresh settlement's defaults */
     { const fresh = newSettlement(S.tribe.x, S.tribe.y); for (const k in fresh) if (!(k in S.tribe)) S.tribe[k] = fresh[k]; for (const k in fresh.need) if (!(k in S.tribe.need)) S.tribe.need[k] = 0;
       if (!S.piles) S.piles = []; if (!S.stumps) S.stumps = [];

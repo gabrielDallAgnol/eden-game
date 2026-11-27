@@ -10,6 +10,8 @@ const SMALL = 4;   /* small children (the tot sprite) until this age; grown at t
 const qs = new URLSearchParams(location.search), seed = +(qs.get('seed') || 1 + Math.floor(Math.random() * 9999));
 let landKept = ''; try { landKept = localStorage.getItem('eden.land') || ''; } catch (e) { /* no storage: the address decides */ }
 const landQ = qs.get('land') || landKept || 'wide';
+let bandsKept = 0; try { bandsKept = +localStorage.getItem('eden.bands') || 0; } catch (e) { /* no storage */ }
+const bandsQ = Math.max(1, Math.min(6, +(qs.get('bands') || bandsKept || 1)));   /* how many bands of people begin on the land */
 /* a saved valley is taken up again when the opening card's Continue was pressed (or ?continue=1); otherwise a new one is made */
 let saved = null;
 try {
@@ -22,7 +24,7 @@ let loaded = null; if (saved) { try { loaded = Eden.load(saved); } catch (e) { c
 /* a turn of the seasons takes up to this many times as long as a year of a life (midsummer); winter keeps its old length */
 const yearQ = clamp(+(qs.get('yearK') || 3), 1, 8);
 const sizeQ = clamp(+(qs.get('size') || (landQ === 'wide' ? 192 : 96)), 24, 256);   /* the wide country is four times the ground of the others */   /* the map, in tiles a side */
-const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6 }), N = W.N, S = W.S, A = EdenArt.build();
+const W = loaded || Eden.create(seed, { resettle: true, startT: 0.3, dayCycle: DAY, family: true, land: landQ, size: sizeQ, yearK: yearQ, age: 'wood', human: 6, bands: bandsQ }), N = W.N, S = W.S, A = EdenArt.build();
 const OX = N * TW / 2, OY = 170, WW = N * TW, WH = OY + N * TH + CLIFF + 30;
 const isoX = (x, y) => (x - y) * (TW / 2) + OX, isoY = (x, y) => (x + y) * (TH / 2) + OY;
 const cellAt = (wx, wy) => { const u = (wx - OX) / (TW / 2), v = (wy - OY) / (TH / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; };
@@ -41,6 +43,9 @@ const T0 = S.tribe, camp = { x: T0.x + 0.5, y: T0.y + 0.5 };
 const fire = { x: camp.x + 0.55, y: camp.y + 0.15 }, store = { x: camp.x - 0.45, y: camp.y + 0.35 };
 const seat = k => { const a = k * 2.1 + 0.4, r = 0.62 + (k % 3) * 0.16; return { x: fire.x + Math.cos(a) * r, y: fire.y + Math.sin(a) * r * 0.9 }; };
 const campR = () => T0.sites.length > 6 ? 4.6 : 3.3;
+/* every band's buildings, in a steady order (by the number each was given when begun), and every band's fence stakes as one */
+const allSites = () => { const B = S.tribes; if (!B || B.length < 2) return T0.sites; const o = []; for (const b of B) for (const q of b.sites) o.push(q); return o.sort((p, q) => p.id - q.id); };
+const allFence = () => { const B = S.tribes; if (!B || B.length < 2) return T0.fence; let F = null; for (const b of B) if (b.fence) { if (!F) F = new Uint8Array(N * N); for (let i = 0; i < N * N; i++) if (b.fence[i]) F[i] = b.fence[i]; } return F; };
 
 // ================================================================== ground: painted from the engine's fields, crossfaded, touched up locally while a power is held
 // The ground lives in chunks of CT x CT tiles, one canvas each, so the map can be large. Every screen pixel belongs to
@@ -138,7 +143,7 @@ const BN = N * 8, CB = 16 * 8,
 const knownF = new Float32Array(N * N);
 /* the ground a building takes: its whole lot is a trodden yard, the floor under the roof bare earth (1 = yard, 2 = floor) */
 const lotMask = new Uint8Array(N * N);
-function syncLots() { lotMask.fill(0); for (const q of S.tribe.sites) { if (q.kind === 'tent') continue; /* a tent is pitched on the grass: only a built house marks the ground under and round it */ const well = q.kind === 'well'; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = q.x + dx, y = q.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = y * N + x; if (W.water[i]) continue; if (!dx && !dy) lotMask[i] = 2; else if (!well && !W.field[i]) lotMask[i] = Math.max(lotMask[i], 1); } } }
+function syncLots() { lotMask.fill(0); for (const q of allSites()) { if (q.kind === 'tent') continue; /* a tent is pitched on the grass: only a built house marks the ground under and round it */ const well = q.kind === 'well'; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = q.x + dx, y = q.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = y * N + x; if (W.water[i]) continue; if (!dx && !dy) lotMask[i] = 2; else if (!well && !W.field[i]) lotMask[i] = Math.max(lotMask[i], 1); } } }
 const scar = new Float32Array(N * N), waterF = new Float32Array(N * N), trail = new Float32Array(N * N), cellT = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) waterF[i] = W.water[i];
 let cbx = 0, cby = 0, cbFor = null;
@@ -433,11 +438,11 @@ function propsFollowView() { if (!propBox) return; const b = viewTiles(1); W.set
   const edge = (lo, hi, v0, v1) => (v0 < lo && lo > 0) || (v1 > hi && hi < N - 1);
   if (small !== propSmall || trees !== propTrees || edge(propBox.x0, propBox.x1, b.x0, b.x1) || edge(propBox.y0, propBox.y1, b.y0, b.y1)) { const before = new Set(props.keys()); reconcile(); for (const [k, p] of props) { if (!before.has(k)) p.born = -1e9; else if (p.die === now) props.delete(k); } } }
 function wantProps() {
-  const built = new Set(); for (const q of T0.sites) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) built.add((q.y + dy) * N + q.x + dx);   /* the ground a building stands on */
-  const FN = campOn ? T0.fence : null;
+  const SITES = allSites(), built = new Set(); for (const q of SITES) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) built.add((q.y + dy) * N + q.x + dx);   /* the ground a building stands on */
+  const FN = campOn ? allFence() : null;
   /* ground free for something to be set on: dry, no building's lot (other than the one named), no fence, road, field or standing tree */
   const clearAt = (fx, fy, own, onWay) => { const tx = Math.floor(fx), ty = Math.floor(fy), t = ty * N + tx; if (tx < 0 || ty < 0 || tx >= N || ty >= N || W.water[t] || (T0.road[t] && !onWay) || W.field[t] || (FN && FN[t]) || W.tree[t] > 0.3) return false;
-    for (const q of T0.sites) if (q !== own && !q.upon && Math.abs(q.x - tx) <= 1 && Math.abs(q.y - ty) <= 1) return false; return true; };
+    for (const q of SITES) if (q !== own && !q.upon && Math.abs(q.x - tx) <= 1 && Math.abs(q.y - ty) <= 1) return false; return true; };
   /* a thing wanted at a place is put there if the ground is free, else on the nearest free ground within a tile and a half, else not at all */
   const used = new Set(), tileOf = (fx, fy) => Math.floor(fy) * N + Math.floor(fx);   /* tiles something made already stands on: one thing to a tile */
   const setNear = (key, o) => { for (const [dx, dy] of [[0, 0], [0.9, 0], [0, 0.9], [-0.9, 0], [0, -0.9], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9], [1.5, 0], [0, 1.5], [-1.5, 0], [0, -1.5]]) if (clearAt(o.x + dx, o.y + dy, null, true) && !used.has(tileOf(o.x + dx, o.y + dy))) { used.add(tileOf(o.x + dx, o.y + dy)); o.x += dx; o.y += dy; want.set(key, o); return true; } return false; };
@@ -495,8 +500,8 @@ function wantProps() {
   for (let k = 0; k < piles; k++) want.set('k' + k, { kind: 'basket', x: store.x + (k % 3) * 0.22 - 0.2, y: store.y + ((k / 3) | 0) * 0.25, base: 'k', img: A.basket, dy: 6 });
   // the fence, as far as it has been driven; a gate wherever a street goes through
   /* every stake that stands, old line and new: a stretch runs along x where its neighbours do; a gate wherever a street goes through */
-  if (campOn && T0.fence) {
-    const F = T0.fence;
+  if (campOn && FN) {
+    const F = FN;
     for (let c = 0; c < N * N; c++) {
       if (!F[c]) continue; const fx = c % N, fy = (c / N) | 0, alongX = (fx > 0 && F[c - 1]) || (fx < N - 1 && F[c + 1]), gate = T0.road[c];
       want.set('f' + c, { kind: 'fence', i: c, x: fx + 0.5, y: fy + 0.5, base: 'f' + alongX + gate, img: gate ? (alongX ? A.gateX : A.gateY) : (alongX ? A.fenceX : A.fenceY), dy: 14 });
@@ -508,10 +513,10 @@ function wantProps() {
      then the firewood, a carved bench, the planter, then the rest; a spot on water, a street, a field or another building is passed over. */
   if (campOn) {
     const P = A.prop || {}, folkBy = new Map(), autumn = !W.daysLengthen() && S.air > -2, taken = new Set();
-    for (const q of T0.sites) taken.add(q.y * N + q.x);
+    for (const q of SITES) taken.add(q.y * N + q.x);
     for (const b of S.agents) if (b.alive && b.d.people && b.house) { let f = folkBy.get(b.house); if (!f) folkBy.set(b.house, f = { n: 0, small: 0, baby: 0, elder: 0, jobs: new Set(), likes: new Set(), herbs: 0 }); f.n++; if (b.age < 2) f.baby++; else if (b.age < b.d.mature) f.small++; if (b.age > 46) f.elder++; if (b.job) f.jobs.add(b.job); for (const k of b.likes || []) f.likes.add(k); if (b.skill && b.skill.gather > 1.3) f.herbs++; }
     const SPOTS = [[1.25, 1.25], [1.45, 0.5], [0.5, 1.45], [1.4, -0.45], [-0.45, 1.4]];   /* all on the household's own lot: the tile beyond is the way between lots */
-    for (const q of T0.sites) {
+    for (const q of SITES) {
       if (q.upon || !(W.BUILDINGS[q.kind] || {}).room || !(q.was || q.stage >= W.DWELL[q.kind].stages)) continue;
       const f = folkBy.get(q.id), L = q.larder || 0, n = Math.max(1, f ? f.n : 1), items = [];
       if ((q.garden || 0) > 0.15) items.push({ key: 'gd', kind: 'garden', base: 'gd' + q.id, img: A.garden[Math.min(2, Math.floor(q.garden * 3))], dy: 6 });
@@ -607,7 +612,7 @@ function reconcile() {
 // What stands where, of what kind and how far along is the engine's business (tribe.sites); this only shows it.
 const huts = [];
 function syncHuts() {
-  const sites = campOn ? T0.sites : [];
+  const sites = campOn ? allSites() : [];
   for (let k = 0; k < sites.length; k++) {
     const st = sites[k], n = W.DWELL[st.kind].stages, tp = 0.05 + 0.95 * Math.min(1, (st.stage + (st.part || 0)) / n); let h = huts[k];
     if (!h || h.die || h.id !== st.id) h = huts[k] = { k, id: st.id, x: st.x + 0.5, y: st.y + 0.5, p: tp, born: now, die: 0, kind: st.kind };
@@ -1375,7 +1380,7 @@ const say = (() => {
 })();
 let logSeen = 0, hadPeople = true, hadFlood = false;
 function chronicle() {
-  while (logSeen < S.log.length) say(S.log[logSeen++].text);
+  while (logSeen < S.log.length) { const e = S.log[logSeen++]; if (e.band === undefined || e.band === -1 || e.band === (S.watch || 0)) say(e.text); }   /* the news of the band being watched, and of what passes between bands */
   if (hadPeople && !S.popPeople) say('The valley is empty of people.'); hadPeople = S.popPeople > 0;
   const fl = W.flood[T0.y * N + T0.x]; if (fl && !hadFlood && S.popPeople) say('The water has reached the camp.'); hadFlood = !!fl;
 }
@@ -1478,6 +1483,8 @@ function frame(t) {
   }
   for (let k = huts.length - 1; k >= 0 && !huts[k]; k--) huts.pop();
   for (const g of graves) { const wx = isoX(g.x, g.y), wy = isoY(g.x, g.y); if (vis(wx, wy)) put(A.grave, wx, wy + 4, { alpha: clamp((now - g.born) / 3000, 0, 1) }); }
+  /* the fires of the other bands: a ring of stones, and a flame while theirs is lit */
+  if (S.tribes && S.tribes.length > 1) for (const B of S.tribes) { if (B === T0 || !B.skills.fire) continue; const wx = isoX(B.x + 1.05, B.y + 0.65), wy = isoY(B.x + 1.05, B.y + 0.65); if (!vis(wx, wy)) continue; put(A.ring, wx, wy + 4); if (S.t - (B.fireT || -9) < 0.12 || dark > 0.2) put(A.fire[((t / 170) | 0) % 2], wx, wy + 2); }
   const fireLit = campOn && T0.skills.fire && (S.t - (T0.fireT || -9) < 0.12 || dark > 0.2);
   if (fireLit) {
     const wx = isoX(fire.x, fire.y), wy = isoY(fire.x, fire.y);
@@ -1998,6 +2005,11 @@ bS2.onclick = () => {
     };
     el.appendChild(b);
   }
+  /* how many bands begin: one, or several far apart on the same land */
+  if (el) { const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap'; row.innerHTML = '<b style="font-size:14px">Bands of people:</b>';
+    for (const n of [1, 2, 3, 4]) { const b = document.createElement('button'); b.className = 'btn land' + (n === (S.tribes ? Math.max(1, S.tribes.filter(B => !B.from && B.from !== 0).length) : 1) ? ' sel' : ''); b.textContent = String(n);
+      b.onclick = () => { try { localStorage.setItem('eden.bands', String(n)); } catch (e) { /* ignore */ } if (window.EDEN_EMBED) { location.reload(); return; } const q = new URLSearchParams(location.search); q.set('bands', String(n)); q.set('fresh', '1'); location.search = q.toString(); }; row.appendChild(b); }
+    el.parentNode.insertBefore(row, el.nextSibling); }
 }
 // THE FIRST QUESTION: when someone asks who is there, their face comes up with their words, and the player may answer with a name
 { const box = document.createElement('div'); box.id = 'ask';
@@ -2055,7 +2067,7 @@ bS2.onclick = () => {
             grieving: 'grieving now', ways: 'tiles of worn way', fields: 'field tiles', fenced: 'fenced', healerhouse: "healer's house", tallyhouse: 'tally house', born: 'born here', died: 'died', left: 'left the valley', cow: 'cattle', deer: 'deer', rabbit: 'rabbits', wolf: 'wolves' };
           const row = (t, o) => { const ks = Object.keys(o).filter(k => o[k] > 0); return ks.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>' + t + '</b></td><td>' + ks.map(k => (NAME[k] || k) + ' <b>' + o[k] + '</b>').join(', ') + '</td></tr>' : ''; };
           return '<p><b>Ledger</b></p><table style="border-collapse:collapse;font-size:inherit">' + row('People', L.people) + row('Homes', L.homes) + row('Buildings', L.buildings) + row('Being built', L.building) + row('Food', L.food) + row('Goods', L.goods)
-            + row('Know herbs', L.herbs || {}) + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + (L.counsel && L.counsel.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Counsel</b></td><td>' + L.counsel.map(k => ({ spare: 'leave the young trees', cut: 'cut what is needed', apart: 'live further apart', nothing: 'no answer to the fever', high: 'keep to high ground', stay: 'stay by the water' }[k] || k)).join(', ') + '</td></tr>' : '') + '</table>'; })()
+            + row('Know herbs', L.herbs || {}) + (L.bands && L.bands.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Other peoples</b></td><td>' + L.bands.map(b => b.name.replace(/[<>&]/g, '') + ': <b>' + b.people + '</b>, ' + b.dist + ' tiles off, ' + b.feeling + (b.wed ? ', ' + b.wed + ' married across' : '') + (b.raids ? ', ' + b.raids + ' raids' : '')).join('<br>') + '</td></tr>' : '') + row('Kept beasts', L.beasts) + row('Wild', L.wild) + row('Land', L.land) + row(L.godName ? 'Faith in ' + L.godName.replace(/[<>&]/g, '') : 'Faith', L.faith) + (L.counsel && L.counsel.length ? '<tr><td style="vertical-align:top;padding-right:8px"><b>Counsel</b></td><td>' + L.counsel.map(k => ({ spare: 'leave the young trees', cut: 'cut what is needed', apart: 'live further apart', nothing: 'no answer to the fever', high: 'keep to high ground', stay: 'stay by the water' }[k] || k)).join(', ') + '</td></tr>' : '') + '</table>'; })()
       + '<p><b>Trades</b><br>' + (Object.keys(jobs).length ? Object.keys(jobs).map(k => jobs[k] + ' ' + k + (jobs[k] > 1 ? 's' : '')).join(', ') : 'none: every hand is needed for food') + '</p>'
       /* F6: every place of work standing, and who works there */
       + (() => { const wp = W.workplaces ? W.workplaces() : []; if (!wp.length) return ''; const nm = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' and ' + (l.length - 3) + ' more' : l.join(', ');

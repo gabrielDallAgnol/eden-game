@@ -1282,4 +1282,22 @@ UNITS.push(['herbs grow by place and their uses are known by people: found when 
   knowers.forEach(function (a) { a.know = {}; }); if (Object.keys(W.ledger().herbs).length) out.push('with every knower emptied, the ledger still counts knowers');
   return out.slice(0, 4).join('; ');
 }]);
+UNITS.push(['several bands on one land: each keeps its own fire, fields, store and discoveries; near ones meet, marry across and exchange; a starving band beside a full store raids it; news says which band', function () {
+  var W = Eden.create(4, { resettle: true, startT: 0.3, dayCycle: 4, family: true, yearK: 3, land: 'wide', size: 192, age: 'wood', human: 6, bands: 3 }), S = W.S, N = W.N, i, out = [];
+  if (S.tribes.length !== 3) return 'asked for 3 bands, got ' + S.tribes.length;
+  var pop = function (B) { return S.agents.filter(function (a) { return a.alive && a.d.people && (a.band || 0) === B.band; }).length; };
+  S.tribes.forEach(function (B, k) { S.tribes.forEach(function (C, j) { if (j > k && Math.max(Math.abs(B.x - C.x), Math.abs(B.y - C.y)) < 24) out.push('two fires ' + Math.max(Math.abs(B.x - C.x), Math.abs(B.y - C.y)) + ' tiles apart'); }); if (!pop(B)) out.push('band ' + k + ' began with nobody'); if (!B.name) out.push('band ' + k + ' has no name'); });
+  for (i = 0; i < 24 * 40; i++) W.tick();
+  var alive = S.tribes.slice(0, 3).filter(function (B) { return pop(B) > 0; }); if (alive.length < 2) out.push('only ' + alive.length + ' of 3 bands alive at year 40');
+  alive.forEach(function (B) { var ids = {}; B.sites.forEach(function (q) { ids[q.id] = 1; }); if (B.skills.farm) { var f = 0; for (var j = 0; j < N * N; j++) if (W.field[j] && ids[W.owner[j]]) f++; if (!f && B.fields > 0) out.push(B.name + ' farm, count ' + B.fields + ' fields, and have none on the ground'); if (!(B.harvestLog || []).some(function (h) { return h[1] + h[2] > 0; })) out.push(B.name + ' have never brought a harvest in'); } });
+  S.agents.forEach(function (a) { if (a.alive && a.d.people && a.house) { var B = S.tribes[a.band || 0]; if (!B.sites.some(function (q) { return q.id === a.house; })) out.push(a.name + ' lives under a roof of another band'); } });
+  if (!S.rel || !Object.keys(S.rel).length) out.push('no two bands have met in 40 years'); else if (!(S.stat.crossWed > 0 || S.stat.bandTrades > 0)) out.push('bands met, and neither married across nor exchanged');
+  if (!S.log.some(function (e) { return e.band === -1; })) out.push('no news of what passed between bands'); if (S.log.some(function (e) { return e.band === undefined; })) out.push('news with no band');
+  /* a raid: one band starving, its neighbour full, and no friendship between them */
+  var A = alive[0], B = alive[1]; if (A && B) { var k = Math.min(A.band, B.band) + ':' + Math.max(A.band, B.band); S.rel[k] = S.rel[k] || { v: 0, met: 1, kin: 0, raids: 0 }; S.rel[k].v = -0.2; var r0 = S.stat.raids || 0, sA = 0;
+    B.x = A.x + 30; B.y = A.y; for (i = 0; i < 24 * 3 && (S.stat.raids || 0) === r0; i++) { A.store = 0; A.need.hunger = 2; B.store = pop(B) * 3; A.sites.forEach(function (q) { q.larder = 0; }); W.tick(); }
+    if ((S.stat.raids || 0) === r0) out.push('a starving band beside a full store, not friends, did not raid in three years'); else if (!(S.rel[k].v < -0.5)) out.push('after a raid the two are not enemies: ' + S.rel[k].v.toFixed(2)); }
+  if (S.problems.length) out.push(S.problems[0]);
+  return out.slice(0, 5).join('; ');
+}]);
 })();
