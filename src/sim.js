@@ -250,7 +250,7 @@ function create(seed, opt) {
     let sum = 0; for (const g of FOODS) sum += m[g]; if (tot <= 1e-9) { for (const g of FOODS) m[g] = 0; return m; }
     if (sum <= 1e-9) { m.fruit = tot; return m; }   /* food of no known kind (an old save, the first store) counts as gathered */
     const k = tot / sum; if (Math.abs(k - 1) > 1e-12) for (const g of FOODS) m[g] *= k; return m; }
-  function addFood(o, f, kind, amt) { if (!(amt > 0)) return; const m = mixOf(o, f); o[f] = (o[f] || 0) + amt; m[kind] += amt; if (S.foodIn) S.foodIn[kind] = (S.foodIn[kind] || 0) + amt; }   /* every bit of food that comes in, by kind, for the year's tally */
+  function addFood(o, f, kind, amt) { if (!(amt > 0)) return; const m = mixOf(o, f); o[f] = (o[f] || 0) + amt; m[kind] += amt; { const F = S.tribe.foodIn || (S.tribe.foodIn = {}); F[kind] = (F[kind] || 0) + amt; } }   /* every bit of food that comes in, by kind, for the year's tally */
   /* food moved from one holder to another goes as it is mixed */
   function moveFood(a, fa, b, fb, amt) { if (!(amt > 0)) return; const ma = mixOf(a, fa), mb = mixOf(b, fb), tot = Math.max(1e-9, a[fa]), k = Math.min(1, amt / tot);
     for (const g of FOODS) { const x = ma[g] * k; ma[g] -= x; mb[g] += x; } a[fa] -= amt; b[fb] = (b[fb] || 0) + amt; }
@@ -2408,7 +2408,7 @@ function create(seed, opt) {
   }
   function reckonYear() {
     /* the year's food, by where it came from, kept for the Town panel and the tests; a new count begins */
-    { const T0 = S.tribe; T0.foodLast = S.foodIn || {}; S.foodIn = {}; }
+    { const T0 = S.tribe; T0.foodLast = T0.foodIn || {}; T0.foodIn = {}; }   /* each band's own year of food */
     const T = S.tribe, N_ = T.need; if (!S.popPeople) return;
 /* what was seen of the hand is told at home: each person's belief and trust move a little toward their household's; untended, belief fades slowly */
     { const P = folk(), by = new Map(); for (const a of P) if (a.house) { let g = by.get(a.house); if (!g) by.set(a.house, g = { f: 0, t: 0, n: 0 }); g.f += a.faith || 0; g.t += a.trust || 0; g.n++; }
@@ -2667,8 +2667,10 @@ function create(seed, opt) {
      the step as it always was */
   /* a step may be taken a band at a time (tickSlice: true when the step is complete), so that a device drawing between the turns never waits on all of them at once */
   let sliceK = 0;
+  /* between steps the people counted are those of the band being watched */
+  const countWatched = () => { let n = 0, g = 0; for (const a of S.agents) if (a.alive && a.d.people && (a.band || 0) === (S.tribe.band || 0)) { n++; if (a.age >= a.d.mature) g++; } S.popPeople = n; for (const sp in SP) if (SP[sp].people) { S.pop[sp] = n; S.adults[sp] = g; } };
   function tickSlice() { const all = S.tribes; if (all.length === 1) { tickBand(true); return true; }
-    const watch = () => { S.tribe = all[Math.min(all.length - 1, S.watch || 0)]; folkList = null; fieldList = null; };
+    const watch = () => { S.tribe = all[Math.min(all.length - 1, S.watch || 0)]; folkList = null; fieldList = null; countWatched(); };
     S.tribe = all[sliceK]; folkList = null; fieldList = null; tickBand(sliceK === 0); sliceK++;
     if (sliceK < all.length) { watch(); return false; }
     sliceK = 0; if (S.tickNo % TPY === 7) betweenBands();
@@ -3240,7 +3242,7 @@ function create(seed, opt) {
     /* where the player is looking (tile and radius): beasts there are stepped every time, however far from a fire */
     tickSlice,
     /* which band the player is looking at: its panel, its news, and S.tribe between steps */
-    watch(k) { k = Math.max(0, Math.min(S.tribes.length - 1, k | 0)); S.watch = k; if (sliceK === 0) { S.tribe = S.tribes[k]; folkList = null; fieldList = null; } return S.tribes[k]; },
+    watch(k) { k = Math.max(0, Math.min(S.tribes.length - 1, k | 0)); S.watch = k; if (sliceK === 0) { S.tribe = S.tribes[k]; folkList = null; fieldList = null; countWatched(); } return S.tribes[k]; },
     setFocus(x, y, r) { S.focus = { x: x | 0, y: y | 0, r: r | 0 }; },
     /* what a person wants most just now, read from their state (for the sign over their head): nothing is decided here */
     wantOf: a => !a || !a.alive ? '' : a.mood === 'afraid' ? 'afraid' : a.illT !== undefined && S.tickNo - a.illT < (DAY || 1) * 2 ? 'ill' : a.e < 0.35 ? 'hungry' : a.mood === 'cold' ? 'cold' : a.mood === 'hot' ? 'hot' : a.grief > 0.3 ? 'grief' : '',
