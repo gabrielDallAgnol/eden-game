@@ -1196,6 +1196,7 @@ let dprCap = 2, slowMs = 16, slowN = 0, fastN = 0, lastDprT = 0;
 function resize() { const old = dpr; dpr = Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1)); if (old !== dpr && cv.width) { const k = dpr / old; cam.z *= k; cam.x /= 1; }
   cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); clampCam(); }
 /* the view carried gently to a place (the one who asks), until it is there or the player takes hold of it */
+const HOLD_MS = 380, HOLD_SLACK = 9;   /* how long a touch must be kept still to take hold, and how far a finger may wander meanwhile */
 let glide = null;
 function glideStep(dtMs) { if (!glide) return; const k = 1 - Math.pow(0.004, dtMs / 1000), cxw = cam.x + cv.width / cam.z / 2, cyw = cam.y + cv.height / cam.z / 2, nx = cxw + (glide.wx - cxw) * k, ny = cyw + (glide.wy - cyw) * k; cam.z += (glide.z - cam.z) * k;
   cam.x = nx - cv.width / cam.z / 2; cam.y = ny - cv.height / cam.z / 2; clampCam(); if (Math.abs(glide.wx - nx) < 0.5 && Math.abs(glide.wy - ny) < 0.5 && Math.abs(glide.z - cam.z) < 0.01) glide = null; }
@@ -1256,21 +1257,11 @@ cv.addEventListener('pointerdown', e => {
   if (ptrs.size === 2) { const [p, q] = [...ptrs.values()]; pinch = { d: Math.hypot(p.x - q.x, p.y - q.y), mx: (p.x + q.x) / 2, my: (p.y + q.y) / 2 }; if (held) dropHeld(); act = null; return; }
   const w = toWorld(e.clientX, e.clientY);
   if (tool === 'hand') {
+    /* THE HAND TAKES HOLD ONLY WHEN HELD. A touch that moves is the view being moved, and lifts nothing. A touch kept still for a moment takes hold of
+       what is under it: a ring closes round the place while it does, and the thing is marked. A touch on a person, let go at once, only shows who they are */
     const r = actorAt(w);
-    if (r) {
-      held = r;
-      r.held = true;
-      r.a.held = true;
-      r.bub = 'afraid';
-      r.bubT = now;
-      const who = W.describe(r.a);
-      if (who) { if (r.a.d.people) showWho(r.a, who); else say(who); }
-    }
-    /* no creature under the hand: whatever else is there is lifted. Tall things (a tree, a house) are also caught by the
-       ground just in front of where they were touched. Open water and bare rock are taken only by holding still a moment,
-       so that dragging across a lake still moves the view */
-    if (!r) { const c0 = toCell(e.clientX, e.clientY); liftAt(c0, w, false); }
-    act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: !r && !heldThing, t0: now, x0: e.clientX, y0: e.clientY };
+    if (r && r.a.d.people) { const who = W.describe(r.a); if (who) showWho(r.a, who); }
+    act = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: true, cand: r || null, moved: false, t0: now, x0: e.clientX, y0: e.clientY };
   }
   else if (tool === 'strike') {
     if (now - lastStrike > 600) {
@@ -1303,7 +1294,8 @@ cv.addEventListener('pointermove', e => {
   if (!act || act.id !== e.pointerId) return; act.x = p.x; act.y = p.y;
   if (held) { const c = toCell(p.x, p.y + 10); held.x = c.x; held.y = c.y; }
   else if (heldThing) { const w2 = toWorld(p.x, p.y); heldThing.wx = w2.x; heldThing.wy = w2.y; if (heldThing.h.k === 'site') { const c2 = toCell(p.x, p.y), hu = huts.find(q => q && q.id === heldThing.h.id); if (hu) { hu.x = c2.x; hu.y = c2.y; } } }
-  else if (act.pan) { cam.x -= (p.x - ox) * dpr / cam.z; cam.y -= (p.y - oy) * dpr / cam.z; clampCam(); }
+  else if (act.pan) { if (!act.moved && Math.hypot(p.x - act.x0, p.y - act.y0) < HOLD_SLACK) return;   /* a finger is never quite still: this much is not yet moving the view */
+    if (!act.moved) { act.moved = true; cam.x -= (p.x - act.x0) * dpr / cam.z; cam.y -= (p.y - act.y0) * dpr / cam.z; } else { cam.x -= (p.x - ox) * dpr / cam.z; cam.y -= (p.y - oy) * dpr / cam.z; } clampCam(); }
 });
 function dropHeld() {
   const r = held; held = null; if (!r) return; r.held = false; r.a.held = false;
@@ -1342,7 +1334,11 @@ function scatterFrom(x, y, rad) {
 }
 // the powers: each one pushes the engine at the touched place, and the ground answers at once
 function usePower(dtMs) {
-  if (act && tool === 'hand' && act.pan && !held && !heldThing && now - act.t0 > 350 && Math.hypot(act.x - act.x0, act.y - act.y0) < 6) { if (liftAt(toCell(act.x, act.y), toWorld(act.x, act.y), true)) act.pan = false; else act.t0 = 1e15; }
+  if (act && tool === 'hand' && act.pan && !act.moved && !held && !heldThing && now - act.t0 > HOLD_MS) {
+    const r = act.cand && !act.cand.dead && act.cand.a.alive ? act.cand : null;
+    if (r) { held = r; r.held = true; r.a.held = true; r.bub = 'afraid'; r.bubT = now; const c = toCell(act.x, act.y + 10); held.x = c.x; held.y = c.y; if (!r.a.d.people) { const who = W.describe(r.a); if (who) say(who); } act.pan = false; }
+    else if (liftAt(toCell(act.x, act.y), toWorld(act.x, act.y), true)) act.pan = false; else act.t0 = 1e15;
+    if (!act.pan) { act.tookT = now; try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* no matter */ } } }
   if (!act || tool === 'hand' || tool === 'strike') return; act.acc += dtMs; act.t += dtMs; if (act.acc < 120) return;
   const frac = act.acc / 2500; act.acc = 0; const c = toCell(act.x, act.y), x = c.x | 0, y = c.y | 0, cold = W.tempAt(y * N + x) < 0;
   if (tool === 'rain') {
@@ -1835,6 +1831,13 @@ function frame(t) {
     }
     else if (tool === 'grow') { cx.strokeStyle = 'rgba(214,245,166,.5)'; cx.lineWidth = 1; cx.beginPath(); cx.ellipse(wx, wy, 140, 70, 0, 0, 6.3); cx.stroke(); }
   }
+  /* the hand's ring: it closes while a touch is kept still, round the place and round what would be lifted; once something is held, a small ring stays under it */
+  if (act && tool === 'hand') { const w2 = toWorld(act.x, act.y), k = (now - act.t0) / HOLD_MS;
+    if (act.pan && !act.moved && act.t0 < 1e14 && k > 0.2 && k <= 1) { const c2 = toCell(act.x, act.y), r2 = act.cand, mx = r2 ? isoX(r2.x, r2.y) : isoX((c2.x | 0) + 0.5, (c2.y | 0) + 0.5), my = r2 ? isoY(r2.x, r2.y) : isoY((c2.x | 0) + 0.5, (c2.y | 0) + 0.5);
+      cx.lineWidth = 1.5; cx.strokeStyle = 'rgba(40,30,20,.55)'; cx.beginPath(); cx.arc(w2.x, w2.y, 11, 0, 6.2832); cx.stroke();
+      cx.strokeStyle = '#ffd95a'; cx.lineWidth = 2; cx.beginPath(); cx.arc(w2.x, w2.y, 11, -1.5708, -1.5708 + 6.2832 * Math.min(1, (k - 0.2) / 0.8)); cx.stroke();
+      cx.strokeStyle = 'rgba(255,217,90,' + (0.35 + 0.5 * k).toFixed(2) + ')'; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(mx, my, r2 ? 9 : TW / 2 - 4, r2 ? 4.5 : TH / 2 - 2, 0, 0, 6.2832); cx.stroke(); }
+    else if ((held || heldThing) && !act.pan) { const pop = clamp(1 - (now - (act.tookT || 0)) / 260, 0, 1); cx.strokeStyle = 'rgba(255,217,90,.9)'; cx.lineWidth = 1.5 + pop * 2; cx.beginPath(); cx.ellipse(w2.x, w2.y + 4, 8 + pop * 8, 4 + pop * 4, 0, 0, 6.2832); cx.stroke(); } }
   if (heldThing) { const ht = heldThing, hx = Math.round(ht.wx), hy = Math.round(ht.wy);
     if (ht.h.k === 'pile') { const im = A.item[ht.h.kind === 'wood' ? 'log' : ht.h.kind]; for (let k = 0; k < 3; k++) cx.drawImage(im, Math.round(hx - im.width / 2 + (k - 1) * 4), hy - 18 - k * 3); }
     else if (ht.h.k === 'tree' && ht.img) cx.drawImage(ht.img, Math.round(hx - ht.img.width / 2), hy - ht.img.height + 4);
