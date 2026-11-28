@@ -1797,3 +1797,10 @@ What changed:
 | highland | 1 | 7 | 6 | 39 | 40 | 9 | 5 | 0 | 0 | 14 | 6/35/5 | 2.2 | 29.5 | 14.8 | 15.3 | 10 | 1.2 | 92 | 58 | 19.7 | 2 | 1.5 (8) | 55/2/0/6/28 | 32 | 7.9 | 9 | 0 | 0 | 7478 |
 | highland | 2 | 1 | 4 | 13 | 13 | 4 | 12 | 0 | 2 | 10 | 5/56/5 | 2.6 | 6.6 | 4.8 | 5 | 4 | 1 | 274 | 24 | 8.7 | 2.1 |  | 63/0/0/0/25 | 16 | 3 | 9 | 0 | 0 | 6211 |
 | mean |  | 12.1 | 27.2 | 195.2 | 197.3 | 47 | 4.9 | 0 | 0.2 | 14.1 |  | 2.7 | 21.9 | 18.9 | 9.3 | 14.3 | 1.3 | 1920.4 | 76 | 23.4 | 4 |  |  | 43.6 | 4.6 | 23 | 2.8 | 0 | 16369.4 |
+
+## The hand takes hold only when held (2026-11-28)
+
+What changed (owner's report: moving the view kept moving things by accident): a touch that moves is the view being moved and lifts nothing. A touch kept still for 0.38 s takes hold of what is under it; a ring closes round the touch and the thing is marked while it does, and a ring stays under whatever is being carried. A touch on a person, let go at once, shows who they are.
+- **Checked.** tests.html: 545 passed, 0 failed (1 warning, 36 skipped). In the game with a simulated mouse: a quick drag across a tree moved the view and left the tree; holding still then dragging lifted it and left the view where it was; a tap on a person showed their card and did not lift them; holding on a person lifted them. Console clean.
+- **No table.** Only the view changed: the simulation is as in the table above.
+- **Not done.** Not tried on a real touch screen.
