@@ -231,8 +231,6 @@ function colorAt0(pxx, py) {
     const patch = bFe[b] + jn * 0.08 > 0.72;
     if (T < 0) col = patch ? C.froB : C.froA; else if (m < 0.3) col = patch ? C.dryB : C.dryA; else if (m > 0.8 && g > 0.5) col = patch ? C.lushB : C.lushA; else col = patch ? C.gB : C.gA;
     if (bT[b] + jn * 0.2 > 0.5) col = patch ? C.shadeB : C.shadeA;
-    /* herbs show as a few small flowers of their own colour: meadowsweet cream, yarrow pink, gentian blue, wild garlic white */
-    { const hk = W.herb ? W.herb[ci] : 0; if (hk && T >= 0 && ((n2 * 7 + n) & 31) < 3) { col = hk === 1 ? C.herb1 : hk === 2 ? C.herb2 : hk === 3 ? C.herb3 : C.herb4; return col; } }
     /* tone in soft patches, then tufts: a lit blade or two with the dark at their foot */
     { const bl = blot[((py >> 1) & (NT - 1)) * NT | (pxx >> 1) & (NT - 1)], tf = tuft[p]; if (bl > 168) col = mulc(col, 1.05); else if (bl < 88) col = mulc(col, 0.95);
       if (tf === 1) col = T < 0 ? C.frost : mulc(col, 1.17); else if (tf === 2) col = mulc(col, 0.84); }
@@ -428,6 +426,32 @@ function leafState(i, T, falling) {
   return 'frost';
 }
 const props = new Map();
+/* FLOWERS, drawn here in code. The four herbs people learn to use each have their own plant, so a healer's meadow can be told at a glance; five wild flowers
+   grow with them, each on the ground it likes. Each kind is three or four stems with their heads, in two drawings: standing, and leaning as the wind passes */
+const FLOWERS = (() => { const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const SPEC = {
+    meadowsweet: { stem: '#5f8a3c', h: [6, 7, 5], head: (p, x, y) => { p(x - 1, y, 3, 2, '#f6efc8'); p(x, y - 1, 2, 1, '#fffbe6'); p(x - 2, y + 1, 1, 1, '#e3d9a6'); p(x + 2, y + 1, 1, 1, '#e3d9a6'); } },
+    yarrow:      { stem: '#6f9448', h: [5, 5, 4], head: (p, x, y) => { p(x - 2, y, 5, 1, '#f3d6dd'); p(x - 1, y - 1, 3, 1, '#fff0f3'); p(x, y, 1, 1, '#d98fa4'); } },
+    gentian:     { stem: '#4f7f3a', h: [3, 4, 3], head: (p, x, y) => { p(x, y - 1, 2, 3, '#3f5fd0'); p(x, y - 2, 1, 1, '#6f8cf0'); p(x + 1, y + 1, 1, 1, '#2b3f9a'); } },
+    garlic:      { stem: '#4f8a44', h: [4, 5, 4], leaf: true, head: (p, x, y) => { p(x, y, 1, 1, '#ffffff'); p(x - 1, y - 1, 1, 1, '#f1f6ea'); p(x + 1, y - 1, 1, 1, '#f1f6ea'); p(x - 1, y + 1, 1, 1, '#dfe8d4'); p(x + 1, y + 1, 1, 1, '#dfe8d4'); } },
+    poppy:       { stem: '#5f8a3c', h: [5, 4, 6], head: (p, x, y) => { p(x - 1, y - 1, 3, 3, '#d8402c'); p(x, y, 1, 1, '#2a1a16'); p(x - 1, y - 1, 1, 1, '#f06a4c'); } },
+    daisy:       { stem: '#6f9448', h: [3, 4, 3], head: (p, x, y) => { p(x - 1, y, 3, 1, '#ffffff'); p(x, y - 1, 1, 3, '#ffffff'); p(x, y, 1, 1, '#f2c53a'); } },
+    bluebell:    { stem: '#4f7f3a', h: [4, 5, 4], head: (p, x, y) => { p(x, y, 2, 2, '#7a5fd0'); p(x + 1, y + 2, 1, 1, '#5a43a8'); p(x + 2, y + 1, 1, 2, '#9a82e6'); } },
+    buttercup:   { stem: '#6f9448', h: [3, 3, 2], head: (p, x, y) => { p(x, y - 1, 2, 2, '#f7d83a'); p(x, y - 1, 1, 1, '#fff08a'); } },
+    heather:     { stem: '#6a5a3c', h: [4, 5, 4], head: (p, x, y) => { p(x, y - 2, 1, 4, '#b06ac0'); p(x + 1, y - 1, 1, 2, '#8a4a9c'); p(x - 1, y, 1, 1, '#c98ad6'); } } };
+  const out = {}; for (const k in SPEC) { const S0 = SPEC[k]; out[k] = [0, 1].map(lean => { /* drawn small and doubled, so a flower's dots are the size of every other drawing's */
+      const c0 = mk(13, 11), g = c0.getContext('2d'), p = (x, y, w, h, f) => { g.fillStyle = f; g.fillRect(x, y, w, h); };
+      S0.h.forEach((h, n) => { const bx = 2 + n * 4 + (n % 2 ? 0 : 0), base = 10; for (let q = 0; q < h; q++) p(bx + (lean && q > h * 0.45 ? (q > h * 0.75 ? 2 : 1) : 0), base - q, 1, 1, q < 2 ? '#3f6a30' : S0.stem);
+        if (S0.leaf) { p(bx - 1, base - 2, 1, 3, '#3f7a3a'); p(bx + 1, base - 1, 1, 2, '#5fa050'); }
+        S0.head(p, bx + (lean ? 2 : 0), base - h); });
+      const c = mk(26, 22), g2 = c.getContext('2d'); g2.imageSmoothingEnabled = false; g2.drawImage(c0, 0, 0, 26, 22); return c; }); }
+  return out; })();
+/* where each flower grows: the herbs where the land put them, the wild ones by the ground (and only on some tiles) */
+function flowerAt(i, x, y, tr, h0) { const hk = W.herb ? W.herb[i] : 0; if (hk) return ['', 'meadowsweet', 'yarrow', 'gentian', 'garlic'][hk];
+  if (W.grass[i] < 0.3 || W.rock[i] > 0.15) return ''; const r = hash(i, 13), meadow = hash((x >> 2) * 7 + 1, (y >> 2) + 5) < 0.3; if (r > (meadow ? 0.45 : 0.03)) return '';   /* in drifts: thick in some meadows, a few anywhere */ const H = W.height[i], wet = W.bank[i];
+  return H >= 4.5 && tr < 0.3 ? 'heather' : tr > 0.25 ? 'bluebell' : wet > 0.4 ? 'buttercup' : W.fert[i] < 0.6 ? 'poppy' : 'daisy'; }
+/* the wind: gusts pass over the land in bands (the same that light the grass); a place is in a gust when this is over a half */
+function gustAt(x, y) { const gt = Math.floor(now / 110) * 110 * (S.precip > 0 ? 0.0021 : 0.0012); return Math.sin(x * 0.42 + y * 0.23 - gt + Math.sin(y * 0.11 + gt * 0.31) * 1.6); }
 /* the tiles on screen, with a margin */
 let propBox = null, propSmall = true, propTrees = true;
 function viewTiles(m) { const z = cam.z; let x0 = N, x1 = 0, y0 = N, y1 = 0;
@@ -474,6 +498,8 @@ function wantProps() {
     /* nor on a fence, in a yard, or (a bush being wide) hard against a fence, a field, a road or a building */
     if ((FN && FN[i]) || lotMask[i]) continue;
     const crowded = [i - 1, i + 1, i - N, i + N].some(j => j >= 0 && j < N * N && ((FN && FN[j]) || W.field[j] || T0.road[j] || built.has(j)));
+    /* flowers, while the ground is neither frozen nor under snow: a tile of them is two or three clumps */
+    if (!snowy && T > 2) { const fk = flowerAt(i, x, y, tr, h0); if (fk) { const F = FLOWERS[fk]; for (let n = 0; n < 2; n++) want.set('fl' + i + '.' + n, { kind: 'flower', i, x: x + 0.2 + hash(i, 31 + n) * 0.6, y: y + 0.2 + hash(n + 37, i) * 0.6, base: 'fl' + fk, img: F[0], lean: F[1], dy: 2 }); continue; } }
     if (!crowded && ((tr >= 0.04 && h0 > 0.78) || (h0 > 0.972 && W.grass[i] > 0.3))) {
       const B = A.bush[(hash(i, 4) * A.bush.length) | 0], ls = snowy ? 'snow' : leafState(i, T, falling), berry = !snowy && ls !== 'frost' && (W.fruit[i] > 0.08 || (W.warmSum[i] > 1.2 && W.warmSum[i] < 7.6 && hash(i, 5) < 0.4));
       /* berries sit on whatever colour the leaves have turned */
@@ -593,7 +619,7 @@ function wantProps() {
   if (campOn && T0.carts && A.cart && ![...actors.values()].some(q => q.step && q.step.cart)) setNear('cart', { kind: 'cart', x: store.x - 0.7, y: store.y + 0.8, base: 'cart', img: A.cart, dy: 3 });
   if (campOn && T0.skills.fire) want.set('ring', { kind: 'ring', x: fire.x, y: fire.y, base: 'ring', img: A.ring, dy: 4 });
   /* nothing wild is drawn where something made has been set down */
-  { const WILD = { bush: 1, rock: 1, reeds: 1, grass: 1 }, busy = new Set(); for (const o of want.values()) if (!WILD[o.kind] && o.kind !== 'tree' && o.kind !== 'crop') busy.add(Math.floor(o.y) * N + Math.floor(o.x));
+  { const WILD = { bush: 1, rock: 1, reeds: 1, grass: 1, flower: 1 }, busy = new Set(); for (const o of want.values()) if (!WILD[o.kind] && o.kind !== 'tree' && o.kind !== 'crop') busy.add(Math.floor(o.y) * N + Math.floor(o.x));
     for (const [k, o] of want) if (WILD[o.kind] && busy.has(o.i)) want.delete(k); }
   return want;
 }
@@ -1449,7 +1475,7 @@ function frame(t) {
     const wx = isoX(p.x, p.y), wy = isoY(p.x, p.y) + (p.dy || 0); if (!vis(wx, wy)) continue;
     let al = clamp((now - p.born) / 1100, 0, 1); if (p.die) { al = Math.min(al, 1 - (now - p.die) / 1600); if (al <= 0) { props.delete(key); continue; } }
     al *= knownAt(p.x, p.y); if (al < 0.02) continue;
-    const d = put(p.img, wx, wy, { alpha: al < 1 ? al : undefined,
+    const d = put(p.kind === 'flower' && p.lean && gustAt(p.x, p.y) > 0.5 ? p.lean : p.img, wx, wy, { alpha: al < 1 ? al : undefined,
       sway: p.kind === 'tree' ? p.i : -1,
       tree: p.kind === 'tree',
       prev: p.prev && now - p.swap < 2400 ? p.prev : null,

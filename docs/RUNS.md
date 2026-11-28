@@ -1804,3 +1804,9 @@ What changed (owner's report: moving the view kept moving things by accident): a
 - **Checked.** tests.html: 545 passed, 0 failed (1 warning, 36 skipped). In the game with a simulated mouse: a quick drag across a tree moved the view and left the tree; holding still then dragging lifted it and left the view where it was; a tap on a person showed their card and did not lift them; holding on a person lifted them. Console clean.
 - **No table.** Only the view changed: the simulation is as in the table above.
 - **Not done.** Not tried on a real touch screen.
+
+## Flowers (2026-11-28)
+
+What changed (owner's request: more flowers, the medicine ones among them, drawn here and moving in the wind): the four herbs are now plants you can tell apart (meadowsweet cream by water, yarrow pink in dry grass, gentian blue on the heights, wild garlic white under trees), and five wild flowers grow with them (heather, bluebell, buttercup, poppy, daisy), each on its own ground, in drifts. All are drawn in code at no cost. They lean when a gust passes and are gone in frost and snow.
+- **Checked.** Two views of one wide world in its first summer: 9 kinds on screen in the hills (72 heather, 50 gentian), 7 by a lowland stream (62 meadowsweet, 52 daisy, 46 buttercup, 36 bluebell); 60 frames a second in a headless browser; console clean. Two pictures 0.9 s apart differ, so things move. Only the view changed: tests.html stands at 545 passed, 0 failed from the step above, and the table is unchanged.
+- **Not done.** The wild flowers are drawing only. Poppies are rare (2 on screen). Nobody is drawn picking a herb.
